@@ -6,6 +6,24 @@ export type AvailableCredential = {
   offer: any;
 };
 
+export const EudiCredentials: AvailableCredential[] = [
+  {
+    id: 'eu.europa.ec.eudi.pid.1',
+    title: 'EU Personal ID (mDoc)',
+    offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+  },
+  {
+    id: 'org.iso.18013.5.1.mDL',
+    title: 'Mobile Driving License',
+    offer: { doctype: 'org.iso.18013.5.1.mDL' }
+  },
+  {
+    id: 'urn:eudi:pid:1',
+    title: 'EU Personal ID (SD-JWT)',
+    offer: { vct: 'urn:eudi:pid:1' }
+  }
+];
+
 export const CredentialFormats = [
   'JWT + W3C VC',
   'SD-JWT + W3C VC',

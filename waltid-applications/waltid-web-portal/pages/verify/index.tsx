@@ -49,17 +49,28 @@ export default function Verification() {
       }
 
       const issuerMetadata = await axios.get(`${env.NEXT_PUBLIC_ISSUER ? env.NEXT_PUBLIC_ISSUER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER}/${standardVersion}/.well-known/openid-credential-issuer`);
+      const credFormat = mapFormat(format);
       const request_credentials = credentials.map((credential) => {
-        if (mapFormat(format) === 'vc+sd-jwt') {
-          let url = issuerMetadata.data[issuerMetadataConfigSelector[standardVersion]][`${credential.offer.type[credential.offer.type.length - 1]}_vc+sd-jwt`].vct;
+        if (credFormat === 'dc+sd-jwt') {
           return {
-            vct: url,
-            format: mapFormat(format),
+            vct: credential.offer.vct || 'urn:eudi:pid:1',
+            format: 'dc+sd-jwt',
+          };
+        } else if (credFormat === 'mso_mdoc') {
+          return {
+            doctype: credential.offer.doctype || credential.id,
+            format: 'mso_mdoc',
+          };
+        } else if (credFormat === 'vc+sd-jwt') {
+          const vct = issuerMetadata.data[issuerMetadataConfigSelector[standardVersion]][`${credential.offer.type[credential.offer.type.length - 1]}_vc+sd-jwt`]?.vct;
+          return {
+            vct,
+            format: 'vc+sd-jwt',
           };
         } else {
           return {
-            type: credential.offer.type[credential.offer.type.length - 1],
-            format: mapFormat(format),
+            type: credential.offer.type?.[credential.offer.type.length - 1] || credential.id,
+            format: credFormat,
           };
         }
       });
@@ -81,6 +92,7 @@ export default function Verification() {
         });
       }
 
+      const openId4VPProfile = credFormat === 'mso_mdoc' ? 'ISO_18013_7_MDOC' : undefined;
       const response = await axios.post(
         `${env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER}/openid4vc/verify`,
         requestBody,
@@ -88,6 +100,7 @@ export default function Verification() {
           headers: {
             successRedirectUri: `${window.location.origin}/success/$id`,
             errorRedirectUri: `${window.location.origin}/success/$id`,
+            ...(openId4VPProfile && { openId4VPProfile }),
           },
         }
       );
