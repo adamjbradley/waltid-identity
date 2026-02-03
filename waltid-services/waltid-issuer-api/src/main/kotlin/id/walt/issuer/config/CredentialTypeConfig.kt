@@ -94,7 +94,9 @@ data class CredentialTypeConfig(
                     CredSignAlgValues.Named("ES256K"),
                     CredSignAlgValues.Named("RSA")
                 ),
-
+                proofTypesSupported = mapOf(
+                    ProofType.jwt to ProofTypeMetadata(setOf("ES256", "EdDSA", "ES256K", "RS256"))
+                ),
                 display = listOf(
                     DisplayProperties(
                         name = "Kiwi Access Card",
@@ -136,6 +138,7 @@ data class CredentialTypeConfig(
                 format = CredentialFormat.sd_jwt_vc,
                 cryptographicBindingMethodsSupported = setOf("jwk"),
                 credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(ProofType.jwt to ProofTypeMetadata(setOf("ES256"))),
                 vct = baseUrl.plus("/urn:eu.europa.ec.eudi:pid:1")
             )
         ),
@@ -144,6 +147,7 @@ data class CredentialTypeConfig(
                 format = CredentialFormat.sd_jwt_vc,
                 cryptographicBindingMethodsSupported = setOf("jwk"),
                 credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(ProofType.jwt to ProofTypeMetadata(setOf("ES256"))),
                 vct = baseUrl.plus("/identity_credential"),
                 /*display = listOf( // <-- Breaks EBSI draft11 compatibility. Instead, configure in credential-issuer-metadata.conf
                     DisplayProperties(
@@ -169,6 +173,7 @@ data class CredentialTypeConfig(
                 format = CredentialFormat.sd_jwt_vc,
                 cryptographicBindingMethodsSupported = setOf("did", "jwk"),
                 credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(ProofType.jwt to ProofTypeMetadata(setOf("ES256"))),
                 vct = "https://example.com/my_custom_vct",
                 sdJwtVcTypeMetadata = SdJwtVcTypeMetadataDraft04(
                     name = "THE vct VALUE SHOULD BE UPDATED TO A RESOLVABLE AUTHORITY DOMAIN",
@@ -184,6 +189,7 @@ data class CredentialTypeConfig(
                 format = CredentialFormat.sd_jwt_vc,
                 cryptographicBindingMethodsSupported = setOf("jwk"),
                 credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(ProofType.jwt to ProofTypeMetadata(setOf("ES256"))),
                 vct = baseUrl + "/PhotoIDCredential",
                 sdJwtVcTypeMetadata = SdJwtVcTypeMetadataDraft04(
                     name = "PhotoID VC (ISO 23220‑4)",
@@ -209,9 +215,17 @@ data class CredentialTypeConfig(
                     val type = element.jsonArray.map { it.jsonPrimitive.content }
 
                     CredentialFormat.entries.minus(CredentialFormat.mso_mdoc).associate { format ->
+                        // W3C JSON-LD formats require @context in credential_definition
+                        val needsContext = format == CredentialFormat.jwt_vc_json_ld || format == CredentialFormat.ldp_vc
+                        val w3cContext = listOf(
+                            JsonPrimitive("https://www.w3.org/2018/credentials/v1")
+                        )
+                        // SD-JWT formats (both vc+sd-jwt and dc+sd-jwt) require vct
+                        val isSdJwt = format == CredentialFormat.sd_jwt_vc || format == CredentialFormat.sd_jwt_dc
+
                         "${entry.key}_${format.value}" to CredentialSupported(
                             format = format,
-                            cryptographicBindingMethodsSupported = if (format == CredentialFormat.sd_jwt_vc) setOf("jwk") else setOf(
+                            cryptographicBindingMethodsSupported = if (isSdJwt) setOf("jwk") else setOf(
                                 "did"
                             ),
                             credentialSigningAlgValuesSupported = setOf(
@@ -220,10 +234,14 @@ data class CredentialTypeConfig(
                                 CredSignAlgValues.Named("ES256K"),
                                 CredSignAlgValues.Named("RSA")
                             ),
-                            credentialDefinition = if (format != CredentialFormat.sd_jwt_vc && format != CredentialFormat.mso_mdoc) CredentialDefinition(
+                            proofTypesSupported = mapOf(
+                                ProofType.jwt to ProofTypeMetadata(setOf("ES256", "EdDSA", "ES256K", "RS256"))
+                            ),
+                            credentialDefinition = if (!isSdJwt && format != CredentialFormat.mso_mdoc) CredentialDefinition(
+                                context = if (needsContext) w3cContext else null,
                                 type = type
                             ) else null,
-                            vct = if (format == CredentialFormat.sd_jwt_vc) baseUrl.plus("/${entry.key}") else null,
+                            vct = if (isSdJwt) baseUrl.plus("/${entry.key}") else null,
                         )
                     }.entries
                 }
