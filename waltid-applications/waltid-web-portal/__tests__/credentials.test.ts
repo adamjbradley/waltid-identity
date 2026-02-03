@@ -1,5 +1,18 @@
 import { EudiCredentials, mapFormat, AvailableCredential } from '../types/credentials';
 
+describe('Environment Configuration', () => {
+  it('should recognize NEXT_PUBLIC_VERIFIER2 as a valid env variable', () => {
+    const envVars = [
+      'NEXT_PUBLIC_VC_REPO',
+      'NEXT_PUBLIC_ISSUER',
+      'NEXT_PUBLIC_VERIFIER',
+      'NEXT_PUBLIC_VERIFIER2',
+      'NEXT_PUBLIC_WALLET',
+    ];
+    expect(envVars).toContain('NEXT_PUBLIC_VERIFIER2');
+  });
+});
+
 describe('EudiCredentials', () => {
   it('should contain EU Personal ID (mDoc) credential', () => {
     const pidMdoc = EudiCredentials.find(c => c.id === 'eu.europa.ec.eudi.pid.1');
