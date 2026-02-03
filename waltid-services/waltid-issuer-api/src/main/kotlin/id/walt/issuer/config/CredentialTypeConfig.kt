@@ -215,11 +215,6 @@ data class CredentialTypeConfig(
                     val type = element.jsonArray.map { it.jsonPrimitive.content }
 
                     CredentialFormat.entries.minus(CredentialFormat.mso_mdoc).associate { format ->
-                        // W3C JSON-LD formats require @context in credential_definition
-                        val needsContext = format == CredentialFormat.jwt_vc_json_ld || format == CredentialFormat.ldp_vc
-                        val w3cContext = listOf(
-                            JsonPrimitive("https://www.w3.org/2018/credentials/v1")
-                        )
                         // SD-JWT formats (both vc+sd-jwt and dc+sd-jwt) require vct
                         val isSdJwt = format == CredentialFormat.sd_jwt_vc || format == CredentialFormat.sd_jwt_dc
 
@@ -238,7 +233,6 @@ data class CredentialTypeConfig(
                                 ProofType.jwt to ProofTypeMetadata(setOf("ES256", "EdDSA", "ES256K", "RS256"))
                             ),
                             credentialDefinition = if (!isSdJwt && format != CredentialFormat.mso_mdoc) CredentialDefinition(
-                                context = if (needsContext) w3cContext else null,
                                 type = type
                             ) else null,
                             vct = if (isSdJwt) baseUrl.plus("/${entry.key}") else null,
