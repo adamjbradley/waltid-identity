@@ -656,3 +656,29 @@ describe('buildVerificationSessionRequest', () => {
     });
   });
 });
+
+describe('checkVerificationResult endpoint selection', () => {
+  it('should use legacy endpoint path for isApi2=false', () => {
+    const verifierUrl = 'http://localhost:7003';
+    const sessionId = 'test-session';
+    const isApi2 = false;
+
+    const endpoint = isApi2
+      ? `${verifierUrl}/verification-session/${sessionId}`
+      : `${verifierUrl}/openid4vc/session/${sessionId}`;
+
+    expect(endpoint).toBe('http://localhost:7003/openid4vc/session/test-session');
+  });
+
+  it('should use API2 endpoint path for isApi2=true', () => {
+    const verifierUrl = 'http://localhost:7004';
+    const sessionId = 'test-session';
+    const isApi2 = true;
+
+    const endpoint = isApi2
+      ? `${verifierUrl}/verification-session/${sessionId}`
+      : `${verifierUrl}/openid4vc/session/${sessionId}`;
+
+    expect(endpoint).toBe('http://localhost:7004/verification-session/test-session');
+  });
+});
