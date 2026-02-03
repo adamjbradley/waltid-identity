@@ -9,7 +9,7 @@ import axios from "axios";
 import {sendToWebWallet} from "@/utils/sendToWebWallet";
 import nextConfig from "@/next.config";
 import BackButton from "@/components/walt/button/BackButton";
-import {CredentialFormats, mapFormat} from "@/types/credentials";
+import {CredentialFormats, mapFormat, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest} from "@/types/credentials";
 import {checkVerificationResult, getStateFromUrl} from "@/utils/checkVerificationResult";
 
 const BUTTON_COPY_TEXT_DEFAULT = 'Copy offer URL';
@@ -23,6 +23,8 @@ export default function Verification() {
   const [verifyURL, setverifyURL] = useState('');
   const [loading, setLoading] = useState(true);
   const [copyText, setCopyText] = useState(BUTTON_COPY_TEXT_DEFAULT);
+  const [error, setError] = useState<string | null>(null);
+  const [usedApi2, setUsedApi2] = useState(false);
 
   function handleCancel() {
     router.push('/');
@@ -30,90 +32,128 @@ export default function Verification() {
 
   useEffect(() => {
     const getverifyURL = async () => {
-      let vps = router.query.vps?.toString().split(',') ?? [];
-      let ids = router.query.ids?.toString().split(',') ?? [];
-      let format = router.query.format?.toString() ?? CredentialFormats[0];
-      let credentials = AvailableCredentials.filter((cred) => {
-        for (const id of ids) {
-          if (id.toString() == cred.id.toString()) {
-            return true;
+      try {
+        let vps = router.query.vps?.toString().split(',') ?? [];
+        let ids = router.query.ids?.toString().split(',') ?? [];
+        let format = router.query.format?.toString() ?? CredentialFormats[0];
+        let credentials = AvailableCredentials.filter((cred) => {
+          for (const id of ids) {
+            if (id.toString() == cred.id.toString()) {
+              return true;
+            }
           }
-        }
-        return false;
-      });
+          return false;
+        });
 
-      const standardVersion = 'draft13'; // ['draft13', 'draft11']
-      const issuerMetadataConfigSelector = {
-        'draft13': 'credential_configurations_supported',
-        'draft11': 'credentials_supported',
-      }
+        const credFormat = mapFormat(format);
 
-      const issuerMetadata = await axios.get(`${env.NEXT_PUBLIC_ISSUER ? env.NEXT_PUBLIC_ISSUER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER}/${standardVersion}/.well-known/openid-credential-issuer`);
-      const credFormat = mapFormat(format);
-      const request_credentials = credentials.map((credential) => {
-        if (credFormat === 'dc+sd-jwt') {
-          return {
-            vct: credential.offer.vct || 'urn:eudi:pid:1',
-            format: 'dc+sd-jwt',
-          };
-        } else if (credFormat === 'mso_mdoc') {
-          return {
-            doctype: credential.offer.doctype || credential.id,
-            format: 'mso_mdoc',
-          };
-        } else if (credFormat === 'vc+sd-jwt') {
-          const vct = issuerMetadata.data[issuerMetadataConfigSelector[standardVersion]][`${credential.offer.type[credential.offer.type.length - 1]}_vc+sd-jwt`]?.vct;
-          return {
-            vct,
-            format: 'vc+sd-jwt',
-          };
+        // Route EUDI formats (dc+sd-jwt, mso_mdoc) to Verifier API2
+        if (isEudiFormat(credFormat)) {
+          const verifier2Url = env.NEXT_PUBLIC_VERIFIER2 || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2;
+
+          if (!verifier2Url) {
+            setError('EUDI verification requires Verifier API2 configuration (NEXT_PUBLIC_VERIFIER2)');
+            setLoading(false);
+            return;
+          }
+
+          const dcqlQuery = buildDcqlQuery(credentials, credFormat);
+          const requestBody = buildVerificationSessionRequest(
+            dcqlQuery,
+            `${window.location.origin}/success/$id`,
+            `${window.location.origin}/success/$id`
+          );
+
+          const response = await axios.post(
+            `${verifier2Url}/verification-session/create`,
+            requestBody,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          setverifyURL(response.data);
+          setUsedApi2(true);
+          setLoading(false);
+
+          const state = getStateFromUrl(response.data);
+          if (state) {
+            checkVerificationResult(verifier2Url, state, true).then((result) => {
+              if (result) {
+                router.push(`/success/${state}`);
+              }
+            });
+          }
         } else {
-          return {
-            type: credential.offer.type?.[credential.offer.type.length - 1] || credential.id,
-            format: credFormat,
+          // Legacy formats (jwt_vc_json, vc+sd-jwt) use existing Verifier API
+          const standardVersion = 'draft13'; // ['draft13', 'draft11']
+          const issuerMetadataConfigSelector = {
+            'draft13': 'credential_configurations_supported',
+            'draft11': 'credentials_supported',
+          }
+
+          const issuerMetadata = await axios.get(`${env.NEXT_PUBLIC_ISSUER ? env.NEXT_PUBLIC_ISSUER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER}/${standardVersion}/.well-known/openid-credential-issuer`);
+          const request_credentials = credentials.map((credential) => {
+            if (credFormat === 'vc+sd-jwt') {
+              const vct = issuerMetadata.data[issuerMetadataConfigSelector[standardVersion]][`${credential.offer.type[credential.offer.type.length - 1]}_vc+sd-jwt`]?.vct;
+              return {
+                vct,
+                format: 'vc+sd-jwt',
+              };
+            } else {
+              return {
+                type: credential.offer.type?.[credential.offer.type.length - 1] || credential.id,
+                format: credFormat,
+              };
+            }
+          });
+
+          let requestBody: any = {
+            request_credentials: request_credentials,
           };
-        }
-      });
 
-      let requestBody: any = {
-        request_credentials: request_credentials,
-      };
-
-      if (mapFormat(format) !== 'vc+sd-jwt') {
-        requestBody.vc_policies = vps.map((vp) => {
-          if (vp.includes('=')) {
-            return {
-              policy: vp.split('=')[0],
-              args: vp.split('=')[1],
-            };
-          } else {
-            return vp;
+          if (credFormat !== 'vc+sd-jwt') {
+            requestBody.vc_policies = vps.map((vp) => {
+              if (vp.includes('=')) {
+                return {
+                  policy: vp.split('=')[0],
+                  args: vp.split('=')[1],
+                };
+              } else {
+                return vp;
+              }
+            });
           }
-        });
-      }
 
-      const openId4VPProfile = credFormat === 'mso_mdoc' ? 'ISO_18013_7_MDOC' : undefined;
-      const response = await axios.post(
-        `${env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER}/openid4vc/verify`,
-        requestBody,
-        {
-          headers: {
-            successRedirectUri: `${window.location.origin}/success/$id`,
-            errorRedirectUri: `${window.location.origin}/success/$id`,
-            ...(openId4VPProfile && { openId4VPProfile }),
-          },
-        }
-      );
-      setverifyURL(response.data);
-      setLoading(false);
+          const verifierUrl = env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER;
+          const response = await axios.post(
+            `${verifierUrl}/openid4vc/verify`,
+            requestBody,
+            {
+              headers: {
+                successRedirectUri: `${window.location.origin}/success/$id`,
+                errorRedirectUri: `${window.location.origin}/success/$id`,
+              },
+            }
+          );
+          setverifyURL(response.data);
+          setLoading(false);
 
-      const state = getStateFromUrl(response.data);
-      if (state) {
-        checkVerificationResult(env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER, state).then((result) => {
-          if (result) {
-            router.push(`/success/${state}`);
+          const state = getStateFromUrl(response.data);
+          if (state) {
+            checkVerificationResult(verifierUrl, state, false).then((result) => {
+              if (result) {
+                router.push(`/success/${state}`);
+              }
+            });
           }
-        });
+        }
+      } catch (err) {
+        console.error('Error creating verification session:', err);
+        setError('Failed to create verification session. Please try again.');
+        setLoading(false);
       }
     };
     getverifyURL();
@@ -157,7 +197,14 @@ export default function Verification() {
           Scan to Verify
         </h1>
         <div className="flex justify-center">
-          {loading ? (
+          {error ? (
+            <div className="text-red-600 my-10 text-center">
+              <p className="font-semibold">{error}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Please contact your administrator.
+              </p>
+            </div>
+          ) : loading ? (
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 my-10"></div>
           ) : (
             <QRCode
