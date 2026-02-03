@@ -1,92 +1,115 @@
 # EUDI Wallet Integration Guide
 
-This guide explains how to configure the walt.id issuer to work with the EUDI Reference Wallet and other OpenID4VCI Draft 13+ compliant wallets.
+This guide explains how to configure walt.id issuer-api for compatibility with the EUDI Reference Wallet.
 
-## Prerequisites
+## Overview
 
-- Java 21+
-- Docker and Docker Compose
-- Git
-- Basic understanding of OpenID4VCI and credential formats
+The EUDI (European Digital Identity) Reference Wallet requires specific protocol versions and credential formats. This implementation supports:
 
-## Supported Credential Formats
+- **OpenID4VCI Draft 13+** - Uses `credential_configuration_id` and `proofs` (plural)
+- **mso_mdoc** - For EUDI PID and mDL credentials (ISO 18013-5)
+- **dc+sd-jwt** - For EUDI PID in SD-JWT format with VCT
+- **DPoP** - RFC 9449 Demonstrating Proof of Possession
+- **Client Attestation** - OAuth 2.0 Attestation-Based Client Authentication
 
-| Credential | Config ID | Format | VCT/DocType |
-|------------|-----------|--------|-------------|
-| EUDI PID (mDoc) | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` | `eu.europa.ec.eudi.pid.1` |
-| EUDI PID (SD-JWT) | `eu.europa.ec.eudi.pid_vc_sd_jwt` | `dc+sd-jwt` | `urn:eudi:pid:1` |
-| Mobile Driving License | `org.iso.18013.5.1.mDL` | `mso_mdoc` | `org.iso.18013.5.1.mDL` |
+## Credential Configurations
 
-## Quick Start
+### EUDI PID (mDoc format)
 
-### 1. Build the Custom Issuer Image
-
-EUDI wallet support requires custom-built Docker images with Draft 13+ protocol fixes:
-
-```bash
-# Build the issuer API image
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
-
-# Tag to match docker-compose VERSION_TAG (default: stable)
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-
-# Start the services
-cd docker-compose
-docker compose --profile identity up -d --force-recreate issuer-api
-```
-
-### 2. Configure Credential Metadata
-
-Edit `docker-compose/issuer-api/config/credential-issuer-metadata.conf`:
-
-```hocon
-# EUDI PID in mDoc format
-"eu.europa.ec.eudi.pid.1" {
-  format = "mso_mdoc"
-  doctype = "eu.europa.ec.eudi.pid.1"
-  cryptographic_binding_methods_supported = ["cose_key"]
-  proof_types_supported = {
-    jwt = {
-      proof_signing_alg_values_supported = ["ES256"]
-    }
-  }
-  display = [{
-    name = "EU Digital Identity"
-    locale = "en"
-    logo = {
-      url = "https://example.com/pid-logo.png"
-    }
-  }]
-}
-
-# EUDI PID in SD-JWT format
-"eu.europa.ec.eudi.pid_vc_sd_jwt" {
-  format = "dc+sd-jwt"  # NOT vc+sd-jwt
-  vct = "urn:eudi:pid:1"
-  cryptographic_binding_methods_supported = ["jwk"]
-  proof_types_supported = {
-    jwt = {
-      proof_signing_alg_values_supported = ["ES256"]
-    }
-  }
-}
-
-# Mobile Driving License
-"org.iso.18013.5.1.mDL" {
-  format = "mso_mdoc"
-  doctype = "org.iso.18013.5.1.mDL"
-  cryptographic_binding_methods_supported = ["cose_key"]
-  proof_types_supported = {
-    jwt = {
-      proof_signing_alg_values_supported = ["ES256"]
+```json
+{
+  "eu.europa.ec.eudi.pid.1": {
+    "format": "mso_mdoc",
+    "doctype": "eu.europa.ec.eudi.pid.1",
+    "scope": "eu.europa.ec.eudi.pid.1",
+    "cryptographic_binding_methods_supported": ["cose_key"],
+    "credential_signing_alg_values_supported": ["ES256"],
+    "display": [
+      {
+        "name": "EU PID",
+        "locale": "en",
+        "logo": {
+          "uri": "https://example.com/eudi-pid-logo.png"
+        }
+      }
+    ],
+    "claims": {
+      "eu.europa.ec.eudi.pid.1": {
+        "family_name": { "mandatory": true },
+        "given_name": { "mandatory": true },
+        "birth_date": { "mandatory": true },
+        "age_over_18": { "mandatory": false },
+        "issuing_country": { "mandatory": true },
+        "issuing_authority": { "mandatory": true }
+      }
     }
   }
 }
 ```
 
-## API Usage
+### EUDI PID (SD-JWT format)
 
-### Issue a PID Credential
+```json
+{
+  "urn:eu.europa.ec.eudi:pid:1": {
+    "format": "dc+sd-jwt",
+    "vct": "urn:eu.europa.ec.eudi:pid:1",
+    "scope": "eu.europa.ec.eudi.pid.sdjwt",
+    "cryptographic_binding_methods_supported": ["jwk"],
+    "credential_signing_alg_values_supported": ["ES256"],
+    "display": [
+      {
+        "name": "EU Digital Identity",
+        "locale": "en"
+      }
+    ],
+    "claims": {
+      "family_name": { "mandatory": true, "sd": true },
+      "given_name": { "mandatory": true, "sd": true },
+      "birth_date": { "mandatory": true, "sd": true },
+      "issuing_country": { "mandatory": true },
+      "issuing_authority": { "mandatory": true }
+    }
+  }
+}
+```
+
+### Mobile Driving License (mDL)
+
+```json
+{
+  "org.iso.18013.5.1.mDL": {
+    "format": "mso_mdoc",
+    "doctype": "org.iso.18013.5.1.mDL",
+    "scope": "org.iso.18013.5.1.mDL",
+    "cryptographic_binding_methods_supported": ["cose_key"],
+    "credential_signing_alg_values_supported": ["ES256"],
+    "display": [
+      {
+        "name": "Mobile Driving License",
+        "locale": "en"
+      }
+    ],
+    "claims": {
+      "org.iso.18013.5.1": {
+        "family_name": { "mandatory": true },
+        "given_name": { "mandatory": true },
+        "birth_date": { "mandatory": true },
+        "issue_date": { "mandatory": true },
+        "expiry_date": { "mandatory": true },
+        "issuing_country": { "mandatory": true },
+        "issuing_authority": { "mandatory": true },
+        "document_number": { "mandatory": true },
+        "driving_privileges": { "mandatory": true }
+      }
+    }
+  }
+}
+```
+
+## Issuance API Examples
+
+### Issue EUDI PID (mDoc)
 
 ```bash
 curl -X POST http://localhost:7002/openid4vc/mdoc/issue \
@@ -94,150 +117,140 @@ curl -X POST http://localhost:7002/openid4vc/mdoc/issue \
   -d '{
     "issuerKey": {
       "type": "jwk",
-      "jwk": { ... }
+      "jwk": { "kty": "EC", "crv": "P-256", ... }
     },
-    "issuerDid": "did:key:...",
     "credentialConfigurationId": "eu.europa.ec.eudi.pid.1",
     "credentialData": {
-      "family_name": "DOE",
-      "given_name": "JOHN",
-      "birth_date": "1990-01-15",
+      "family_name": "MUSTERMANN",
+      "given_name": "ERIKA",
+      "birth_date": "1984-01-26",
+      "age_over_18": true,
       "issuing_country": "DE",
-      "issuing_authority": "German Government"
-    }
+      "issuing_authority": "German Federal Government"
+    },
+    "issuerDid": "did:key:z6Mk..."
   }'
 ```
 
-Response:
-```
-openid-credential-offer://?credential_offer_uri=https://issuer.example.com/openid4vc/draft13/credentialOffer?id=...
-```
-
-### Issue an SD-JWT PID
+### Issue EUDI PID (SD-JWT)
 
 ```bash
 curl -X POST http://localhost:7002/openid4vc/sdjwt/issue \
   -H "Content-Type: application/json" \
   -d '{
-    "issuerKey": { ... },
-    "issuerDid": "did:key:...",
-    "credentialConfigurationId": "eu.europa.ec.eudi.pid_vc_sd_jwt",
+    "issuerKey": {
+      "type": "jwk",
+      "jwk": { "kty": "EC", "crv": "P-256", ... }
+    },
+    "credentialConfigurationId": "urn:eu.europa.ec.eudi:pid:1",
     "credentialData": {
-      "family_name": "DOE",
-      "given_name": "JOHN",
-      "birth_date": "1990-01-15"
-    }
+      "family_name": "MUSTERMANN",
+      "given_name": "ERIKA",
+      "birth_date": "1984-01-26",
+      "issuing_country": "DE",
+      "issuing_authority": "German Federal Government"
+    },
+    "selectiveDisclosure": {
+      "fields": {
+        "family_name": { "sd": true },
+        "given_name": { "sd": true },
+        "birth_date": { "sd": true }
+      }
+    },
+    "issuerDid": "did:key:z6Mk..."
   }'
 ```
 
-## Protocol Requirements
+## Draft 13+ Protocol Details
 
-### Draft 13+ Credential Requests
+### Credential Request Format
 
-EUDI wallets use Draft 13+ format with `credential_configuration_id` instead of `format`:
+EUDI wallets send requests with `credential_configuration_id` and `proofs`:
 
 ```json
 {
   "credential_configuration_id": "eu.europa.ec.eudi.pid.1",
   "proofs": {
-    "jwt": ["eyJhbGciOiJFUzI1NiIsInR5cCI6Im9wZW5pZDR2Y2ktcHJvb2Yrand0In0..."]
+    "jwt": [
+      "eyJhbGciOiJFUzI1NiIsInR5cCI6Im9wZW5pZDR2Y2ktcHJvb2Yrand0IiwiandrIjp7Li4ufX0.eyJhdWQiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImlhdCI6MTcwNjg5MjgwMCwibm9uY2UiOiJjX25vbmNlX3ZhbHVlIn0.signature"
+    ]
   }
 }
 ```
 
-### JWT Proofs
+**Key differences from legacy:**
+- Uses `credential_configuration_id` instead of `format` field
+- Uses `proofs.jwt[]` array instead of `proof.jwt` string
+- Supports batch issuance with multiple proofs
 
-The wallet sends JWT proofs with the following structure:
+### Credential Response Format
 
-**Header:**
 ```json
 {
+  "credentials": [
+    {
+      "credential": "base64-encoded-mdoc-or-sdjwt"
+    }
+  ],
+  "c_nonce": "new_nonce_value",
+  "c_nonce_expires_in": 86400
+}
+```
+
+## DPoP Support
+
+The issuer supports RFC 9449 DPoP for enhanced security:
+
+### Supported Algorithms
+- ES256, ES384, ES512 (ECDSA)
+- RS256, RS384, RS512 (RSA)
+
+### DPoP Proof Structure
+
+```json
+{
+  "typ": "dpop+jwt",
   "alg": "ES256",
-  "typ": "openid4vci-proof+jwt",
-  "jwk": {
-    "kty": "EC",
-    "crv": "P-256",
-    "x": "...",
-    "y": "..."
-  }
+  "jwk": { "kty": "EC", "crv": "P-256", "x": "...", "y": "..." }
 }
-```
-
-**Payload:**
-```json
 {
-  "iss": "https://wallet.example.org",
-  "aud": "https://issuer.example.com",
-  "iat": 1704067200,
-  "nonce": "c_nonce_from_token_response"
+  "jti": "unique-id",
+  "htm": "POST",
+  "htu": "https://issuer.example.com/token",
+  "iat": 1706892800
 }
 ```
 
-### DPoP Support (Optional)
+## Troubleshooting
 
-The issuer supports DPoP (RFC 9449) for enhanced security. Wallets can send DPoP proofs in the token request:
+### Common Issues
 
-```http
-POST /token HTTP/1.1
-DPoP: eyJhbGciOiJFUzI1NiIsInR5cCI6ImRwb3Arand0Iiwiandrill...
-Content-Type: application/x-www-form-urlencoded
+| Issue | Solution |
+|-------|----------|
+| "Invalid format" error | Ensure `credential_configuration_id` matches metadata exactly |
+| "Unknown credential type" | Check VCT matches for SD-JWT, doctype for mDoc |
+| "Proof verification failed" | Verify proof JWT uses correct audience and nonce |
+| "DPoP validation failed" | Check htm/htu match actual HTTP method/URI |
 
-grant_type=urn:ietf:params:oauth:grant-type:pre-authorized_code&
-pre-authorized_code=...
+### Format String Mapping
+
+| Credential Type | Format String | EUDI Format |
+|-----------------|---------------|-------------|
+| PID mDoc | `mso_mdoc` | mso_mdoc |
+| PID SD-JWT | `dc+sd-jwt` | dc+sd-jwt (not vc+sd-jwt) |
+| mDL | `mso_mdoc` | mso_mdoc |
+
+### Debugging
+
+Enable debug logging to see request/response details:
+
+```properties
+# application.properties
+logging.level.id.walt.issuer=DEBUG
+logging.level.id.walt.oid4vc=DEBUG
 ```
-
-## Common Issues
-
-### "Unsupported credential format"
-
-**Cause:** Using `vc+sd-jwt` instead of `dc+sd-jwt` for SD-JWT credentials.
-
-**Solution:** Update credential configuration to use `format = "dc+sd-jwt"`.
-
-### "Invalid credential_configuration_id"
-
-**Cause:** The credential configuration ID in the request doesn't match any defined in metadata.
-
-**Solution:** Ensure the `credentialConfigurationId` in your issuance request matches exactly what's defined in `credential-issuer-metadata.conf`.
-
-### "Proof verification failed"
-
-**Cause:** Invalid JWT proof signature or incorrect nonce.
-
-**Solution:**
-1. Verify the wallet is using the correct `c_nonce` from the token response
-2. Check that the proof is signed with a valid P-256 EC key
-3. Ensure the `aud` claim matches the credential issuer URL
-
-### "Docker image not working"
-
-**Cause:** Using Docker Hub images instead of locally built ones.
-
-**Solution:** EUDI compatibility requires custom-built images:
-```bash
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-docker compose --profile identity up -d --force-recreate issuer-api
-```
-
-## Testing with EUDI Reference Wallet
-
-1. Install the EUDI Reference Wallet on Android/iOS
-2. Start the issuer stack with custom images
-3. Use the Web Portal to generate a credential offer QR code
-4. Scan the QR code with the EUDI wallet
-5. Complete the issuance flow in the wallet
-
-## Key Verification Points
-
-- Credential appears in wallet with correct data
-- Credential type shows correctly (PID, mDL)
-- Claims are properly displayed
-- Credential can be presented to verifiers
 
 ## Related Documentation
 
-- [Deployment Guide](./deployment-guide.md) - Operations and deployment
-- [Credential Formats Reference](./credential-formats.md) - Quick reference for all formats
-- [OpenID4VCI Specification](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
-- [EUDI Wallet Architecture](https://github.com/eu-digital-identity-wallet/architecture-and-reference-framework)
+- [Deployment Guide](deployment-guide.md) - Production deployment configuration
+- [Credential Formats](credential-formats.md) - Quick reference for formats

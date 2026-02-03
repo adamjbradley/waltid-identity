@@ -1,374 +1,224 @@
 # EUDI Wallet Deployment Guide
 
-This guide covers deploying and operating the walt.id issuer with EUDI wallet compatibility.
+This guide covers deploying walt.id services for EUDI wallet compatibility.
 
-## Architecture Overview
+## Prerequisites
 
+- Docker and Docker Compose
+- Java 21 (for building from source)
+- Valid TLS certificates (for production)
+
+## Quick Start with Docker Compose
+
+```bash
+cd docker-compose
+
+# Pull and start the identity stack
+docker compose --profile identity pull
+docker compose --profile identity up
 ```
-┌─────────────────────┐     ┌─────────────────────┐
-│   EUDI Wallet       │────▶│   Issuer API        │
-│   (Android/iOS)     │     │   (Port 7002)       │
-└─────────────────────┘     └─────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────┐     ┌─────────────────────┐
-│   Web Portal        │────▶│   Wallet API        │
-│   (Port 7102)       │     │   (Port 7001)       │
-└─────────────────────┘     └─────────────────────┘
-```
 
-## Service Ports
+### Service Ports
 
 | Service | Port | Description |
 |---------|------|-------------|
-| Wallet API | 7001 | Backend wallet service |
-| Issuer API | 7002 | Credential issuance |
-| Verifier API | 7003 | Legacy verification |
-| Verifier API2 | 7004 | OID4VP 1.0 verification |
+| Issuer API | 7002 | OpenID4VCI issuer endpoints |
+| Verifier API | 7003 | OpenID4VP verifier endpoints |
+| Wallet API | 7001 | Wallet backend API |
 | Demo Wallet | 7101 | Web wallet UI |
 | Web Portal | 7102 | Issuer/verifier portal |
 
-## Building Custom Images
+## Configuration
 
-EUDI wallet support requires locally built images with Draft 13+ protocol fixes.
+### Issuer Metadata Configuration
 
-### Build All Services
-
-```bash
-# From repository root
-./gradlew jibDockerBuild
-
-# Tag all images
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-docker tag waltid/verifier-api:latest waltid/verifier-api:stable
-docker tag waltid/wallet-api:latest waltid/wallet-api:stable
-```
-
-### Build Specific Service
-
-```bash
-# Build only issuer
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-```
-
-## Docker Compose Deployment
-
-### Starting the Stack
-
-```bash
-cd docker-compose
-
-# Pull webapp images and start
-docker compose --profile identity pull
-docker compose --profile identity up -d
-
-# Force recreate with new images
-docker compose --profile identity up -d --force-recreate
-```
-
-### Available Profiles
-
-| Profile | Services |
-|---------|----------|
-| `services` | API services only |
-| `apps` | Web applications only |
-| `identity` | Full identity stack |
-| `valkey` | Redis-compatible cache |
-| `tse` | Hardware security module |
-| `opa` | Policy engine |
-| `all` | Everything |
-
-### Using Multiple Profiles
-
-```bash
-docker compose --profile identity --profile tse up -d
-```
-
-## Configuration Reference
-
-### Issuer API Configuration
-
-Location: `docker-compose/issuer-api/config/`
-
-| File | Purpose |
-|------|---------|
-| `issuer-service.conf` | Issuer DID and key configuration |
-| `credential-issuer-metadata.conf` | Credential types and metadata |
-| `db.conf` | Database settings |
-
-### Credential Issuer Metadata
+Edit `docker-compose/issuer-api/config/credential-issuer-metadata.conf`:
 
 ```hocon
-# docker-compose/issuer-api/config/credential-issuer-metadata.conf
+credentialIssuer = "https://issuer.example.com"
+credentialEndpoint = "https://issuer.example.com/openid4vc/credential"
+tokenEndpoint = "https://issuer.example.com/openid4vc/token"
+authorizationEndpoint = "https://issuer.example.com/openid4vc/authorize"
 
+# DPoP support
+dpopSigningAlgValuesSupported = ["ES256", "ES384", "ES512"]
+
+# Credential configurations
 credentialConfigurationsSupported {
-
-  # EUDI PID - mDoc format
   "eu.europa.ec.eudi.pid.1" {
     format = "mso_mdoc"
     doctype = "eu.europa.ec.eudi.pid.1"
-    cryptographic_binding_methods_supported = ["cose_key"]
-    proof_types_supported = {
-      jwt = {
-        proof_signing_alg_values_supported = ["ES256"]
+    cryptographicBindingMethodsSupported = ["cose_key"]
+    credentialSigningAlgValuesSupported = ["ES256"]
+    display = [
+      {
+        name = "EU PID"
+        locale = "en"
       }
-    }
-    display = [{
-      name = "EU Personal ID"
-      locale = "en"
-    }]
+    ]
   }
 
-  # EUDI PID - SD-JWT format
-  "eu.europa.ec.eudi.pid_vc_sd_jwt" {
-    format = "dc+sd-jwt"
-    vct = "urn:eudi:pid:1"
-    cryptographic_binding_methods_supported = ["jwk"]
-    proof_types_supported = {
-      jwt = {
-        proof_signing_alg_values_supported = ["ES256"]
-      }
-    }
-  }
-
-  # Mobile Driving License
   "org.iso.18013.5.1.mDL" {
     format = "mso_mdoc"
     doctype = "org.iso.18013.5.1.mDL"
-    cryptographic_binding_methods_supported = ["cose_key"]
-    proof_types_supported = {
-      jwt = {
-        proof_signing_alg_values_supported = ["ES256"]
+    cryptographicBindingMethodsSupported = ["cose_key"]
+    credentialSigningAlgValuesSupported = ["ES256"]
+    display = [
+      {
+        name = "Mobile Driving License"
+        locale = "en"
       }
-    }
+    ]
+  }
+
+  "urn:eu.europa.ec.eudi:pid:1" {
+    format = "dc+sd-jwt"
+    vct = "urn:eu.europa.ec.eudi:pid:1"
+    cryptographicBindingMethodsSupported = ["jwk"]
+    credentialSigningAlgValuesSupported = ["ES256"]
+    display = [
+      {
+        name = "EU Digital Identity"
+        locale = "en"
+      }
+    ]
   }
 }
 ```
 
-### Issuer Service Configuration
+### Environment Variables
+
+Create `docker-compose/.env.local`:
+
+```env
+# Issuer configuration
+WALTID_ISSUER_URL=https://issuer.example.com
+WALTID_ISSUER_PORT=7002
+
+# Database
+WALTID_DB_URL=jdbc:postgresql://db:5432/waltid
+WALTID_DB_USER=waltid
+WALTID_DB_PASSWORD=your-secure-password
+
+# TLS (for production)
+WALTID_TLS_ENABLED=true
+WALTID_TLS_CERT_PATH=/certs/server.crt
+WALTID_TLS_KEY_PATH=/certs/server.key
+```
+
+## Building Custom Docker Images
+
+To include customizations:
+
+```bash
+# Build all service images
+./gradlew jibDockerBuild
+
+# Build specific service
+./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
+```
+
+## Production Considerations
+
+### TLS/SSL
+
+For production, configure TLS:
+
+1. Obtain certificates from a trusted CA
+2. Configure reverse proxy (nginx/traefik) or application TLS
+3. Ensure all endpoints use HTTPS
+
+### Scaling
+
+For high availability:
+
+```yaml
+# docker-compose.override.yml
+services:
+  waltid-issuer-api:
+    deploy:
+      replicas: 3
+    environment:
+      - WALTID_CLUSTER_ENABLED=true
+      - WALTID_REDIS_URL=redis://redis:6379
+```
+
+### Monitoring
+
+Enable metrics endpoint:
 
 ```hocon
-# docker-compose/issuer-api/config/issuer-service.conf
-
-issuer {
-  # Base URL for the issuer (must be externally accessible)
-  baseUrl = "https://issuer.example.com"
-
-  # DID for signing credentials
-  did = "did:key:z6Mk..."
-
-  # Key configuration
-  key {
-    type = "jwk"
-    jwk = {
-      kty = "EC"
-      crv = "P-256"
-      # ... key material
-    }
-  }
+# application.conf
+metrics {
+  enabled = true
+  endpoint = "/metrics"
 }
 ```
 
-## Environment Variables
+## Verification
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VERSION_TAG` | `stable` | Docker image tag |
-| `EXTERNAL_URL` | - | Public issuer URL |
-| `LOG_LEVEL` | `INFO` | Logging verbosity |
-
-### Setting Environment Variables
+### Test Issuer Metadata
 
 ```bash
-# In docker-compose/.env
-VERSION_TAG=stable
-EXTERNAL_URL=https://issuer.example.com
-
-# Or inline
-VERSION_TAG=latest docker compose --profile identity up
+curl https://issuer.example.com/openid4vc/draft13/.well-known/openid-credential-issuer | jq
 ```
 
-## HTTPS Configuration
+Expected response includes:
+- `credential_issuer`
+- `credential_endpoint`
+- `credential_configurations_supported`
+- `dpop_signing_alg_values_supported`
 
-EUDI wallets require HTTPS for production. Options:
-
-### 1. Reverse Proxy (Recommended)
-
-Use nginx, Traefik, or Caddy as a reverse proxy with TLS termination.
-
-Example nginx configuration:
-```nginx
-server {
-    listen 443 ssl;
-    server_name issuer.example.com;
-
-    ssl_certificate /etc/ssl/certs/issuer.crt;
-    ssl_certificate_key /etc/ssl/private/issuer.key;
-
-    location / {
-        proxy_pass http://localhost:7002;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### 2. Direct TLS
-
-Configure Ktor to serve HTTPS directly (for development):
-
-```hocon
-# Add to application.conf
-ktor {
-  deployment {
-    sslPort = 8443
-    ssl {
-      keyStore = /path/to/keystore.jks
-      keyAlias = issuer
-      keyStorePassword = password
-      privateKeyPassword = password
-    }
-  }
-}
-```
-
-## Health Checks
-
-### Service Health
+### Generate Test Credential Offer
 
 ```bash
-# Check issuer health
-curl http://localhost:7002/health
-
-# Check all services
-for port in 7001 7002 7003 7004; do
-  echo "Port $port: $(curl -s http://localhost:$port/health | head -1)"
-done
+curl -X POST https://issuer.example.com/openid4vc/mdoc/issue \
+  -H "Content-Type: application/json" \
+  -d '{
+    "issuerKey": { "type": "jwk", "jwk": {...} },
+    "credentialConfigurationId": "eu.europa.ec.eudi.pid.1",
+    "credentialData": {...},
+    "issuerDid": "did:key:..."
+  }'
 ```
 
-### Metadata Endpoint
+Returns: `openid-credential-offer://...`
 
-```bash
-# Verify issuer metadata is served correctly
-curl http://localhost:7002/.well-known/openid-credential-issuer | jq .
-```
+### EUDI Wallet Test
 
-## Logs
-
-### View Service Logs
-
-```bash
-# All services
-docker compose --profile identity logs -f
-
-# Specific service
-docker compose logs -f issuer-api
-
-# Last 100 lines
-docker compose logs --tail 100 issuer-api
-```
-
-### Log Levels
-
-Set via environment variable:
-```bash
-LOG_LEVEL=DEBUG docker compose --profile identity up
-```
+1. Open EUDI Reference Wallet app
+2. Scan the QR code from the credential offer
+3. Complete issuance flow
+4. Verify credential appears in wallet
 
 ## Troubleshooting
 
-### Service Won't Start
-
-1. Check logs: `docker compose logs issuer-api`
-2. Verify configuration files are valid HOCON
-3. Check port conflicts: `lsof -i :7002`
-
-### Credential Issuance Fails
-
-1. Verify issuer DID is resolvable
-2. Check key configuration matches DID
-3. Ensure credential configuration ID exists in metadata
-
-### EUDI Wallet Can't Connect
-
-1. Verify HTTPS is working
-2. Check CORS headers allow wallet origin
-3. Verify `.well-known/openid-credential-issuer` returns valid JSON
-
-### Reset Everything
+### Container Logs
 
 ```bash
-cd docker-compose
-docker compose --profile identity down -v
-docker compose --profile identity up -d
+docker compose --profile identity logs waltid-issuer-api -f
 ```
 
-## Monitoring
-
-### Prometheus Metrics
-
-Metrics are exposed at `/metrics` on each service port.
-
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: 'waltid-issuer'
-    static_configs:
-      - targets: ['localhost:7002']
-```
-
-### Resource Monitoring
+### Health Checks
 
 ```bash
-# Container stats
-docker stats
-
-# Specific service
-docker stats $(docker compose ps -q issuer-api)
+curl http://localhost:7002/health
 ```
 
-## Backup and Recovery
+### Common Issues
 
-### Configuration Backup
+| Issue | Solution |
+|-------|----------|
+| Connection refused | Verify container is running and port mappings |
+| TLS errors | Check certificate chain and hostname |
+| Credential format mismatch | Verify metadata configuration matches issuance request |
+| "Invalid audience" | Ensure issuer URL matches metadata `credentialIssuer` |
 
-```bash
-# Backup configs
-tar -czf issuer-config-backup.tar.gz docker-compose/issuer-api/config/
+## Security Checklist
 
-# Restore
-tar -xzf issuer-config-backup.tar.gz
-```
-
-### Database Backup
-
-If using persistent database:
-```bash
-docker compose exec db pg_dump -U postgres issuer > backup.sql
-```
-
-## Updates
-
-### Updating Services
-
-```bash
-# Pull new images
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-
-# Restart with new image
-cd docker-compose
-docker compose --profile identity up -d --force-recreate issuer-api
-```
-
-### Rolling Updates
-
-For zero-downtime updates:
-1. Build new image with different tag
-2. Update compose file to use new tag
-3. Restart service: `docker compose up -d issuer-api`
-
-## Related Documentation
-
-- [Integration Guide](./integration-guide.md) - Developer integration
-- [Credential Formats Reference](./credential-formats.md) - Format details
+- [ ] TLS enabled for all endpoints
+- [ ] Strong database passwords
+- [ ] Firewall configured for service ports
+- [ ] Rate limiting enabled
+- [ ] Logging configured for audit trail
+- [ ] Secrets managed securely (not in env vars for production)
