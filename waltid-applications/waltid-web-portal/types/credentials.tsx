@@ -92,6 +92,30 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
   };
 }
 
+export interface VerificationSessionRequest {
+  flow_type: string;
+  core_flow: {
+    dcql_query: DcqlQuery;
+  };
+  success_redirect_uri: string;
+  error_redirect_uri: string;
+}
+
+export function buildVerificationSessionRequest(
+  dcqlQuery: DcqlQuery,
+  successRedirectUri: string,
+  errorRedirectUri: string
+): VerificationSessionRequest {
+  return {
+    flow_type: 'cross_device',
+    core_flow: {
+      dcql_query: dcqlQuery,
+    },
+    success_redirect_uri: successRedirectUri,
+    error_redirect_uri: errorRedirectUri,
+  };
+}
+
 export const DIDMethods = [
   'did:jwk',
   'did:key',

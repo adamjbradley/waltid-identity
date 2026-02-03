@@ -1,4 +1,4 @@
-import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat, buildDcqlQuery } from '../types/credentials';
+import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest } from '../types/credentials';
 
 describe('Environment Configuration', () => {
   it('should recognize NEXT_PUBLIC_VERIFIER2 as a valid env variable', () => {
@@ -629,5 +629,30 @@ describe('EUDI Wallet Compatible Verification Payloads', () => {
     expect(payload.core_flow.dcql_query.credentials[0].meta.vct_values).toContain('urn:eudi:pid:1');
     // SD-JWT claims don't have namespace prefix
     expect(payload.core_flow.dcql_query.credentials[0].claims[0].path).toEqual(['family_name']);
+  });
+});
+
+describe('buildVerificationSessionRequest', () => {
+  it('should build correct API2 request structure', () => {
+    const dcqlQuery = {
+      credentials: [{
+        id: 'eu.europa.ec.eudi.pid.1',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' }
+      }]
+    };
+    const successUri = 'https://portal/success/$id';
+    const errorUri = 'https://portal/error/$id';
+
+    const result = buildVerificationSessionRequest(dcqlQuery, successUri, errorUri);
+
+    expect(result).toEqual({
+      flow_type: 'cross_device',
+      core_flow: {
+        dcql_query: dcqlQuery
+      },
+      success_redirect_uri: successUri,
+      error_redirect_uri: errorUri
+    });
   });
 });
