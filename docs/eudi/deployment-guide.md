@@ -8,7 +8,42 @@ This guide covers deploying walt.id services for EUDI wallet compatibility.
 - Java 21 (for building from source)
 - Valid TLS certificates (for production)
 
-## Quick Start with Docker Compose
+## Quick Start with Local Builds (Recommended)
+
+For EUDI compatibility, always build from local source to ensure you have the latest code:
+
+```bash
+cd docker-compose
+
+# Build and start using local source code
+./local-build.sh
+
+# Or with explicit profile
+./local-build.sh --profile identity
+
+# Build only (no start)
+./local-build.sh build
+
+# Stop services
+./local-build.sh down
+```
+
+This creates images tagged as `local/*:dev` (e.g., `local/waltid-issuer-api:dev`) making it clear they're built from local source.
+
+### Manual Local Build
+
+If you prefer manual commands:
+
+```bash
+cd docker-compose
+
+# Build and start with local source
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml --profile identity up --build
+```
+
+## Quick Start with Published Images
+
+To use walt.id's published images (not recommended for EUDI customizations):
 
 ```bash
 cd docker-compose
@@ -108,14 +143,50 @@ WALTID_TLS_KEY_PATH=/certs/server.key
 
 ## Building Custom Docker Images
 
-To include customizations:
+### Using Docker Compose (Recommended)
+
+The `docker-compose.local.yaml` override file builds all services from local source:
 
 ```bash
-# Build all service images
+cd docker-compose
+
+# Build and run with local source
+docker compose -f docker-compose.yaml -f docker-compose.local.yaml --profile identity up --build
+
+# Or use the helper script
+./local-build.sh
+```
+
+Images are tagged with `local/` prefix to distinguish from published images:
+- `local/waltid-issuer-api:dev`
+- `local/waltid-verifier-api:dev`
+- `local/waltid-wallet-api:dev`
+- etc.
+
+### Using Gradle Jib
+
+For publishing to a registry:
+
+```bash
+# Build all service images (uses Jib)
 ./gradlew jibDockerBuild
 
 # Build specific service
 ./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
+```
+
+### Verify Local Images
+
+```bash
+docker images | grep local/
+```
+
+Expected output:
+```
+local/waltid-issuer-api     dev    abc123   1 minute ago    450MB
+local/waltid-verifier-api   dev    def456   1 minute ago    420MB
+local/waltid-wallet-api     dev    ghi789   1 minute ago    480MB
+...
 ```
 
 ## Production Considerations
