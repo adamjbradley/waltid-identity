@@ -54,6 +54,44 @@ export function isEudiFormat(format: string): boolean {
   return format === 'dc+sd-jwt' || format === 'mso_mdoc';
 }
 
+export interface DcqlCredential {
+  id: string;
+  format: string;
+  meta: {
+    doctype_value?: string;
+    vct_values?: string[];
+  };
+}
+
+export interface DcqlQuery {
+  credentials: DcqlCredential[];
+}
+
+export function buildDcqlQuery(credentials: AvailableCredential[], format: string): DcqlQuery {
+  return {
+    credentials: credentials.map((credential) => {
+      if (format === 'mso_mdoc') {
+        return {
+          id: credential.id,
+          format: 'mso_mdoc',
+          meta: {
+            doctype_value: credential.offer.doctype || credential.id,
+          },
+        };
+      } else {
+        // dc+sd-jwt
+        return {
+          id: credential.id,
+          format: 'dc+sd-jwt',
+          meta: {
+            vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
+          },
+        };
+      }
+    }),
+  };
+}
+
 export const DIDMethods = [
   'did:jwk',
   'did:key',

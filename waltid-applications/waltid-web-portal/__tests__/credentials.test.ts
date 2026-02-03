@@ -1,4 +1,4 @@
-import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat } from '../types/credentials';
+import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat, buildDcqlQuery } from '../types/credentials';
 
 describe('Environment Configuration', () => {
   it('should recognize NEXT_PUBLIC_VERIFIER2 as a valid env variable', () => {
@@ -55,6 +55,79 @@ describe('isEudiFormat', () => {
 
   it('should return false for jwt_vc_json format', () => {
     expect(isEudiFormat('jwt_vc_json')).toBe(false);
+  });
+});
+
+describe('buildDcqlQuery', () => {
+  it('should build correct DCQL query for mso_mdoc format', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'eu.europa.ec.eudi.pid.1',
+      title: 'EU Personal ID (mDoc)',
+      offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    expect(result).toEqual({
+      credentials: [{
+        id: 'eu.europa.ec.eudi.pid.1',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' }
+      }]
+    });
+  });
+
+  it('should build correct DCQL query for dc+sd-jwt format', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'urn:eudi:pid:1',
+      title: 'EU Personal ID (SD-JWT)',
+      offer: { vct: 'urn:eudi:pid:1' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'dc+sd-jwt');
+
+    expect(result).toEqual({
+      credentials: [{
+        id: 'urn:eudi:pid:1',
+        format: 'dc+sd-jwt',
+        meta: { vct_values: ['urn:eudi:pid:1'] }
+      }]
+    });
+  });
+
+  it('should use credential id as fallback for doctype', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'org.iso.18013.5.1.mDL',
+      title: 'Mobile Driving License',
+      offer: {}
+    }];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    expect(result.credentials[0].meta.doctype_value).toBe('org.iso.18013.5.1.mDL');
+  });
+
+  it('should use default vct if not provided', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'some-pid',
+      title: 'PID',
+      offer: {}
+    }];
+
+    const result = buildDcqlQuery(credentials, 'dc+sd-jwt');
+
+    expect(result.credentials[0].meta.vct_values).toEqual(['urn:eudi:pid:1']);
+  });
+
+  it('should handle multiple credentials', () => {
+    const credentials: AvailableCredential[] = [
+      { id: 'eu.europa.ec.eudi.pid.1', title: 'PID', offer: { doctype: 'eu.europa.ec.eudi.pid.1' } },
+      { id: 'org.iso.18013.5.1.mDL', title: 'mDL', offer: { doctype: 'org.iso.18013.5.1.mDL' } }
+    ];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    expect(result.credentials).toHaveLength(2);
   });
 });
 
