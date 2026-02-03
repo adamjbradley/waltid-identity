@@ -1,4 +1,4 @@
-import { EudiCredentials, mapFormat, AvailableCredential } from '../types/credentials';
+import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat } from '../types/credentials';
 
 describe('Environment Configuration', () => {
   it('should recognize NEXT_PUBLIC_VERIFIER2 as a valid env variable', () => {
@@ -37,6 +37,24 @@ describe('EudiCredentials', () => {
 
   it('should have exactly 3 EUDI credentials', () => {
     expect(EudiCredentials.length).toBe(3);
+  });
+});
+
+describe('isEudiFormat', () => {
+  it('should return true for dc+sd-jwt format', () => {
+    expect(isEudiFormat('dc+sd-jwt')).toBe(true);
+  });
+
+  it('should return true for mso_mdoc format', () => {
+    expect(isEudiFormat('mso_mdoc')).toBe(true);
+  });
+
+  it('should return false for vc+sd-jwt format', () => {
+    expect(isEudiFormat('vc+sd-jwt')).toBe(false);
+  });
+
+  it('should return false for jwt_vc_json format', () => {
+    expect(isEudiFormat('jwt_vc_json')).toBe(false);
   });
 });
 

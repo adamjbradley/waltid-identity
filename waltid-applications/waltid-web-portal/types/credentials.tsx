@@ -49,6 +49,11 @@ export function mapFormat(format: string): string {
   }
 }
 
+// Check if format requires Verifier API2 (EUDI formats)
+export function isEudiFormat(format: string): boolean {
+  return format === 'dc+sd-jwt' || format === 'mso_mdoc';
+}
+
 export const DIDMethods = [
   'did:jwk',
   'did:key',
