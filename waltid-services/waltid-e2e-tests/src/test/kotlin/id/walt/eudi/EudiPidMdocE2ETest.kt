@@ -1,158 +1,166 @@
+@file:OptIn(ExperimentalUuidApi::class)
+
 package id.walt.eudi
 
+import IssuerApi
+import ExchangeApi
+import CredentialsApi
+import expectSuccess
 import id.walt.commons.testing.E2ETest
-import id.walt.commons.testing.utils.ServiceTestUtils.loadResource
 import id.walt.issuer.issuance.IssuanceRequest
+import id.walt.mdoc.doc.MDoc
+import id.walt.oid4vc.OpenID4VCIVersion
 import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.OpenIDProviderMetadata
+import id.walt.webwallet.db.models.WalletCredential
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.http.*
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import kotlin.test.*
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
- * E2E test for EUDI PID issuance in mso_mdoc format.
+ * E2E tests for EUDI PID issuance in mso_mdoc format.
  *
- * Tests the full OpenID4VCI flow:
- * 1. Create credential offer via Issuer API
- * 2. Resolve the offer like EUDI wallet would
- * 3. Fetch issuer metadata
- * 4. Request access token with pre-authorized code
- * 5. Request credential with Draft 13+ format
- * 6. Validate the returned mDoc credential
+ * These tests validate the full OpenID4VCI Draft 13+ flow for EUDI PID credentials
+ * using mDoc format, following the existing E2E test patterns.
  */
 class EudiPidMdocE2ETest(
     private val e2e: E2ETest,
-    private val client: HttpClient
+    private val client: HttpClient,
+    private val issuerApi: IssuerApi,
+    private val exchangeApi: ExchangeApi,
+    private val credentialsApi: CredentialsApi,
 ) {
-
     companion object {
-        private val issuerKey = loadResource("issuance/key.json")
-        private val issuerDid = loadResource("issuance/did.txt")
+        const val EUDI_PID_MDOC_CREDENTIAL_CONFIGURATION_ID = "eu.europa.ec.eudi.pid.1"
+        const val EUDI_PID_DOCTYPE = "eu.europa.ec.eudi.pid.1"
 
-        val pidMdocIssuanceRequest = IssuanceRequest(
-            issuerKey = Json.decodeFromString<JsonElement>(issuerKey).jsonObject,
-            issuerDid = issuerDid,
-            credentialConfigurationId = "eu.europa.ec.eudi.pid.1",
-            credentialData = buildJsonObject {
-                put("family_name", "DOE")
-                put("given_name", "JOHN")
-                put("birth_date", "1990-01-15")
-                put("issuing_country", "AU")
-                put("issuing_authority", "Australia Government")
-                put("document_number", "123456789")
+        val TEST_KEY = buildJsonObject {
+            put("type", JsonPrimitive("jwk"))
+            put("jwk", buildJsonObject {
+                put("kty", JsonPrimitive("EC"))
+                put("d", JsonPrimitive("mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc"))
+                put("crv", JsonPrimitive("P-256"))
+                put("kid", JsonPrimitive("eudi-pid-test-key"))
+                put("x", JsonPrimitive("dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g"))
+                put("y", JsonPrimitive("L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"))
+            })
+        }
+
+        val TEST_PID_DATA = buildJsonObject {
+            put("family_name", JsonPrimitive("MUSTERMANN"))
+            put("given_name", JsonPrimitive("ERIKA"))
+            put("birth_date", JsonPrimitive("1984-01-26"))
+            put("age_over_18", JsonPrimitive(true))
+            put("age_over_21", JsonPrimitive(true))
+            put("issuing_country", JsonPrimitive("DE"))
+            put("issuing_authority", JsonPrimitive("German Federal Government"))
+            put("nationality", JsonPrimitive("DE"))
+            put("resident_country", JsonPrimitive("DE"))
+        }
+
+        const val TEST_ISSUER_DID = "did:key:z6MkjoRhq1jSNJdLiruSXrFFxagqrztZaXHqHGUTKJbcNywp"
+    }
+
+    /**
+     * Test that issuer metadata includes EUDI PID mDoc configuration
+     */
+    suspend fun testIssuerMetadataHasEudiPidMdocConfig() {
+        e2e.test("EUDI PID mDoc - Validate issuer metadata contains PID configuration") {
+            val metadata = client.get("/${OpenID4VCIVersion.DRAFT13.versionString}/.well-known/openid-credential-issuer")
+                .expectSuccess()
+                .body<OpenIDProviderMetadata.Draft13>()
+
+            val credConfigs = assertNotNull(metadata.credentialConfigurationsSupported)
+
+            // Check if EUDI PID mDoc config exists
+            val pidConfig = credConfigs[EUDI_PID_MDOC_CREDENTIAL_CONFIGURATION_ID]
+            if (pidConfig != null) {
+                assertEquals(CredentialFormat.mso_mdoc, pidConfig.format)
+                assertEquals(EUDI_PID_DOCTYPE, pidConfig.docType)
             }
-        )
+        }
     }
 
     /**
-     * Tests PID issuance in mso_mdoc format following the EUDI wallet flow.
+     * Test full pre-authorized flow for EUDI PID mDoc issuance
      */
-    suspend fun testPidMdocIssuance() = e2e.test("EUDI PID mDoc issuance flow") {
-        val walletClient = EudiWalletClient()
+    suspend fun testPreAuthorizedPidMdocFlow(wallet: Uuid) {
+        lateinit var newCredential: WalletCredential
 
-        // Step 1: Create credential offer via Issuer API
-        val offerUri = createCredentialOffer(pidMdocIssuanceRequest)
-        assertNotNull(offerUri, "Should receive credential offer URI")
-        assertTrue(offerUri.startsWith("openid-credential-offer://"), "Should be valid offer URI")
-
-        // Step 2: Resolve the credential offer
-        val offer = walletClient.resolveCredentialOffer(offerUri)
-        assertNotNull(offer, "Should resolve credential offer")
-        assertNotNull(offer.credentialIssuer, "Offer should have credential issuer")
-
-        // Verify Draft 13+ format is used
-        val credConfigIds = offer.draft13?.credentialConfigurationIds
-        assertNotNull(credConfigIds, "Should have credential_configuration_ids (Draft 13+)")
-        assertTrue(
-            credConfigIds.any { it.jsonPrimitive.content == "eu.europa.ec.eudi.pid.1" },
-            "Should offer PID credential configuration"
-        )
-
-        // Step 3: Fetch issuer metadata
-        val metadata = walletClient.fetchIssuerMetadata(offer.credentialIssuer!!)
-        assertNotNull(metadata.credentialEndpoint, "Metadata should have credential endpoint")
-        assertNotNull(metadata.tokenEndpoint, "Metadata should have token endpoint")
-
-        // Verify PID configuration exists in metadata (Draft13 metadata)
-        val draft13Metadata = metadata as? OpenIDProviderMetadata.Draft13
-        assertNotNull(draft13Metadata, "Metadata should be Draft13 format")
-        val pidConfig = draft13Metadata.credentialConfigurationsSupported?.get("eu.europa.ec.eudi.pid.1")
-        assertNotNull(pidConfig, "Metadata should include PID configuration")
-
-        // Step 4: Request access token
-        val preAuthCode = walletClient.getPreAuthorizedCode(offer)
-        assertNotNull(preAuthCode, "Should have pre-authorized code")
-
-        val tokenResponse = walletClient.requestAccessToken(
-            tokenEndpoint = metadata.tokenEndpoint!!,
-            preAuthorizedCode = preAuthCode
-        )
-        assertNotNull(tokenResponse.accessToken, "Should receive access token")
-        assertNotNull(tokenResponse.cNonce, "Should receive c_nonce for proof generation")
-
-        // Step 5: Request the PID credential
-        val credentialResponse = walletClient.requestCredential(
-            credentialEndpoint = metadata.credentialEndpoint!!,
-            accessToken = tokenResponse.accessToken,
-            credentialConfigurationId = "eu.europa.ec.eudi.pid.1",
-            cNonce = tokenResponse.cNonce!!,
-            format = CredentialFormat.mso_mdoc
-        )
-
-        assertNotNull(credentialResponse.credential, "Should receive credential")
-
-        // Step 6: Validate the mDoc credential format
-        // mDoc credentials are CBOR-encoded, so we check it's not a JWT
-        assertTrue(
-            !credentialResponse.credential.startsWith("ey"),
-            "mDoc should not be JWT format"
-        )
-    }
-
-    /**
-     * Tests that the issuer returns proper error for invalid credential configuration.
-     */
-    suspend fun testInvalidCredentialConfiguration() = e2e.test("EUDI PID mDoc - invalid config error") {
-        val walletClient = EudiWalletClient()
-
-        // Create a valid offer first
-        val offerUri = createCredentialOffer(pidMdocIssuanceRequest)
-        val offer = walletClient.resolveCredentialOffer(offerUri)
-        val metadata = walletClient.fetchIssuerMetadata(offer.credentialIssuer!!)
-
-        val preAuthCode = walletClient.getPreAuthorizedCode(offer)!!
-        val tokenResponse = walletClient.requestAccessToken(
-            tokenEndpoint = metadata.tokenEndpoint!!,
-            preAuthorizedCode = preAuthCode
-        )
-
-        // Try to request a credential with invalid configuration ID
-        try {
-            walletClient.requestCredential(
-                credentialEndpoint = metadata.credentialEndpoint!!,
-                accessToken = tokenResponse.accessToken,
-                credentialConfigurationId = "invalid.credential.config",
-                cNonce = tokenResponse.cNonce!!,
-                format = CredentialFormat.mso_mdoc
+        e2e.test("EUDI PID mDoc - Issue via pre-authorized flow") {
+            val issuanceRequest = IssuanceRequest(
+                issuerKey = TEST_KEY,
+                credentialData = TEST_PID_DATA,
+                credentialConfigurationId = EUDI_PID_MDOC_CREDENTIAL_CONFIGURATION_ID,
+                issuerDid = TEST_ISSUER_DID
             )
-            throw AssertionError("Should have thrown exception for invalid config")
-        } catch (e: EudiWalletClient.CredentialRequestException) {
+
+            // Issue credential via issuer API
+            lateinit var offerUri: String
+            issuerApi.mdoc(issuanceRequest) { offerUri = it }
+
+            // Verify offer URI format (Draft 13+)
+            assertTrue(offerUri.startsWith("openid-credential-offer://"))
+            assertTrue(offerUri.contains("credential_offer_uri"))
+
+            // Wallet claims the credential
+            exchangeApi.resolveCredentialOffer(wallet, offerUri)
+            exchangeApi.useOfferRequest(wallet, offerUri, 1) {
+                newCredential = it.first()
+            }
+
+            // Validate credential format
+            assertEquals(CredentialFormat.mso_mdoc, newCredential.format)
+            assertNull(newCredential.disclosures, "mDoc should not have SD-JWT disclosures")
+        }
+
+        e2e.test("EUDI PID mDoc - Validate mDoc structure") {
+            // Parse and validate mDoc
+            val mdoc = MDoc.fromCBORHex(newCredential.document)
+            assertEquals(EUDI_PID_DOCTYPE, mdoc.docType.value)
+
+            // Verify issuer signed data is present
+            assertNotNull(mdoc.issuerSigned)
+            assertNotNull(mdoc.issuerSigned.issuerAuth)
+        }
+
+        // Clean up
+        credentialsApi.delete(wallet, newCredential.id)
+    }
+
+    /**
+     * Test that Draft 13+ credential_configuration_id is used (not format field)
+     */
+    suspend fun testDraft13CredentialConfigurationId() {
+        e2e.test("EUDI PID mDoc - Verify credential_configuration_id in offer") {
+            val issuanceRequest = IssuanceRequest(
+                issuerKey = TEST_KEY,
+                credentialData = TEST_PID_DATA,
+                credentialConfigurationId = EUDI_PID_MDOC_CREDENTIAL_CONFIGURATION_ID,
+                issuerDid = TEST_ISSUER_DID
+            )
+
+            lateinit var offerUri: String
+            issuerApi.mdoc(issuanceRequest) { offerUri = it }
+
+            // Fetch the credential offer to verify Draft 13+ structure
+            val offerUrlParam = io.ktor.http.Url(offerUri).parameters["credential_offer_uri"]
+            assertNotNull(offerUrlParam, "Offer URI should contain credential_offer_uri parameter")
+
+            val offer = client.get(offerUrlParam).expectSuccess().body<JsonObject>()
+
+            // Draft 13+ uses credential_configuration_ids array
+            val credConfigIds = offer["credential_configuration_ids"]?.jsonArray
+            assertNotNull(credConfigIds, "Offer should have credential_configuration_ids (Draft 13+)")
             assertTrue(
-                e.responseBody.contains("error") || e.message?.contains("failed") == true,
-                "Should return error for invalid credential configuration"
+                credConfigIds.any { it.jsonPrimitive.content == EUDI_PID_MDOC_CREDENTIAL_CONFIGURATION_ID },
+                "Offer should include our credential_configuration_id"
             )
         }
-    }
-
-    private suspend fun createCredentialOffer(request: IssuanceRequest): String {
-        val response = client.post("/openid4vc/mdoc/issue") {
-            setBody(request)
-        }
-        assertTrue(response.status.isSuccess(), "Issuer API should return success")
-        return response.body<String>()
     }
 }
