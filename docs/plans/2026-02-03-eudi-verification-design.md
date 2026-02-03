@@ -282,3 +282,76 @@ waltid-services/waltid-e2e-tests/src/test/kotlin/id/walt/eudi/
 ├── EudiPidSdJwtVerifyE2ETest.kt
 └── EudiMdlVerifyE2ETest.kt
 ```
+
+## Implementation Status
+
+### Completed
+
+| Component | Location | Status |
+|-----------|----------|--------|
+| DCQL Query Builder | `waltid-openid4vp-verifier/.../eudi/EudiDcqlQueryBuilder.kt` | ✅ |
+| Verification Policies | `waltid-openid4vp-verifier/.../eudi/EudiVerificationPolicies.kt` | ✅ |
+| Session Setup Builder | `waltid-openid4vp-verifier/.../eudi/EudiSessionSetupBuilder.kt` | ✅ |
+| Library Unit Tests | `waltid-openid4vp-verifier/src/jvmTest/.../eudi/*Test.kt` | ✅ |
+| PID mDoc Integration Test | `waltid-verifier-api2/src/test/.../eudi/EudiPidMdocVerifier2IntegrationTest.kt` | ✅ |
+| PID SD-JWT Integration Test | `waltid-verifier-api2/src/test/.../eudi/EudiPidSdJwtVerifier2IntegrationTest.kt` | ✅ |
+| mDL Integration Test | `waltid-verifier-api2/src/test/.../eudi/EudiMdlVerifier2IntegrationTest.kt` | ✅ |
+| E2E Verification Client | `waltid-e2e-tests/.../EudiVerificationClient.kt` | ✅ |
+| E2E PID mDoc Test | `waltid-e2e-tests/.../EudiPidMdocVerifyE2ETest.kt` | ✅ |
+
+### Usage Examples
+
+**Cross-device PID verification (QR code):**
+
+```kotlin
+// Create verification session for PID mDoc
+val setup = EudiSessionSetupBuilder.pidMdocCrossDevice(
+    claims = listOf("family_name", "birth_date")
+)
+
+// Or for PID SD-JWT
+val setup = EudiSessionSetupBuilder.pidSdJwtCrossDevice(
+    claims = listOf("family_name", "given_name")
+)
+
+// Or for mDL
+val setup = EudiSessionSetupBuilder.mdlCrossDevice(
+    claims = listOf("family_name", "driving_privileges")
+)
+```
+
+**Same-device verification (deep link):**
+
+```kotlin
+val setup = EudiSessionSetupBuilder.pidMdocSameDevice(
+    claims = listOf("birth_date"),
+    walletUrl = "eudi-wallet://authorize",
+    successRedirectUri = "https://example.com/success",
+    errorRedirectUri = "https://example.com/error"
+)
+```
+
+**Build DCQL query manually:**
+
+```kotlin
+val query = DcqlQuery(
+    credentials = listOf(
+        EudiDcqlQueryBuilder.pidMdoc(listOf("birth_date"))
+    )
+)
+```
+
+### Test Results
+
+| Test Suite | Tests | Pass Rate |
+|------------|-------|-----------|
+| Library EUDI Tests | 18 | 100% |
+| Verifier API2 Tests | 20 | 100% |
+
+### Credential Format Reference
+
+| Credential | Format | Doctype/VCT | Namespace |
+|------------|--------|-------------|-----------|
+| PID mDoc | `mso_mdoc` | `eu.europa.ec.eudi.pid.1` | `eu.europa.ec.eudi.pid.1` |
+| PID SD-JWT | `dc+sd-jwt` | `urn:eudi:pid:1` | N/A (path-based) |
+| mDL | `mso_mdoc` | `org.iso.18013.5.1.mDL` | `org.iso.18013.5.1` |
