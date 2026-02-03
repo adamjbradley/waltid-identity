@@ -58,11 +58,7 @@ export default function Verification() {
           }
 
           const dcqlQuery = buildDcqlQuery(credentials, credFormat);
-          const requestBody = buildVerificationSessionRequest(
-            dcqlQuery,
-            `${window.location.origin}/success/$id`,
-            `${window.location.origin}/success/$id`
-          );
+          const requestBody = buildVerificationSessionRequest(dcqlQuery);
 
           const response = await axios.post(
             `${verifier2Url}/verification-session/create`,

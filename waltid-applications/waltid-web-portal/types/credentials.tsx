@@ -97,22 +97,16 @@ export interface VerificationSessionRequest {
   core_flow: {
     dcql_query: DcqlQuery;
   };
-  success_redirect_uri: string;
-  error_redirect_uri: string;
 }
 
 export function buildVerificationSessionRequest(
-  dcqlQuery: DcqlQuery,
-  successRedirectUri: string,
-  errorRedirectUri: string
+  dcqlQuery: DcqlQuery
 ): VerificationSessionRequest {
   return {
     flow_type: 'cross_device',
     core_flow: {
       dcql_query: dcqlQuery,
     },
-    success_redirect_uri: successRedirectUri,
-    error_redirect_uri: errorRedirectUri,
   };
 }
 

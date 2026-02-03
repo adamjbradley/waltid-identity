@@ -641,18 +641,14 @@ describe('buildVerificationSessionRequest', () => {
         meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' }
       }]
     };
-    const successUri = 'https://portal/success/$id';
-    const errorUri = 'https://portal/error/$id';
 
-    const result = buildVerificationSessionRequest(dcqlQuery, successUri, errorUri);
+    const result = buildVerificationSessionRequest(dcqlQuery);
 
     expect(result).toEqual({
       flow_type: 'cross_device',
       core_flow: {
         dcql_query: dcqlQuery
-      },
-      success_redirect_uri: successUri,
-      error_redirect_uri: errorUri
+      }
     });
   });
 });
