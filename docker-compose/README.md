@@ -111,6 +111,48 @@ $ docker compose build
 $ docker compose up
 ```
 
+---
+
+## Building ALL Services from Local Source (Recommended for Development)
+
+For development or when you need to ensure all images are built from the current repo code (not pulled from registries), use the `docker-compose.local.yaml` override:
+
+### Using the Helper Script
+
+```bash
+$ cd docker-compose
+$ ./local-build.sh                    # Build and start identity profile
+$ ./local-build.sh --profile all      # Build and start all services
+$ ./local-build.sh build              # Build only, don't start
+$ ./local-build.sh down               # Stop services
+```
+
+### Manual Commands
+
+```bash
+$ cd docker-compose
+$ docker compose -f docker-compose.yaml -f docker-compose.local.yaml --profile identity up --build
+```
+
+### Image Naming
+
+Local builds use a distinct naming convention:
+- `local/waltid-issuer-api:dev`
+- `local/waltid-verifier-api:dev`
+- `local/waltid-wallet-api:dev`
+- etc.
+
+This makes it clear which images are built from local source vs pulled from registries.
+
+### Verify Local Images
+
+```bash
+$ docker images | grep local/
+local/waltid-issuer-api     dev    abc123   1 minute ago    450MB
+local/waltid-verifier-api   dev    def456   1 minute ago    420MB
+...
+```
+
 ### Starting services selectively
 
 It is possible to start services selectively, including their dependencies.
