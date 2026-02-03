@@ -439,17 +439,17 @@ class WaltidServicesE2ETests {
         //endregion -Batch Issuance Test Suite-
 
         //region -EUDI Wallet Compatibility Tests-
-        val eudiPidMdoc = id.walt.eudi.EudiPidMdocE2ETest(e2e, client)
-        eudiPidMdoc.testPidMdocIssuance()
-        eudiPidMdoc.testInvalidCredentialConfiguration()
+        val eudiPidMdoc = id.walt.eudi.EudiPidMdocE2ETest(e2e, client, issuerApi, exchangeApi, credentialsApi)
+        eudiPidMdoc.testIssuerMetadataHasEudiPidMdocConfig()
+        eudiPidMdoc.testPreAuthorizedPidMdocFlow(wallet)
 
-        val eudiPidSdJwt = id.walt.eudi.EudiPidSdJwtE2ETest(e2e, client)
-        eudiPidSdJwt.testPidSdJwtIssuance()
-        eudiPidSdJwt.testVctMatching()
+        val eudiPidSdJwt = id.walt.eudi.EudiPidSdJwtE2ETest(e2e, client, issuerApi, exchangeApi, credentialsApi)
+        eudiPidSdJwt.testIssuerMetadataHasEudiPidSdJwtConfig()
+        eudiPidSdJwt.testPreAuthorizedPidSdJwtFlow(wallet)
 
-        val eudiMdl = id.walt.eudi.EudiMdlE2ETest(e2e, client)
-        eudiMdl.testMdlIssuance()
-        eudiMdl.testMdlDrivingPrivileges()
+        val eudiMdl = id.walt.eudi.EudiMdlE2ETest(e2e, client, issuerApi, exchangeApi, credentialsApi)
+        eudiMdl.testIssuerMetadataHasMdlConfig()
+        eudiMdl.testPreAuthorizedMdlFlow(wallet)
         //endregion -EUDI Wallet Compatibility Tests-
     }
 }
