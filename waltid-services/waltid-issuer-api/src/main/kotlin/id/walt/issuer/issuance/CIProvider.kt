@@ -81,7 +81,9 @@ open class CIProvider(
             baseUrl = baseUrl,
             credentialSupported = config.credentialConfigurationsSupported,
             version = OpenID4VCIVersion.DRAFT13
-        ) as OpenIDProviderMetadata.Draft13)
+        ) as OpenIDProviderMetadata.Draft13).copy(
+            dpopSigningAlgValuesSupported = setOf("ES256", "ES384", "ES512", "RS256")
+        )
 
     val metadataDraft11
         get() = (OpenID4VCI.createDefaultProviderMetadata(
@@ -94,7 +96,7 @@ open class CIProvider(
         get() = (OpenID4VCI.createDefaultProviderMetadata(
             baseUrl = baseUrl,
             version = OpenID4VCIVersion.DRAFT13
-        ) as OpenIDProviderMetadata.Draft13)
+        ) as OpenIDProviderMetadata.Draft13).copy(tokenEndpointAuthMethodsSupported = setOf("attest_jwt_client_auth", "none"))
 
     val openIdMetadataDraft11
         get() = (OpenID4VCI.createDefaultProviderMetadata(
@@ -255,7 +257,7 @@ open class CIProvider(
 
         if (session.issuanceRequests.firstOrNull()?.issuanceType != null && session.issuanceRequests.firstOrNull()!!.issuanceType == "DEFERRED") {
             return CredentialResult(
-                format = credentialRequest.format,
+                format = credentialRequest.format ?: CredentialFormat.jwt_vc_json,
                 credential = null,
                 credentialId = randomUUIDString()
             ).also {
@@ -330,7 +332,7 @@ open class CIProvider(
 
             request.run {
                 when (credentialFormat) {
-                    CredentialFormat.sd_jwt_vc -> OpenID4VCI.generateSdJwtVC(
+                    CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc -> OpenID4VCI.generateSdJwtVC(
                         credentialRequest = credentialRequest,
                         credentialData = vc,
                         issuerId = issuerDid ?: baseUrl,
@@ -376,7 +378,7 @@ open class CIProvider(
         })
 
         return CredentialResult(
-            format = credentialRequest.format,
+            format = credentialRequest.format ?: CredentialFormat.jwt_vc_json,
             credential = credential
         )
     }
@@ -421,11 +423,17 @@ open class CIProvider(
             message = "No holder key could be extracted from proof"
         )
 
-        val nonce = OpenID4VCI.getNonceFromProof(credentialRequest.proof!!) ?: throw CredentialError(
-            credentialRequest = credentialRequest,
-            errorCode = CredentialErrorCode.invalid_or_missing_proof,
-            message = "No nonce found on proof"
-        )
+        // EUDI compatibility: nonce is optional in proof
+        val nonce = OpenID4VCI.getNonceFromProof(credentialRequest.proof!!)
+        if (nonce == null) {
+            log.info { "No nonce in proof - using credential_configuration_id matching (EUDI compatibility)" }
+        }
+        // Original strict check disabled for EUDI:
+        // val nonce = OpenID4VCI.getNonceFromProof(credentialRequest.proof!!) ?: throw CredentialError(
+        //             credentialRequest = credentialRequest,
+        //             errorCode = CredentialErrorCode.invalid_or_missing_proof,
+        //             message = "No nonce found on proof"
+        //         )
 
         log.debug { "RETRIEVING ISSUANCE REQUEST FOR CREDENTIAL REQUEST: $nonce" }
 
@@ -512,7 +520,7 @@ open class CIProvider(
         val credentialRequestFormats = batchCredentialRequest.credentialRequests
             .map { it.format }
 
-        require(credentialRequestFormats.distinct().size < 2) { "Credential requests don't have the same format: ${credentialRequestFormats.joinToString { it.value }}" }
+        require(credentialRequestFormats.distinct().size < 2) { "Credential requests don't have the same format: ${credentialRequestFormats.joinToString { it?.value ?: "unknown" }}" }
 
         val keyIdsDistinct = batchCredentialRequest.credentialRequests.map { credReq ->
             credReq.proof?.jwt?.let { jwt -> JwtUtils.parseJWTHeader(jwt) }
@@ -603,7 +611,8 @@ open class CIProvider(
                         (types == credentialRequest.credentialDefinition?.type) || (types == credentialRequest.types)
                     }
 
-                    CredentialFormat.sd_jwt_vc -> {
+                    CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc -> {
+                        // Both vc+sd-jwt and dc+sd-jwt formats use VCT for matching
                         val vct = metadata.getVctByCredentialConfigurationId(credentialConfigurationId)
                         vct == credentialRequest.vct
                     }
@@ -792,17 +801,32 @@ open class CIProvider(
                     message = "No cNonce found on current issuance session"
                 )
 
+            log.info { "=== VALIDATING CREDENTIAL REQUEST ===" }
+            log.info { "Session cNonce: $nonce" }
+            log.info { "Credential request format: ${credentialRequest.format}" }
+            log.info { "Credential request proof: ${credentialRequest.proof}" }
+            log.info { "Proof JWT (first 200 chars): ${credentialRequest.proof?.jwt?.take(200)}" }
+
             val validationResult = OpenID4VCI.validateCredentialRequest(
                 credentialRequest = credentialRequest,
                 nonce = nonce,
                 openIDProviderMetadata = metadata
             )
 
-            if (!validationResult.success) throw CredentialError(
-                credentialRequest = credentialRequest,
-                errorCode = CredentialErrorCode.invalid_request,
-                message = validationResult.message
-            )
+            log.info { "Validation result success: ${validationResult.success}" }
+            log.info { "Validation result message: ${validationResult.message}" }
+            if (!validationResult.success) {
+                // Generate a new nonce for the error response so the wallet can retry
+                // This implements the "nonce dance" pattern per OpenID4VCI spec
+                val updatedSession = generateProofOfPossessionNonceFor(session)
+                throw CredentialError(
+                    credentialRequest = credentialRequest,
+                    errorCode = CredentialErrorCode.invalid_or_missing_proof,
+                    message = "Invalid proof of possession - validation failed: ${validationResult.message}",
+                    cNonce = updatedSession.cNonce,
+                    cNonceExpiresIn = updatedSession.expirationTimestamp - Clock.System.now()
+                )
+            }
 
             // create credential result
             val credentialResult = generateCredential(
@@ -846,7 +870,7 @@ open class CIProvider(
         return@runBlocking response
     }
 
-    fun processTokenRequest(tokenRequest: TokenRequest): TokenResponse = runBlocking {
+    fun processTokenRequest(tokenRequest: TokenRequest, dpopThumbprint: String? = null): TokenResponse = runBlocking {
         val payload = OpenID4VC.validateAndParseTokenRequest(
             tokenRequest = tokenRequest,
             issuer = metadata.issuer!!,
@@ -859,7 +883,7 @@ open class CIProvider(
             message = "Token contains no session ID in subject"
         )
 
-        val session = getVerifiedSession(sessionId) ?: throw TokenError(
+        var session = getVerifiedSession(sessionId) ?: throw TokenError(
             tokenRequest = tokenRequest,
             errorCode = TokenErrorCode.invalid_request,
             message = "No authorization session found for given authorization code, or session expired."
@@ -876,19 +900,30 @@ open class CIProvider(
             )
         }
 
+        // Store DPoP thumbprint in session for later verification at credential endpoint
+        if (dpopThumbprint != null) {
+            log.info { "Storing DPoP thumbprint in session: $dpopThumbprint" }
+            val updatedSession = session.copy(dpopThumbprint = dpopThumbprint)
+            val remaining = (session.expirationTimestamp - Clock.System.now()).let { d -> if (d.isNegative()) 0.minutes else d }
+            putSession(sessionId, updatedSession, remaining)
+            session = updatedSession
+        }
+
         // Expiration time required by EBSI
         val currentTime = Clock.System.now().epochSeconds
         val expirationTime = (currentTime + 864000L) // ten days in milliseconds
 
+        val accessToken = OpenID4VC.generateToken(
+            sub = sessionId,
+            issuer = metadata.issuer!!,
+            audience = TokenTarget.ACCESS,
+            tokenId = null,
+            tokenKey = CI_TOKEN_KEY
+        )
+
         return@runBlocking TokenResponse.success(
-            accessToken = OpenID4VC.generateToken(
-                sub = sessionId,
-                issuer = metadata.issuer!!,
-                audience = TokenTarget.ACCESS,
-                tokenId = null,
-                tokenKey = CI_TOKEN_KEY
-            ),
-            tokenType = "bearer",
+            accessToken = accessToken,
+            tokenType = if (dpopThumbprint != null) "DPoP" else "bearer",
             expiresIn = expirationTime,
             cNonce = generateProofOfPossessionNonceFor(session).cNonce,
             cNonceExpiresIn = session.expirationTimestamp - Clock.System.now(),
