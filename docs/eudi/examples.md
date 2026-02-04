@@ -1,6 +1,6 @@
 # EUDI Wallet Complete Examples
 
-**Validated:** 2026-02-04
+**Validated:** 2026-02-05
 
 All examples in this document have been tested against the live issuer and verifier APIs.
 
@@ -10,7 +10,7 @@ All examples in this document have been tested against the live issuer and verif
 |------------|----------|-------------------|----------------------|-------|
 | PID mDoc | ✅ | ✅ | ⚠️ | mDoc requires IACA chain for signature verification |
 | PID SD-JWT | ✅ | ✅ | ⚠️ | Custom keys not in JWKS; VP policies all pass |
-| mDL | ✅ | ⚠️ | ⚠️ | Skipped - needs IACA chain |
+| mDL | ✅ | ✅ | ⚠️ | Requires PID first + x5Chain |
 
 **Key Finding:** Presentation flows work correctly. Credential signature verification requires issuer keys to be published in JWKS or have proper IACA certificate chains.
 
@@ -329,7 +329,7 @@ All VP (presentation) policies pass, confirming the wallet correctly presented t
 
 ## 3. Mobile Driving License (mDL) - Signed Request
 
-**Status:** ⚠️ Needs Investigation - mDL issuance currently has issues
+**Status:** ✅ Verified
 
 ### Create Session
 
