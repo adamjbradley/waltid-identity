@@ -31,6 +31,9 @@ export default function Verification() {
   }
 
   useEffect(() => {
+    // Wait for router to be ready with query parameters
+    if (!router.isReady) return;
+
     const getverifyURL = async () => {
       try {
         let vps = router.query.vps?.toString().split(',') ?? [];
@@ -153,7 +156,7 @@ export default function Verification() {
       }
     };
     getverifyURL();
-  }, []);
+  }, [router.isReady]);
 
   async function copyCurrentURLToClipboard() {
     navigator.clipboard.writeText(verifyURL).then(
