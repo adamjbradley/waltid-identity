@@ -4,14 +4,20 @@ import id.walt.crypto.keys.jwk.JWKKey
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
 
 object WellKnownKeyResolver : BaseKeyResolver {
     private val log = KotlinLogging.logger { }
 
-    private val httpClient = HttpClient()
+    private val httpClient = HttpClient {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
 
     suspend fun resolveKeyFromWellKnown(issuerId: String, header: JsonObject?): JWKKey {
         log.debug { "Resolving issuer key via JWT VC Issuer Metadata for: $issuerId" }
