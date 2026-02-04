@@ -1,16 +1,16 @@
 # EUDI Wallet Verification Testing Guide
 
-**Last Verified:** 2026-02-04
+**Last Verified:** 2026-02-05
 
 This guide documents the end-to-end verification flow with the EUDI Reference Wallet using the walt.id verifier-api2 service.
 
 ## Test Status Summary
 
-| Credential | Issuance | Verification |
-|------------|----------|--------------|
-| PID mDoc | ✅ PASS | ✅ PASS |
-| PID SD-JWT | ✅ PASS | ✅ PASS |
-| mDL | ⚠️ Needs Investigation | ⚠️ Skipped |
+| Credential | Issuance | Verification | Notes |
+|------------|----------|--------------|-------|
+| PID SD-JWT | ✅ PASS | ✅ PASS | Works with raw JWK |
+| PID mDoc | ✅ PASS | ✅ PASS | Requires x5Chain |
+| mDL | ✅ PASS | ✅ PASS | Requires PID first + x5Chain |
 
 ## Overview
 
@@ -30,10 +30,10 @@ This guide documents the end-to-end verification flow with the EUDI Reference Wa
 
 ## Create a Verification Session
 
-### Request
+### SD-JWT PID Verification (Copy-Paste Ready)
 
 ```bash
-curl -s -X POST https://verifier2.theaustraliahack.com/verification-session/create \
+curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
   -H "Content-Type: application/json" \
   -d '{
     "flow_type": "cross_device",
@@ -45,12 +45,48 @@ curl -s -X POST https://verifier2.theaustraliahack.com/verification-session/crea
         "jwk": {
           "kty": "EC",
           "crv": "P-256",
-          "x": "...",
-          "y": "...",
-          "d": "..."
+          "x": "1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY",
+          "y": "tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo",
+          "d": "j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"
         }
       },
-      "x5c": ["BASE64_ENCODED_CERTIFICATE"],
+      "x5c": ["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],
+      "dcql_query": {
+        "credentials": [{
+          "id": "eudi_pid_sdjwt",
+          "format": "dc+sd-jwt",
+          "meta": { "vct_values": ["urn:eudi:pid:1"] },
+          "claims": [
+            { "path": ["given_name"] },
+            { "path": ["family_name"] }
+          ]
+        }]
+      }
+    }
+  }' | jq .
+```
+
+### mDoc PID Verification (Copy-Paste Ready)
+
+```bash
+curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flow_type": "cross_device",
+    "core_flow": {
+      "signed_request": true,
+      "clientId": "x509_san_dns:verifier2.theaustraliahack.com",
+      "key": {
+        "type": "jwk",
+        "jwk": {
+          "kty": "EC",
+          "crv": "P-256",
+          "x": "1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY",
+          "y": "tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo",
+          "d": "j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"
+        }
+      },
+      "x5c": ["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],
       "dcql_query": {
         "credentials": [{
           "id": "eudi_pid_mdoc",
@@ -66,7 +102,41 @@ curl -s -X POST https://verifier2.theaustraliahack.com/verification-session/crea
         }]
       }
     }
-  }'
+  }' | jq .
+```
+
+### One-liner Commands (ADB)
+
+**SD-JWT PID Verification:**
+```bash
+SESSION_ID=$(curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
+  -H "Content-Type: application/json" \
+  -d '{"flow_type":"cross_device","core_flow":{"signed_request":true,"clientId":"x509_san_dns:verifier2.theaustraliahack.com","key":{"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY","y":"tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo","d":"j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"}},"x5c":["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],"dcql_query":{"credentials":[{"id":"eudi_pid_sdjwt","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]},{"path":["family_name"]}]}]}}}' | jq -r '.sessionId') \
+  && adb shell am start -a android.intent.action.VIEW \
+  -d "openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com\&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2F${SESSION_ID}%2Frequest"
+```
+
+**mDoc PID Verification:**
+```bash
+SESSION_ID=$(curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
+  -H "Content-Type: application/json" \
+  -d '{"flow_type":"cross_device","core_flow":{"signed_request":true,"clientId":"x509_san_dns:verifier2.theaustraliahack.com","key":{"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY","y":"tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo","d":"j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"}},"x5c":["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],"dcql_query":{"credentials":[{"id":"eudi_pid_mdoc","format":"mso_mdoc","meta":{"doctype_value":"eu.europa.ec.eudi.pid.1"},"claims":[{"path":["eu.europa.ec.eudi.pid.1","family_name"]},{"path":["eu.europa.ec.eudi.pid.1","given_name"]},{"path":["eu.europa.ec.eudi.pid.1","birth_date"]}]}]}}}' | jq -r '.sessionId') \
+  && adb shell am start -a android.intent.action.VIEW \
+  -d "openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com\&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2F${SESSION_ID}%2Frequest"
+```
+
+**mDL Verification:**
+```bash
+SESSION_ID=$(curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
+  -H "Content-Type: application/json" \
+  -d '{"flow_type":"cross_device","core_flow":{"signed_request":true,"clientId":"x509_san_dns:verifier2.theaustraliahack.com","key":{"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY","y":"tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo","d":"j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"}},"x5c":["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],"dcql_query":{"credentials":[{"id":"mdl","format":"mso_mdoc","meta":{"doctype_value":"org.iso.18013.5.1.mDL"},"claims":[{"path":["org.iso.18013.5.1","family_name"]},{"path":["org.iso.18013.5.1","given_name"]},{"path":["org.iso.18013.5.1","birth_date"]}]}]}}}' | jq -r '.sessionId') \
+  && adb shell am start -a android.intent.action.VIEW \
+  -d "openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com\&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2F${SESSION_ID}%2Frequest"
+```
+
+**Check Verification Result:**
+```bash
+curl -s "https://verifier2.theaustraliahack.com/verification-session/${SESSION_ID}/info" | jq '{status, attempted}'
 ```
 
 ### Response
@@ -81,29 +151,44 @@ curl -s -X POST https://verifier2.theaustraliahack.com/verification-session/crea
 
 ## Trigger Wallet Presentation
 
-### Option 1: QR Code / Share (Recommended)
+### Option 1: ADB Command (Recommended for Testing)
+
+**CRITICAL: Use backslash-escaped ampersand (`\&`) to prevent shell interpretation!**
+
+```bash
+# CORRECT: Use backslash-escaped ampersand
+adb shell am start -a android.intent.action.VIEW \
+  -d "openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com\&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2F{SESSION_ID}%2Frequest"
+```
+
+**Example with actual session ID:**
+```bash
+adb shell am start -a android.intent.action.VIEW \
+  -d "openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com\&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2Fdf237b86-78c0-4ffd-9296-ea3fc0d7f4df%2Frequest"
+```
+
+### Option 2: QR Code / Share
 
 Use the `bootstrapAuthorizationRequestUrl` from the session creation response:
 - Generate a QR code from this URL
 - Or use Android "share" functionality to send to EUDI wallet
 
-### Option 2: ADB Command
+### ADB Shell Escaping Rules
 
-```bash
-# IMPORTANT: Use single quotes to prevent shell from interpreting &
-adb shell am start -a android.intent.action.VIEW \
-  -d 'openid4vp://authorize?client_id=x509_san_dns%3Averifier2.theaustraliahack.com&request_uri=https%3A%2F%2Fverifier2.theaustraliahack.com%2Fverification-session%2F{SESSION_ID}%2Frequest'
-```
-
-### ADB Shell Escaping Caveat
-
-Without proper quoting, the `&` character is interpreted by the shell as a background operator, which **drops the `request_uri` parameter**. This causes the wallet to treat the request as unsigned, resulting in:
+The shell interprets `&` as a background operator, which **drops the `request_uri` parameter**. This causes the wallet to treat the request as unsigned, resulting in:
 
 ```
 Invalid resolution: InvalidClientIdPrefix(value=X509SanDns cannot be used in unsigned request)
 ```
 
-**Solution:** Always use single quotes around the URL when using ADB.
+| Method | Result |
+|--------|--------|
+| `...client_id=...&request_uri=...` | **FAILS** - `&` interpreted as background operator |
+| `'...client_id=...&request_uri=...'` | **FAILS** - Single quotes don't help with adb shell |
+| `...client_id=...%26request_uri=...` | **FAILS** - Double-encoded `&` not recognized |
+| `"...client_id=...\&request_uri=..."` | **WORKS** - Backslash escapes the `&` |
+
+**Solution:** Always use double quotes with backslash-escaped ampersand (`\&`) in ADB commands.
 
 ## Check Session Status
 
@@ -246,6 +331,19 @@ The following policies are applied to dc+sd-jwt credentials:
 3. Rebuild verifier-api2 with the WellKnownKeyResolver fix (requires custom Docker image)
 
 **Technical Details:** See [Technical Notes](technical-notes.md#sd-jwt-signature-verification-fix).
+
+### Error: "x5c X509 certificate chain is empty"
+
+**Cause:** mDoc credential was issued without an X.509 certificate chain.
+
+**Full error:**
+```
+Contained x5c X509 certificate chain in Mdocs credentials is empty (no signer element)
+```
+
+**Solution:** The mDoc must be issued with the `x5Chain` parameter containing a valid Document Signer certificate. See [Issuance Testing](issuance-testing.md#mdoc-pid-issuance-copy-paste-ready) for the correct issuance payload.
+
+**Note:** This is an issuance-side fix, not a verification-side fix. Re-issue the credential with the proper x5Chain.
 
 ## OpenID4VP URI Schemes
 

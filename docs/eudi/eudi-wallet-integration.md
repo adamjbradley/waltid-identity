@@ -12,7 +12,7 @@ The EUDI wallet expects the following exact values:
 |-------|----------------|-------|
 | `credential_configuration_id` | `urn:eudi:pid:1` | Must match exactly - wallet uses this to identify PID credentials |
 | `vct` | `urn:eudi:pid:1` | Verifiable Credential Type for SD-JWT |
-| `format` | `vc+sd-jwt` | SD-JWT VC format |
+| `format` | `dc+sd-jwt` | Digital Credentials SD-JWT format (EUDI-compatible) |
 | `cryptographic_binding_methods_supported` | `["jwk"]` | JWK binding for key proofs |
 | `proof_types_supported` | Required when binding methods specified | See below |
 
@@ -35,7 +35,7 @@ This is an OID4VCI specification requirement. The issuer will reject metadata th
 
 ```hocon
 "urn:eudi:pid:1" = {
-    format = "vc+sd-jwt"
+    format = "dc+sd-jwt"
     cryptographic_binding_methods_supported = ["jwk"]
     credential_signing_alg_values_supported = ["ES256"]
     proof_types_supported = { jwt = { proof_signing_alg_values_supported = ["ES256"] } }

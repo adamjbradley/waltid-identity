@@ -171,15 +171,17 @@ If only `client_id` appears without `request_uri`, the URL was truncated.
 
 ### Solution
 
-Use single quotes to prevent shell interpretation:
+Use double quotes with backslash-escaped ampersand to prevent shell interpretation:
 
 ```bash
-# CORRECT - single quotes protect &
+# CORRECT - backslash escapes &
 adb shell am start -a android.intent.action.VIEW \
-  -d 'openid4vp://authorize?client_id=xxx&request_uri=yyy'
+  -d "openid4vp://authorize?client_id=xxx\&request_uri=yyy"
 ```
 
 Or use the QR code / share method instead of ADB.
+
+See [verification-testing.md](verification-testing.md#adb-shell-escaping-rules) for detailed escaping rules.
 
 ## Wallet HTTP Client Configuration
 

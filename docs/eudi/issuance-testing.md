@@ -1,5 +1,7 @@
 # EUDI Wallet Issuance Testing Guide
 
+**Last Verified:** 2026-02-05
+
 This guide documents the end-to-end credential issuance flow to the EUDI Reference Wallet.
 
 ## Overview
@@ -19,18 +21,31 @@ This guide documents the end-to-end credential issuance flow to the EUDI Referen
 
 ## Method 1: API-Based Issuance
 
-### Step 1: Create Credential Offer
+### SD-JWT PID Issuance (Copy-Paste Ready)
 
 ```bash
-curl -X POST https://issuer.theaustraliahack.com/openid4vc/credential-offer \
+curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/sdjwt/issue" \
   -H "Content-Type: application/json" \
   -d '{
-    "credentialConfigurationId": "eu.europa.ec.eudi.pid.1",
+    "issuerKey": {
+      "type": "jwk",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ",
+        "y": "nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q",
+        "d": "URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A",
+        "kid": "eudi-issuer-key-1"
+      }
+    },
+    "credentialConfigurationId": "urn:eudi:pid:1",
     "credentialData": {
-      "family_name": "DOE",
-      "given_name": "JOHN",
-      "birth_date": "1990-01-15",
-      "age_over_18": true,
+      "family_name": "Smith",
+      "given_name": "Alice",
+      "birth_date": "1985-06-20",
+      "nationality": "AU",
+      "issuance_date": "2026-02-05",
+      "expiry_date": "2031-02-05",
       "issuing_country": "AU",
       "issuing_authority": "Test Authority"
     }
@@ -39,11 +54,59 @@ curl -X POST https://issuer.theaustraliahack.com/openid4vc/credential-offer \
 
 ### Response
 
-```json
-{
-  "credentialOffer": "openid-credential-offer://?credential_offer_uri=https://issuer.theaustraliahack.com/credential-offer/abc123",
-  "credentialOfferUri": "https://issuer.theaustraliahack.com/credential-offer/abc123"
-}
+Returns the credential offer URI directly:
+```
+openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.theaustraliahack.com%2Fdraft13%2FcredentialOffer%3Fid%3D<UUID>
+```
+
+### mDoc PID Issuance (Copy-Paste Ready)
+
+**IMPORTANT:** mDoc credentials require an `x5Chain` parameter containing a valid X.509 certificate chain for verification to work. Without it, verification fails with "x5c X509 certificate chain is empty".
+
+```bash
+curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "issuerKey": {
+      "type": "jwk",
+      "jwk": {
+        "kty": "EC",
+        "d": "-wSIL_tMH7-mO2NAfHn03I8ZWUHNXVzckTTb96Wsc1s",
+        "crv": "P-256",
+        "kid": "sW5yv0UmZ3S0dQuUrwlR9I3foREBHHFwXhGJGqGEVf0",
+        "x": "Pzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5U",
+        "y": "6dwhUAzKzKUf0kNI7f40zqhMZNT0c40O_WiqSLCTNZo"
+      }
+    },
+    "credentialConfigurationId": "eu.europa.ec.eudi.pid.1",
+    "mdocData": {
+      "eu.europa.ec.eudi.pid.1": {
+        "family_name": "Smith",
+        "given_name": "Alice",
+        "birth_date": "1985-06-20",
+        "age_over_18": true,
+        "issuance_date": "2026-02-05",
+        "expiry_date": "2031-02-05",
+        "issuing_country": "AU",
+        "issuing_authority": "Test Authority"
+      }
+    },
+    "x5Chain": [
+      "-----BEGIN CERTIFICATE-----\nMIICCTCCAbCgAwIBAgIUfqyiArJZoX7M61/473UAVi2/UpgwCgYIKoZIzj0EAwIwKDELMAkGA1UEBhMCQVQxGTAXBgNVBAMMEFdhbHRpZCBUZXN0IElBQ0EwHhcNMjUwNjAyMDY0MTEzWhcNMjYwOTAyMDY0MTEzWjAzMQswCQYDVQQGEwJBVDEkMCIGA1UEAwwbV2FsdGlkIFRlc3QgRG9jdW1lbnQgU2lnbmVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5Xp3CFQDMrMpR/SQ0jt/jTOqExk1PRzjQ79aKpIsJM1mqOBrDCBqTAfBgNVHSMEGDAWgBTxCn2nWMrE70qXb614U14BweY2azAdBgNVHQ4EFgQUx5qkOLC4lpl1xpYZGmF9HLxtp0gwDgYDVR0PAQH/BAQDAgeAMBoGA1UdEgQTMBGGD2h0dHBzOi8vd2FsdC5pZDAVBgNVHSUBAf8ECzAJBgcogYxdBQECMCQGA1UdHwQdMBswGaAXoBWGE2h0dHBzOi8vd2FsdC5pZC9jcmwwCgYIKoZIzj0EAwIDRwAwRAIgHTap3c6yCUNhDVfZWBPMKj9dCWZbrME03kh9NJTbw1ECIAvVvuGll9O21eR16SkJHHAA1pPcovhcTvF9fz9cc66M\n-----END CERTIFICATE-----"
+    ]
+  }'
+```
+
+**Key differences from SD-JWT:**
+- Uses `mdocData` (not `credentialData`) with namespaced claims
+- Requires `x5Chain` with Document Signer certificate (valid until 2026-09-02)
+- Certificate must match the issuer key's public key
+
+### Response
+
+Returns the credential offer URI directly:
+```
+openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.theaustraliahack.com%2Fdraft13%2FcredentialOffer%3Fid%3D<UUID>
 ```
 
 ### Step 2: Trigger Wallet
@@ -55,11 +118,37 @@ curl -X POST https://issuer.theaustraliahack.com/openid4vc/credential-offer \
 **Option B: Share URL**
 - Share the `credentialOffer` URL to the wallet app
 
-**Option C: ADB**
+**Option C: ADB (Recommended for Testing)**
 ```bash
-# Use single quotes to prevent shell interpretation
-adb shell am start -a android.intent.action.VIEW \
-  -d 'openid-credential-offer://?credential_offer_uri=https://issuer.theaustraliahack.com/credential-offer/abc123'
+# Store the offer URI in a variable, then launch
+OFFER="openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.theaustraliahack.com%2Fdraft13%2FcredentialOffer%3Fid%3D<UUID>"
+adb shell am start -a android.intent.action.VIEW -d "'$OFFER'"
+```
+
+**One-liner for SD-JWT PID:**
+```bash
+OFFER=$(curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/sdjwt/issue" \
+  -H "Content-Type: application/json" \
+  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ","y":"nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q","d":"URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A","kid":"eudi-issuer-key-1"}},"credentialConfigurationId":"urn:eudi:pid:1","credentialData":{"family_name":"Smith","given_name":"Alice","birth_date":"1985-06-20","nationality":"AU","issuance_date":"2026-02-05","expiry_date":"2031-02-05","issuing_country":"AU","issuing_authority":"Test Authority"}}') \
+  && adb shell am start -a android.intent.action.VIEW -d "'$OFFER'"
+```
+
+**One-liner for mDoc PID (with x5Chain for verification support):**
+```bash
+OFFER=$(curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
+  -H "Content-Type: application/json" \
+  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","d":"-wSIL_tMH7-mO2NAfHn03I8ZWUHNXVzckTTb96Wsc1s","crv":"P-256","kid":"sW5yv0UmZ3S0dQuUrwlR9I3foREBHHFwXhGJGqGEVf0","x":"Pzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5U","y":"6dwhUAzKzKUf0kNI7f40zqhMZNT0c40O_WiqSLCTNZo"}},"credentialConfigurationId":"eu.europa.ec.eudi.pid.1","mdocData":{"eu.europa.ec.eudi.pid.1":{"family_name":"Smith","given_name":"Alice","birth_date":"1985-06-20","age_over_18":true,"issuance_date":"2026-02-05","expiry_date":"2031-02-05","issuing_country":"AU","issuing_authority":"Test Authority"}},"x5Chain":["-----BEGIN CERTIFICATE-----\nMIICCTCCAbCgAwIBAgIUfqyiArJZoX7M61/473UAVi2/UpgwCgYIKoZIzj0EAwIwKDELMAkGA1UEBhMCQVQxGTAXBgNVBAMMEFdhbHRpZCBUZXN0IElBQ0EwHhcNMjUwNjAyMDY0MTEzWhcNMjYwOTAyMDY0MTEzWjAzMQswCQYDVQQGEwJBVDEkMCIGA1UEAwwbV2FsdGlkIFRlc3QgRG9jdW1lbnQgU2lnbmVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5Xp3CFQDMrMpR/SQ0jt/jTOqExk1PRzjQ79aKpIsJM1mqOBrDCBqTAfBgNVHSMEGDAWgBTxCn2nWMrE70qXb614U14BweY2azAdBgNVHQ4EFgQUx5qkOLC4lpl1xpYZGmF9HLxtp0gwDgYDVR0PAQH/BAQDAgeAMBoGA1UdEgQTMBGGD2h0dHBzOi8vd2FsdC5pZDAVBgNVHSUBAf8ECzAJBgcogYxdBQECMCQGA1UdHwQdMBswGaAXoBWGE2h0dHBzOi8vd2FsdC5pZC9jcmwwCgYIKoZIzj0EAwIDRwAwRAIgHTap3c6yCUNhDVfZWBPMKj9dCWZbrME03kh9NJTbw1ECIAvVvuGll9O21eR16SkJHHAA1pPcovhcTvF9fz9cc66M\n-----END CERTIFICATE-----"]}') \
+  && adb shell am start -a android.intent.action.VIEW -d "'$OFFER'"
+```
+
+**One-liner for mDL:**
+
+> **IMPORTANT:** The EUDI wallet requires a PID (National ID) credential before it will accept an mDL. If you attempt to issue an mDL without a PID, the wallet displays: *"Wallet needs to be activated first with a National ID"*. Issue a PID mDoc first using the command above.
+```bash
+OFFER=$(curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
+  -H "Content-Type: application/json" \
+  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","d":"-wSIL_tMH7-mO2NAfHn03I8ZWUHNXVzckTTb96Wsc1s","crv":"P-256","kid":"sW5yv0UmZ3S0dQuUrwlR9I3foREBHHFwXhGJGqGEVf0","x":"Pzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5U","y":"6dwhUAzKzKUf0kNI7f40zqhMZNT0c40O_WiqSLCTNZo"}},"credentialConfigurationId":"org.iso.18013.5.1.mDL","mdocData":{"org.iso.18013.5.1":{"family_name":"Smith","given_name":"Alice","birth_date":"1985-06-20","issue_date":"2026-02-05","expiry_date":"2031-02-05","issuing_country":"AU","issuing_authority":"AU Transport","document_number":"DL123456789","portrait":[141,182,121,111,238,50,120,94,54,111,113,13,241,12,12],"driving_privileges":[{"vehicle_category_code":"B","issue_date":"2020-01-01","expiry_date":"2031-02-05"}],"un_distinguishing_sign":"AUS"}},"x5Chain":["-----BEGIN CERTIFICATE-----\nMIICCTCCAbCgAwIBAgIUfqyiArJZoX7M61/473UAVi2/UpgwCgYIKoZIzj0EAwIwKDELMAkGA1UEBhMCQVQxGTAXBgNVBAMMEFdhbHRpZCBUZXN0IElBQ0EwHhcNMjUwNjAyMDY0MTEzWhcNMjYwOTAyMDY0MTEzWjAzMQswCQYDVQQGEwJBVDEkMCIGA1UEAwwbV2FsdGlkIFRlc3QgRG9jdW1lbnQgU2lnbmVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPzp6eVSAdXERqAp8q8OuDEhl2ILGAaoaQXTJ2sD2g5Xp3CFQDMrMpR/SQ0jt/jTOqExk1PRzjQ79aKpIsJM1mqOBrDCBqTAfBgNVHSMEGDAWgBTxCn2nWMrE70qXb614U14BweY2azAdBgNVHQ4EFgQUx5qkOLC4lpl1xpYZGmF9HLxtp0gwDgYDVR0PAQH/BAQDAgeAMBoGA1UdEgQTMBGGD2h0dHBzOi8vd2FsdC5pZDAVBgNVHSUBAf8ECzAJBgcogYxdBQECMCQGA1UdHwQdMBswGaAXoBWGE2h0dHBzOi8vd2FsdC5pZC9jcmwwCgYIKoZIzj0EAwIDRwAwRAIgHTap3c6yCUNhDVfZWBPMKj9dCWZbrME03kh9NJTbw1ECIAvVvuGll9O21eR16SkJHHAA1pPcovhcTvF9fz9cc66M\n-----END CERTIFICATE-----"]}') \
+  && adb shell am start -a android.intent.action.VIEW -d "'$OFFER'"
 ```
 
 ### Step 3: Accept in Wallet
@@ -109,6 +198,10 @@ The portal displays a QR code containing the credential offer URL.
 | Format | `mso_mdoc` |
 | DocType | `eu.europa.ec.eudi.pid.1` |
 
+**Required for Issuance:**
+- `mdocData` - Claims must be namespaced under `eu.europa.ec.eudi.pid.1`
+- `x5Chain` - X.509 certificate chain for verification support
+
 **Required Claims:**
 - `family_name`
 - `given_name`
@@ -139,6 +232,21 @@ The portal displays a QR code containing the credential offer URL.
 | Configuration ID | `org.iso.18013.5.1.mDL` |
 | Format | `mso_mdoc` |
 | DocType | `org.iso.18013.5.1.mDL` |
+| Namespace | `org.iso.18013.5.1` |
+
+**Prerequisite:** EUDI wallet requires a PID (National ID) to be present before accepting an mDL.
+
+**Required for Issuance:**
+- `mdocData` - Claims must be namespaced under `org.iso.18013.5.1`
+- `x5Chain` - X.509 certificate chain for verification support
+
+**Required Claims:**
+- `family_name`, `given_name`, `birth_date`
+- `issue_date`, `expiry_date`
+- `issuing_country`, `issuing_authority`
+- `document_number`, `portrait`
+- `driving_privileges` (array of vehicle categories)
+- `un_distinguishing_sign`
 
 ## Issuer Configuration
 
@@ -252,6 +360,28 @@ Look for:
 **Solutions:**
 1. Check issuer logs for errors
 2. Verify using supported format (`mso_mdoc` or `dc+sd-jwt`)
+
+### mDL Issuance Fails: "Wallet needs to be activated first with a National ID"
+
+**Cause:** The EUDI wallet requires a PID (Person Identification Data) credential before it will accept other document types like mDL.
+
+**Solution:** Issue a PID mDoc credential first, then retry the mDL issuance. Use the "One-liner for mDoc PID" command above to issue a PID.
+
+### mDoc Verification Fails: "x5c certificate chain is empty"
+
+**Cause:** mDoc credential was issued without an X.509 certificate chain in the `x5Chain` parameter.
+
+**Error from verifier:**
+```
+Contained x5c X509 certificate chain in Mdocs credentials is empty (no signer element)
+```
+
+**Solution:** Include the `x5Chain` parameter in the mDoc issuance request with a valid Document Signer certificate. The certificate must:
+1. Be signed by a trusted IACA (Issuer Authority CA)
+2. Have a public key matching the `issuerKey` used for signing
+3. Be within its validity period
+
+**Example:** See the mDoc PID Issuance section above for a working configuration with the "Waltid Test Document Signer" certificate (valid until 2026-09-02).
 
 ## OpenID4VCI Protocol Details
 

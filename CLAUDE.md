@@ -208,46 +208,13 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 
 **Important:** The EUDI wallet must have the verifier certificates in its trust store. See [`docs/eudi/wallet-trust-store-update.md`](docs/eudi/wallet-trust-store-update.md) for configuration instructions.
 
-**Testing:** For end-to-end verification testing instructions, see [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md).
+### EUDI Wallet Testing
 
-### Manual EUDI Wallet Testing
+For ADB-based testing with copy-paste ready commands and payloads:
+- **Issuance:** [`docs/eudi/issuance-testing.md`](docs/eudi/issuance-testing.md)
+- **Verification:** [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md)
 
-Quick commands to test all EUDI flows with QR codes:
-
-```bash
-# 1. Create issuance offers
-# PID mDoc
-curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
-  -H "Content-Type: application/json" \
-  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","d":"mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc","crv":"P-256","x":"dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g","y":"L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"}},"credentialConfigurationId":"eu.europa.ec.eudi.pid.1","credentialData":{"family_name":"DOE","given_name":"JOHN","birth_date":"1990-01-15","issuance_date":"2026-02-04","expiry_date":"2031-02-04","issuing_country":"AU","issuing_authority":"Test Authority"}}' \
-  | tee /tmp/pid_mdoc.txt && qrencode -o /tmp/pid_mdoc.png "$(cat /tmp/pid_mdoc.txt)" && open /tmp/pid_mdoc.png
-
-# PID SD-JWT
-curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/sdjwt/issue" \
-  -H "Content-Type: application/json" \
-  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","d":"mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc","crv":"P-256","x":"dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g","y":"L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"}},"credentialConfigurationId":"urn:eudi:pid:1","credentialData":{"family_name":"DOE","given_name":"JOHN","birth_date":"1990-01-15","issuance_date":"2026-02-04","expiry_date":"2031-02-04","issuing_country":"AU","issuing_authority":"Test Authority"}}' \
-  | tee /tmp/pid_sdjwt.txt && qrencode -o /tmp/pid_sdjwt.png "$(cat /tmp/pid_sdjwt.txt)" && open /tmp/pid_sdjwt.png
-
-# mDL
-curl -s -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
-  -H "Content-Type: application/json" \
-  -d '{"issuerKey":{"type":"jwk","jwk":{"kty":"EC","d":"mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc","crv":"P-256","x":"dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g","y":"L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"}},"credentialConfigurationId":"org.iso.18013.5.1.mDL","credentialData":{"family_name":"DOE","given_name":"JOHN","birth_date":"1990-01-15","issue_date":"2023-01-01","expiry_date":"2033-01-01","issuing_country":"AU","issuing_authority":"Roads and Maritime Services","document_number":"DL123456","driving_privileges":[{"vehicle_category_code":"C","issue_date":"2023-01-01","expiry_date":"2033-01-01"}]}}' \
-  | tee /tmp/mdl.txt && qrencode -o /tmp/mdl.png "$(cat /tmp/mdl.txt)" && open /tmp/mdl.png
-
-# 2. Create verification sessions (requires verifier key/cert)
-# PID mDoc verification
-curl -s -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
-  -H "Content-Type: application/json" \
-  -d '{"flow_type":"cross_device","core_flow":{"signed_request":true,"clientId":"x509_san_dns:verifier2.theaustraliahack.com","key":{"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY","y":"tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo","d":"j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"}},"x5c":["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],"dcql_query":{"credentials":[{"id":"eudi_pid_mdoc","format":"mso_mdoc","meta":{"doctype_value":"eu.europa.ec.eudi.pid.1"},"claims":[{"path":["eu.europa.ec.eudi.pid.1","family_name"]},{"path":["eu.europa.ec.eudi.pid.1","given_name"]},{"path":["eu.europa.ec.eudi.pid.1","birth_date"]}]}]}}}' \
-  | jq -r '.bootstrapAuthorizationRequestUrl' | tee /tmp/verify_pid.txt && qrencode -o /tmp/verify_pid.png "$(cat /tmp/verify_pid.txt)" && open /tmp/verify_pid.png
-
-# 3. Check verification session status
-curl -s "https://verifier2.theaustraliahack.com/verification-session/{SESSION_ID}/info" | jq '{status, claims: .presentedPresentations}'
-```
-
-**Prerequisites:** `qrencode` (`brew install qrencode`)
-
-**Full examples:** See [`docs/eudi/examples.md`](docs/eudi/examples.md)
+**Note:** ADB verification commands require backslash-escaped ampersands (`\&`) - see docs for details.
 
 ## Platform-Specific Builds
 

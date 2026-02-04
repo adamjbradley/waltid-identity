@@ -189,3 +189,6 @@ iOSInjectionProject/
 /waltid-services/waltid-issuer-api/k8s/cert-device-potential.pem
 /waltid-services/waltid-issuer-api/k8s/ec_device_key.pem
 .worktrees/
+
+# Claude Code developer state
+.claude/active-feature.json
