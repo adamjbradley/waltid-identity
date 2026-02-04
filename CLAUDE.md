@@ -216,11 +216,11 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 2. Set `signed_request: true` in the request body
 3. Include the signing `key` (JWK with private key) and `x5c` (certificate chain)
 
-**Endpoint:** `POST http://localhost:7004/verification-session/create`
+**Endpoint:** `POST https://verifier2.theaustraliahack.com/verification-session/create`
 
 **Minimal Working Example (SD-JWT PID):**
 ```bash
-curl -X POST "http://localhost:7004/verification-session/create" \
+curl -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
   -H "Content-Type: application/json" \
   -d '{
     "flow_type": "cross_device",
@@ -242,7 +242,7 @@ curl -X POST "http://localhost:7004/verification-session/create" \
 
 **Response:** Use `bootstrapAuthorizationRequestUrl` for QR code generation.
 
-**Check Result:** `curl http://localhost:7004/verification-session/{sessionId}/info`
+**Check Result:** `curl https://verifier2.theaustraliahack.com/verification-session/{sessionId}/info`
 
 **Common Wallet Errors:**
 | Error | Cause | Fix |
