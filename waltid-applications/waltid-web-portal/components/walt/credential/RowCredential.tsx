@@ -1,4 +1,4 @@
-import {AvailableCredential, CredentialFormats, DIDMethods} from "@/types/credentials";
+import {AvailableCredential, CredentialFormats, DIDMethods, mapFormat, isEudiFormat} from "@/types/credentials";
 import EditCredentialModal from "../modal/EditCredentialModal";
 import {PencilSquareIcon} from "@heroicons/react/24/outline";
 import Dropdown from "@/components/walt/forms/Dropdown";
@@ -54,6 +54,17 @@ export default function RowCredential({
           <span className="text-gray-900 text-lg text-left">
             {credentialToEdit.title}
           </span>
+          {(() => {
+            try {
+              return isEudiFormat(mapFormat(selectedFormat)) && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                  EUDI
+                </span>
+              );
+            } catch {
+              return null;
+            }
+          })()}
           <PencilSquareIcon
             onClick={() => {
               setModalVisible(true);

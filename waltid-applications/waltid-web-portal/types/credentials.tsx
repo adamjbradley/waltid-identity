@@ -95,6 +95,7 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
 export interface VerificationSessionRequest {
   flow_type: string;
   core_flow: {
+    signed_request?: boolean;
     dcql_query: DcqlQuery;
   };
 }
@@ -105,6 +106,8 @@ export function buildVerificationSessionRequest(
   return {
     flow_type: 'cross_device',
     core_flow: {
+      // EUDI wallets require signed JAR requests for verification
+      signed_request: true,
       dcql_query: dcqlQuery,
     },
   };

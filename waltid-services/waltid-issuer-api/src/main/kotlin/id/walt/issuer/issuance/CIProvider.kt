@@ -16,6 +16,7 @@ import id.walt.crypto.utils.Base64Utils.encodeToBase64
 import id.walt.crypto.utils.Base64Utils.encodeToBase64Url
 import id.walt.crypto.utils.UuidUtils.randomUUIDString
 import id.walt.issuer.config.CredentialTypeConfig
+import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
@@ -106,6 +107,17 @@ open class CIProvider(
 
     companion object {
         private val log = KotlinLogging.logger { }
+
+        // EUDI mDoc config - loaded lazily with null fallback if not configured
+        private val eudiMdocConfig: EudiMdocConfig? by lazy {
+            try {
+                ConfigManager.getConfig<EudiMdocConfig>()
+            } catch (e: Exception) {
+                log.debug { "EudiMdocConfig not configured, mDoc x5Chain defaults not available: ${e.message}" }
+                null
+            }
+        }
+
         private val http = HttpClient {
             install(ContentNegotiation) {
                 json()
@@ -481,6 +493,12 @@ open class CIProvider(
 
         val keyID = resolvedIssuerKey.getKeyId()
 
+        // Use x5Chain from request, fallback to EUDI config defaults if not provided
+        val effectiveX5Chain = request.x5Chain ?: eudiMdocConfig?.x5Chain
+        if (effectiveX5Chain.isNullOrEmpty()) {
+            log.warn { "No x5Chain provided in request and no EUDI mDoc config defaults available. mDoc verification may fail." }
+        }
+
         val cryptoProvider = SimpleCOSECryptoProvider(
             listOf(
                 COSECryptoProviderKeyInfo(
@@ -488,7 +506,7 @@ open class CIProvider(
                     algorithmID = AlgorithmID.ECDSA_256,
                     publicKey = issuerKey.toECPublicKey(),
                     privateKey = issuerKey.toECPrivateKey(),
-                    x5Chain = request.x5Chain?.map { X509CertUtils.parse(it) } ?: listOf(),
+                    x5Chain = effectiveX5Chain?.map { X509CertUtils.parse(it) } ?: listOf(),
                     trustedRootCAs = request.trustedRootCAs?.map { X509CertUtils.parse(it) } ?: listOf()
                 )
             )
