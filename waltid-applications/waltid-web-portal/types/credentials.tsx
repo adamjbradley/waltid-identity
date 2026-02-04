@@ -1,26 +1,46 @@
+export interface ClaimDefinition {
+  path: string[];
+}
+
 export type AvailableCredential = {
   id: string;
   title: string;
   selectedFormat?: String;
   selectedDID?: String;
   offer: any;
+  defaultClaims?: ClaimDefinition[];
 };
 
 export const EudiCredentials: AvailableCredential[] = [
   {
     id: 'eu.europa.ec.eudi.pid.1',
     title: 'EU Personal ID (mDoc)',
-    offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+    offer: { doctype: 'eu.europa.ec.eudi.pid.1' },
+    defaultClaims: [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ]
   },
   {
     id: 'org.iso.18013.5.1.mDL',
     title: 'Mobile Driving License',
-    offer: { doctype: 'org.iso.18013.5.1.mDL' }
+    offer: { doctype: 'org.iso.18013.5.1.mDL' },
+    defaultClaims: [
+      { path: ['org.iso.18013.5.1', 'family_name'] },
+      { path: ['org.iso.18013.5.1', 'given_name'] },
+      { path: ['org.iso.18013.5.1', 'birth_date'] },
+    ]
   },
   {
     id: 'urn:eudi:pid:1',
     title: 'EU Personal ID (SD-JWT)',
-    offer: { vct: 'urn:eudi:pid:1' }
+    offer: { vct: 'urn:eudi:pid:1' },
+    defaultClaims: [
+      { path: ['family_name'] },
+      { path: ['given_name'] },
+      { path: ['birth_date'] },
+    ]
   }
 ];
 
@@ -61,6 +81,7 @@ export interface DcqlCredential {
     doctype_value?: string;
     vct_values?: string[];
   };
+  claims?: { path: string[] }[];
 }
 
 export interface DcqlQuery {
@@ -70,6 +91,10 @@ export interface DcqlQuery {
 export function buildDcqlQuery(credentials: AvailableCredential[], format: string): DcqlQuery {
   return {
     credentials: credentials.map((credential) => {
+      // Get default claims from credential definition, or use fallback defaults
+      const claims = credential.defaultClaims?.map(c => ({ path: c.path })) ||
+        getDefaultClaimsForCredential(credential.id, format);
+
       if (format === 'mso_mdoc') {
         return {
           id: credential.id,
@@ -77,6 +102,7 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
           meta: {
             doctype_value: credential.offer.doctype || credential.id,
           },
+          claims,
         };
       } else {
         // dc+sd-jwt
@@ -86,10 +112,34 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
           meta: {
             vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
           },
+          claims,
         };
       }
     }),
   };
+}
+
+// Fallback default claims for known EUDI credential types
+function getDefaultClaimsForCredential(credentialId: string, format: string): { path: string[] }[] {
+  const defaultClaimsMap: Record<string, { path: string[] }[]> = {
+    'eu.europa.ec.eudi.pid.1': [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ],
+    'org.iso.18013.5.1.mDL': [
+      { path: ['org.iso.18013.5.1', 'family_name'] },
+      { path: ['org.iso.18013.5.1', 'given_name'] },
+      { path: ['org.iso.18013.5.1', 'birth_date'] },
+    ],
+    'urn:eudi:pid:1': [
+      { path: ['family_name'] },
+      { path: ['given_name'] },
+      { path: ['birth_date'] },
+    ],
+  };
+
+  return defaultClaimsMap[credentialId] || [];
 }
 
 export interface VerificationSessionRequest {
