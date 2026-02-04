@@ -2,11 +2,11 @@
 
 ## Format Summary
 
-| Credential | Configuration ID | Format | Type Field |
-|------------|------------------|--------|------------|
-| EUDI PID (mDoc) | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` | doctype |
-| EUDI PID (SD-JWT) | `urn:eu.europa.ec.eudi:pid:1` | `dc+sd-jwt` | vct |
-| mDL | `org.iso.18013.5.1.mDL` | `mso_mdoc` | doctype |
+| Credential | Configuration ID | Format | Type Field | Status |
+|------------|------------------|--------|------------|--------|
+| EUDI PID (mDoc) | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` | doctype | ✅ Verified |
+| EUDI PID (SD-JWT) | `urn:eudi:pid:1` | `dc+sd-jwt` | vct | ✅ Verified |
+| mDL | `org.iso.18013.5.1.mDL` | `mso_mdoc` | doctype | ⚠️ Needs Investigation |
 
 ## EUDI PID (mso_mdoc)
 
@@ -43,9 +43,9 @@
 
 ```json
 {
-  "credential_configuration_id": "urn:eu.europa.ec.eudi:pid:1",
+  "credential_configuration_id": "urn:eudi:pid:1",
   "format": "dc+sd-jwt",
-  "vct": "urn:eu.europa.ec.eudi:pid:1"
+  "vct": "urn:eudi:pid:1"
 }
 ```
 
@@ -138,7 +138,7 @@ curl -X POST http://localhost:7002/openid4vc/sdjwt/issue \
   -H "Content-Type: application/json" \
   -d '{
     "issuerKey": {"type": "jwk", "jwk": {...}},
-    "credentialConfigurationId": "urn:eu.europa.ec.eudi:pid:1",
+    "credentialConfigurationId": "urn:eudi:pid:1",
     "credentialData": {
       "family_name": "MUSTERMANN",
       "given_name": "ERIKA",
