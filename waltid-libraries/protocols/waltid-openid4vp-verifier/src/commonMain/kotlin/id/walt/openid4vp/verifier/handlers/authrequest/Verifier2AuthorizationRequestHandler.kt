@@ -5,6 +5,7 @@ import id.walt.openid4vp.verifier.data.SessionEvent
 import id.walt.openid4vp.verifier.data.Verification2Session
 import id.walt.verifier.openid.models.authorization.AuthorizationRequest
 import id.walt.verifier.openid.models.openid.OpenID4VPResponseMode
+import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
@@ -14,6 +15,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlin.jvm.JvmInline
 
 object Verifier2AuthorizationRequestHandler {
+
+    /**
+     * RFC 9101 (JAR) Section 10.2 mandates: application/oauth-authz-req+jwt
+     * EUDI wallet validates Content-Type to determine signed vs unsigned requests
+     */
+    val JarContentType: ContentType = ContentType("application", "oauth-authz-req+jwt")
 
     private fun dcApiWrapper(protocol: String, data: JsonObject) = mapOf(
         "digital" to mapOf(
@@ -53,7 +60,7 @@ object Verifier2AuthorizationRequestHandler {
         )
 
         when (formattedSessionResponse) {
-            is JWTStringResponse -> call.respond(formattedSessionResponse.jwt)
+            is JWTStringResponse -> call.respondText(formattedSessionResponse.jwt, JarContentType)
             is JsonObjectResponse -> call.respond(formattedSessionResponse.json)
             is RawAuthorizationRequestResponse -> call.respond(formattedSessionResponse.authorizationRequest)
         }
