@@ -219,6 +219,36 @@ open class CIProvider(
         authSessions.remove(id)
     }
 
+    /**
+     * Cleans up sessions with invalid issuer keys on startup.
+     * This prevents corrupt keys from breaking the JWKS endpoint.
+     */
+    suspend fun cleanupInvalidSessions() {
+        log.info { "Starting cleanup of sessions with invalid keys..." }
+        var cleanedCount = 0
+        var totalCount = 0
+
+        authSessions.getAll().forEach { session ->
+            totalCount++
+            session.issuanceRequests.forEach { request ->
+                val validationResult = KeyValidationService.validateIssuerKey(request.issuerKey)
+                if (validationResult.isFailure) {
+                    val error = validationResult.exceptionOrNull()
+                    log.warn { "Removing session ${session.id} due to invalid key: ${error?.message}" }
+                    removeSession(session.id)
+                    cleanedCount++
+                    return@forEach // Move to next session
+                }
+            }
+        }
+
+        if (cleanedCount > 0) {
+            log.info { "Cleaned up $cleanedCount sessions with invalid keys (of $totalCount total)" }
+        } else {
+            log.debug { "No sessions with invalid keys found (checked $totalCount sessions)" }
+        }
+    }
+
     private fun getVerifiedSession(sessionId: String): IssuanceSession? {
         return getSession(sessionId)?.let {
             if (it.isExpired) {
@@ -557,23 +587,29 @@ open class CIProvider(
             })
         }
         authSessions.getAll().forEach { session ->
-            session.issuanceRequests.forEach {
-                val resolvedIssuerKey = KeyManager.resolveSerializedKey(it.issuerKey)
-                jwksList = buildJsonObject {
-                    put("keys", buildJsonArray {
-                        val jwkWithKid = buildJsonObject {
-                            resolvedIssuerKey.getPublicKey().exportJWKObject().forEach {
-                                put(it.key, it.value)
+            session.issuanceRequests.forEach { request ->
+                try {
+                    val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+                    jwksList = buildJsonObject {
+                        put("keys", buildJsonArray {
+                            val jwkWithKid = buildJsonObject {
+                                resolvedIssuerKey.getPublicKey().exportJWKObject().forEach {
+                                    put(it.key, it.value)
+                                }
+                                put(JWTClaims.Header.keyID, resolvedIssuerKey.getPublicKey().getKeyId())
                             }
-                            put(JWTClaims.Header.keyID, resolvedIssuerKey.getPublicKey().getKeyId())
-                        }
-                        add(jwkWithKid)
-                        jwksList.forEach {
-                            it.value.jsonArray.forEach {
-                                add(it)
+                            add(jwkWithKid)
+                            jwksList.forEach {
+                                it.value.jsonArray.forEach {
+                                    add(it)
+                                }
                             }
-                        }
-                    })
+                        })
+                    }
+                } catch (e: Exception) {
+                    // Skip invalid keys - they should have been validated at issuance time
+                    // Log warning and continue to keep JWKS endpoint operational
+                    log.warn { "Skipping invalid key in session ${session.id}: ${e.message}" }
                 }
             }
         }

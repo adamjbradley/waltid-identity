@@ -10,6 +10,7 @@ import id.walt.crypto.keys.aws.WaltCryptoAws
 import id.walt.crypto.keys.azure.WaltCryptoAzure
 import id.walt.did.dids.DidService
 import id.walt.issuer.entra.entraIssuance
+import id.walt.issuer.issuance.OidcApi
 import id.walt.issuer.issuance.OidcApi.oidcApi
 import id.walt.issuer.issuance.issuerApi
 import id.walt.issuer.web.controllers.onboarding.onboardingApi
@@ -30,6 +31,8 @@ suspend fun main(args: Array<String>) {
                 DidService.minimalInit()
                 WaltCryptoAws.init()
                 WaltCryptoAzure.init()
+                // Clean up any sessions with invalid keys from previous runs
+                OidcApi.cleanupInvalidSessions()
             },
             run = WebService(Application::issuerModule).run()
         )
