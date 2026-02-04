@@ -17,7 +17,7 @@ This guide documents the end-to-end verification flow with the EUDI Reference Wa
 ## Prerequisites
 
 1. **EUDI Wallet** with a PID mDoc credential issued
-2. **Verifier certificate** in wallet's trust store (see [wallet-trust-store-update.md](../docker-compose/docs/wallet-trust-store-update.md))
+2. **Verifier certificate** in wallet's trust store (see [wallet-trust-store-update.md](wallet-trust-store-update.md))
 3. **verifier-api2** running with X.509 certificate configured
 
 ## Create a Verification Session
@@ -172,7 +172,43 @@ The following policies are applied to mso_mdoc credentials:
 
 **Cause:** Verifier certificate not in wallet's trust store.
 
-**Solution:** See [wallet-trust-store-update.md](../docker-compose/docs/wallet-trust-store-update.md) for instructions on adding certificates to the EUDI wallet trust store.
+**Solution:** See [wallet-trust-store-update.md](wallet-trust-store-update.md) for instructions on adding certificates to the EUDI wallet trust store.
+
+## OpenID4VP URI Schemes
+
+The EUDI wallet supports multiple URI schemes:
+
+| Scheme | Description |
+|--------|-------------|
+| `openid4vp://` | Standard OpenID4VP |
+| `eudi-openid4vp://` | EUDI-specific scheme |
+| `mdoc-openid4vp://` | ISO 18013-7 mDoc scheme |
+| `haip://` | HAIP scheme |
+
+## Session Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `UNUSED` | Session created, waiting for wallet |
+| `IN_USE` | Wallet fetched the authorization request |
+| `SUCCESSFUL` | Verification completed successfully |
+| `UNSUCCESSFUL` | Verification failed |
+
+## Legacy Verifier (verifier-api)
+
+For the legacy verifier using draft protocols:
+
+```bash
+curl -X POST https://verifier.theaustraliahack.com/openid4vc/verify \
+  -H "Content-Type: application/json" \
+  -H "authorizeBaseUrl: openid4vp://authorize" \
+  -d '{
+    "request_credentials": [{
+      "format": "mso_mdoc",
+      "doctype": "eu.europa.ec.eudi.pid.1"
+    }]
+  }'
+```
 
 ## References
 

@@ -206,7 +206,7 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 - Client ID: `verifier.theaustraliahack.com`
 - Certificate: `docker-compose/verifier-api/config/keys/verifier.theaustraliahack.com.cert.pem`
 
-**Important:** The EUDI wallet must have the verifier certificates in its trust store. See `docker-compose/docs/wallet-trust-store-update.md` for configuration instructions.
+**Important:** The EUDI wallet must have the verifier certificates in its trust store. See [`docs/eudi/wallet-trust-store-update.md`](docs/eudi/wallet-trust-store-update.md) for configuration instructions.
 
 **Testing:** For end-to-end verification testing instructions, see [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md).
 
