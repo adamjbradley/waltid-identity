@@ -192,6 +192,22 @@ docker compose up -d --force-recreate issuer-api
 | DC+SD-JWT (EUDI) | `dc+sd-jwt` |
 | mDoc (ISO 18013-5) | `mso_mdoc` |
 
+### EUDI Verification Configuration
+
+The verifier services are configured with X.509 certificates for EUDI wallet compatibility.
+
+**verifier-api2 (modern):**
+- URL: `https://verifier2.theaustraliahack.com`
+- Client ID: `x509_san_dns:verifier2.theaustraliahack.com`
+- Certificate: `docker-compose/verifier-api2/keys/verifier2.theaustraliahack.com.cert.pem`
+
+**verifier-api (legacy):**
+- URL: `https://verifier.theaustraliahack.com`
+- Client ID: `verifier.theaustraliahack.com`
+- Certificate: `docker-compose/verifier-api/config/keys/verifier.theaustraliahack.com.cert.pem`
+
+**Important:** The EUDI wallet must have the verifier certificates in its trust store. See `docker-compose/docs/wallet-trust-store-update.md` for configuration instructions.
+
 ## Platform-Specific Builds
 
 ```bash
