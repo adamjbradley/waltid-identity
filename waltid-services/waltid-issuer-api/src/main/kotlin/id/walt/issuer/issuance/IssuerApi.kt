@@ -33,6 +33,38 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Validates the issuer key in an issuance request before processing.
+ * Throws BadRequestException with structured error details on validation failure.
+ */
+suspend fun validateIssuanceRequestKey(request: IssuanceRequest) {
+    val result = KeyValidationService.validateIssuerKey(request.issuerKey)
+    if (result.isFailure) {
+        val exception = result.exceptionOrNull()
+        if (exception is KeyValidationException) {
+            throw BadRequestException(
+                message = exception.description,
+                cause = exception
+            )
+        }
+        throw BadRequestException("Invalid issuer key: ${exception?.message}")
+    }
+}
+
+/**
+ * Validates all issuer keys in a batch of issuance requests.
+ */
+suspend fun validateIssuanceRequestKeys(requests: List<IssuanceRequest>) {
+    requests.forEachIndexed { index, request ->
+        try {
+            validateIssuanceRequestKey(request)
+        } catch (e: BadRequestException) {
+            throw BadRequestException("Invalid issuer key in request at index $index: ${e.message}", e)
+        }
+    }
+}
+
 fun createCredentialOfferUri(
     issuanceRequests: List<IssuanceRequest>,
     credentialFormat: CredentialFormat,
@@ -114,6 +146,7 @@ fun Application.issuerApi() {
                 route("jwt") {
                     post("issue", getJwtDocs()) {
                         val jwtIssuanceRequest = call.receive<IssuanceRequest>()
+                        validateIssuanceRequestKey(jwtIssuanceRequest)
                         val offerUri = createCredentialOfferUri(
                             issuanceRequests = listOf(jwtIssuanceRequest),
                             credentialFormat = getFormatByCredentialConfigurationId(jwtIssuanceRequest.credentialConfigurationId)
@@ -129,6 +162,7 @@ fun Application.issuerApi() {
 
                     post("issueBatch", getJwtBatchDocs()) {
                         val issuanceRequests = call.receive<List<IssuanceRequest>>()
+                        validateIssuanceRequestKeys(issuanceRequests)
                         val offerUri = createCredentialOfferUri(
                             issuanceRequests = issuanceRequests,
                             credentialFormat = getFormatByCredentialConfigurationId(issuanceRequests.first().credentialConfigurationId)
@@ -147,6 +181,7 @@ fun Application.issuerApi() {
                 route("sdjwt") {
                     post("issue", getSdJwtDocs()) {
                         val sdJwtIssuanceRequest = call.receive<IssuanceRequest>()
+                        validateIssuanceRequestKey(sdJwtIssuanceRequest)
                         val offerUri = createCredentialOfferUri(
                             issuanceRequests = listOf(sdJwtIssuanceRequest),
                             credentialFormat = getFormatByCredentialConfigurationId(sdJwtIssuanceRequest.credentialConfigurationId)
@@ -163,6 +198,7 @@ fun Application.issuerApi() {
 
                     post("issueBatch", getSdJwtBatchDocs()) {
                         val sdJwtIssuanceRequests = call.receive<List<IssuanceRequest>>()
+                        validateIssuanceRequestKeys(sdJwtIssuanceRequests)
                         val offerUri =
                             createCredentialOfferUri(
                                 issuanceRequests = sdJwtIssuanceRequests,
@@ -184,6 +220,7 @@ fun Application.issuerApi() {
                 route("mdoc") {
                     post("issue", getMdocsDocs()) {
                         val mdocIssuanceRequest = call.receive<IssuanceRequest>()
+                        validateIssuanceRequestKey(mdocIssuanceRequest)
                         val offerUri = createCredentialOfferUri(
                             issuanceRequests = listOf(mdocIssuanceRequest),
                             credentialFormat = getFormatByCredentialConfigurationId(mdocIssuanceRequest.credentialConfigurationId)

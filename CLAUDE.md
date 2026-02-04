@@ -151,6 +151,7 @@ docker compose --profile identity up -d issuer-api
 **Verification:**
 - `waltid-verifier-api2` is the modern verifier using OpenID4VP 1.0 + DCQL
 - `waltid-verifier-api` is legacy (draft protocols)
+- **EUDI wallets require signed JAR requests** - see "EUDI Verification API" section for required payload format
 
 ## EUDI Wallet Compatibility
 
@@ -207,6 +208,22 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 - Certificate: `docker-compose/verifier-api/config/keys/verifier.theaustraliahack.com.cert.pem`
 
 **Important:** The EUDI wallet must have the verifier certificates in its trust store. See [`docs/eudi/wallet-trust-store-update.md`](docs/eudi/wallet-trust-store-update.md) for configuration instructions.
+
+### EUDI Verification API (verifier-api2)
+
+**CRITICAL:** EUDI wallets require **signed JAR (JWT-Secured Authorization Requests)**. You MUST:
+1. Use `verifier-api2`, NOT `verifier-api` (legacy)
+2. Set `signed_request: true` in the request body
+3. Include the signing `key` (JWK with private key) and `x5c` (certificate chain)
+
+See [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md) for copy-paste ready examples.
+
+**Common Wallet Errors:**
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `InvalidClientIdPrefix` | Using verifier-api (legacy) | Use verifier-api2 |
+| `InvalidJarJwt` | Missing signed_request | Add `signed_request: true` with key & x5c |
+| `did not provide a key` | Missing key/x5c | Include both in core_flow |
 
 ### EUDI Wallet Testing
 
