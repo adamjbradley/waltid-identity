@@ -67,6 +67,14 @@ object VerificationSessionCreator {
         val isDcApi = setup is DcApiFlowSetup
         val isDcApiHaip = isDcApi && setup.haip
 
+        // Validate key requirements for signed/encrypted requests (after config defaults are applied)
+        if (isSignedRequest) {
+            requireNotNull(key) { "Requested signed request, but no key available (not in request or config)!" }
+        }
+        if (isEncryptedResponse) {
+            requireNotNull(key) { "Requested encrypted response, but no key available (not in request or config)!" }
+        }
+
         var ephemeralKey: JWKKey? = null
 
         if (isDcApi) {
