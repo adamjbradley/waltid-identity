@@ -151,6 +151,7 @@ docker compose --profile identity up -d issuer-api
 **Verification:**
 - `waltid-verifier-api2` is the modern verifier using OpenID4VP 1.0 + DCQL
 - `waltid-verifier-api` is legacy (draft protocols)
+- **EUDI wallets require signed JAR requests** - see "EUDI Verification API" section for required payload format
 
 ## EUDI Wallet Compatibility
 
