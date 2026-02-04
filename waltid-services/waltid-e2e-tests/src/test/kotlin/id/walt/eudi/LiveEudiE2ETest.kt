@@ -53,7 +53,7 @@ class LiveEudiE2ETest {
         // EUDI Credential Configuration IDs
         const val EUDI_PID_MDOC_CONFIG_ID = "eu.europa.ec.eudi.pid.1"
         const val EUDI_MDL_CONFIG_ID = "org.iso.18013.5.1.mDL"
-        const val EUDI_PID_SDJWT_CONFIG_ID = "eu.europa.ec.eudi.pid_vc_sd_jwt"
+        const val EUDI_PID_SDJWT_CONFIG_ID = "urn:eudi:pid:1"
 
         // VCT for SD-JWT PID
         const val EUDI_PID_VCT = "urn:eudi:pid:1"
