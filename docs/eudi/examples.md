@@ -4,22 +4,43 @@
 
 All examples in this document have been tested against the live issuer and verifier APIs.
 
+## Test Results Summary
+
+| Credential | Issuance | Verification (VP) | Verification (VC Sig) | Notes |
+|------------|----------|-------------------|----------------------|-------|
+| PID mDoc | ✅ | ✅ | ⚠️ | mDoc requires IACA chain for signature verification |
+| PID SD-JWT | ✅ | ✅ | ⚠️ | Custom keys not in JWKS; VP policies all pass |
+| mDL | ✅ | ⚠️ | ⚠️ | Skipped - needs IACA chain |
+
+**Key Finding:** Presentation flows work correctly. Credential signature verification requires issuer keys to be published in JWKS or have proper IACA certificate chains.
+
 ---
 
 ## Issuer Key (for all examples)
+
+**IMPORTANT:** The key must have valid P-256 curve coordinates. Invalid coordinates will cause a 500 error.
 
 ```json
 {
   "type": "jwk",
   "jwk": {
     "kty": "EC",
-    "d": "mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc",
     "crv": "P-256",
-    "kid": "test-key-1",
-    "x": "dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g",
-    "y": "L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"
+    "x": "_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ",
+    "y": "nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q",
+    "d": "URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A",
+    "kid": "eudi-issuer-key-1"
   }
 }
+```
+
+To generate a new valid P-256 key:
+```bash
+node -e "
+const { generateKeyPairSync } = require('crypto');
+const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+console.log(JSON.stringify(privateKey.export({ format: 'jwk' }), null, 2));
+"
 ```
 
 ## Verifier Key and Certificate (for signed verification)
@@ -44,9 +65,11 @@ All examples in this document have been tested against the live issuer and verif
 
 # Issuance Examples
 
-## 1. EUDI PID (mDoc)
+## 1. EUDI PID (mDoc) ✅ Verified
 
 ### Request
+
+**IMPORTANT:** For mDoc credentials, use `mdocData` (NOT `credentialData`) with namespaced claims.
 
 ```bash
 curl -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
@@ -56,22 +79,24 @@ curl -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
       "type": "jwk",
       "jwk": {
         "kty": "EC",
-        "d": "mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc",
         "crv": "P-256",
-        "kid": "test-key-1",
-        "x": "dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g",
-        "y": "L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"
+        "x": "_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ",
+        "y": "nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q",
+        "d": "URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A",
+        "kid": "eudi-issuer-key-1"
       }
     },
     "credentialConfigurationId": "eu.europa.ec.eudi.pid.1",
-    "credentialData": {
-      "family_name": "DOE",
-      "given_name": "JOHN",
-      "birth_date": "1990-01-15",
-      "issuance_date": "2026-02-04",
-      "expiry_date": "2031-02-04",
-      "issuing_country": "AU",
-      "issuing_authority": "Test Authority"
+    "mdocData": {
+      "eu.europa.ec.eudi.pid.1": {
+        "family_name": "DOE",
+        "given_name": "JOHN",
+        "birth_date": "1990-01-15",
+        "issuance_date": "2026-02-04",
+        "expiry_date": "2031-02-04",
+        "issuing_country": "AU",
+        "issuing_authority": "Test Authority"
+      }
     }
   }'
 ```
@@ -88,6 +113,8 @@ openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.theaustrali
 
 ### Request
 
+**Note:** SD-JWT uses flat `credentialData` (not namespaced like mDoc).
+
 ```bash
 curl -X POST "https://issuer.theaustraliahack.com/openid4vc/sdjwt/issue" \
   -H "Content-Type: application/json" \
@@ -96,11 +123,11 @@ curl -X POST "https://issuer.theaustraliahack.com/openid4vc/sdjwt/issue" \
       "type": "jwk",
       "jwk": {
         "kty": "EC",
-        "d": "mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc",
         "crv": "P-256",
-        "kid": "test-key-1",
-        "x": "dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g",
-        "y": "L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"
+        "x": "_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ",
+        "y": "nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q",
+        "d": "URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A",
+        "kid": "eudi-issuer-key-1"
       }
     },
     "credentialConfigurationId": "urn:eudi:pid:1",
@@ -128,6 +155,8 @@ openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.theaustrali
 
 ### Request
 
+**IMPORTANT:** For mDoc credentials, use `mdocData` with namespace `org.iso.18013.5.1`.
+
 ```bash
 curl -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
   -H "Content-Type: application/json" \
@@ -136,30 +165,32 @@ curl -X POST "https://issuer.theaustraliahack.com/openid4vc/mdoc/issue" \
       "type": "jwk",
       "jwk": {
         "kty": "EC",
-        "d": "mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc",
         "crv": "P-256",
-        "kid": "test-key-1",
-        "x": "dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g",
-        "y": "L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"
+        "x": "_-t2Oc_Nra8Cgix7Nw2-_RuZt5KrgVZsK3r8aTMSsVQ",
+        "y": "nkaVInW3t_q5eB85KnULykQbprApT2RCNZZuJlNPD2Q",
+        "d": "URb-8MihTBwKpFA91vzVfcuqxj5qhjNrnhd2fARX62A",
+        "kid": "eudi-issuer-key-1"
       }
     },
     "credentialConfigurationId": "org.iso.18013.5.1.mDL",
-    "credentialData": {
-      "family_name": "DOE",
-      "given_name": "JOHN",
-      "birth_date": "1990-01-15",
-      "issue_date": "2023-01-01",
-      "expiry_date": "2033-01-01",
-      "issuing_country": "AU",
-      "issuing_authority": "Roads and Maritime Services",
-      "document_number": "DL123456",
-      "driving_privileges": [
-        {
-          "vehicle_category_code": "C",
-          "issue_date": "2023-01-01",
-          "expiry_date": "2033-01-01"
-        }
-      ]
+    "mdocData": {
+      "org.iso.18013.5.1": {
+        "family_name": "DOE",
+        "given_name": "JOHN",
+        "birth_date": "1990-01-15",
+        "issue_date": "2023-01-01",
+        "expiry_date": "2033-01-01",
+        "issuing_country": "AU",
+        "issuing_authority": "Roads and Maritime Services",
+        "document_number": "DL123456",
+        "driving_privileges": [
+          {
+            "vehicle_category_code": "C",
+            "issue_date": "2023-01-01",
+            "expiry_date": "2033-01-01"
+          }
+        ]
+      }
     }
   }'
 ```
@@ -282,13 +313,17 @@ curl -X POST "https://verifier2.theaustraliahack.com/verification-session/create
 
 | Policy | Description | Status |
 |--------|-------------|--------|
-| `sd-jwt/holder-binding` | Verify holder key binding | ✅ |
-| `sd-jwt/not-before` | Check nbf claim | ✅ |
-| `sd-jwt/expiration` | Check exp claim | ✅ |
-| `sd-jwt/issuer-trust` | Verify issuer | ✅ |
-| `signature` | Verify credential signature | ✅ |
+| `dc+sd-jwt/audience-check` | Verify presentation audience | ✅ |
+| `dc+sd-jwt/kb-jwt_signature` | Verify holder key binding JWT | ✅ |
+| `dc+sd-jwt/nonce-check` | Check presentation nonce | ✅ |
+| `dc+sd-jwt/sd_hash-check` | Verify SD-JWT hash | ✅ |
+| `signature` | Verify credential signature | ⚠️ |
 
-**Note:** SD-JWT signature verification requires the issuer to publish JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`.
+**Known Limitation:** SD-JWT signature verification requires the issuer to publish JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`.
+When using custom per-request issuer keys, the verifier cannot resolve the public key from JWKS and signature verification fails.
+All VP (presentation) policies pass, confirming the wallet correctly presented the credential with proper key binding.
+
+**Workaround:** For full signature verification, use the issuer's pre-configured IACA-signed key that is published in JWKS.
 
 ---
 
