@@ -73,11 +73,15 @@ export default function Verification() {
             }
           );
 
-          setverifyURL(response.data);
+          // API2 returns an object with bootstrapAuthorizationRequestUrl
+          const verificationUrl = response.data.bootstrapAuthorizationRequestUrl;
+          const sessionId = response.data.sessionId;
+
+          setverifyURL(verificationUrl);
           setUsedApi2(true);
           setLoading(false);
 
-          const state = getStateFromUrl(response.data);
+          const state = sessionId || getStateFromUrl(verificationUrl);
           if (state) {
             checkVerificationResult(verifier2Url, state, true).then((result) => {
               if (result) {
