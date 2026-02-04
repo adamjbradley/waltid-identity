@@ -1,7 +1,8 @@
-import {AvailableCredential, CredentialFormats, DIDMethods, mapFormat, isEudiFormat} from "@/types/credentials";
+import {AvailableCredential, CredentialFormats, DIDMethods, mapFormat, isEudiFormat, ClaimDefinition} from "@/types/credentials";
 import EditCredentialModal from "../modal/EditCredentialModal";
 import {PencilSquareIcon} from "@heroicons/react/24/outline";
 import Dropdown from "@/components/walt/forms/Dropdown";
+import ClaimsEditor from "@/components/walt/forms/ClaimsEditor";
 import React from "react";
 
 type Props = {
@@ -23,6 +24,10 @@ export default function RowCredential({
   );
   const [selectedDID, setSelectedDID] = React.useState(DIDMethods[0]);
   const [modalVisible, setModalVisible] = React.useState(false);
+  // Initialize claims from defaultClaims or empty array
+  const [claims, setClaims] = React.useState<ClaimDefinition[]>(
+    credentialToEdit.defaultClaims || []
+  );
 
   React.useEffect(() => {
     setCredentialsToIssue(
@@ -35,6 +40,7 @@ export default function RowCredential({
           }
           updatedCredential.selectedFormat = selectedFormat;
           updatedCredential.selectedDID = selectedDID;
+          updatedCredential.editedClaims = claims;
 
           return updatedCredential;
         } else {
@@ -44,7 +50,7 @@ export default function RowCredential({
         }
       })
     );
-  }, [credentialSubject, selectedFormat, selectedDID]);
+  }, [credentialSubject, selectedFormat, selectedDID, claims]);
 
   return (
     <>
@@ -90,6 +96,25 @@ export default function RowCredential({
           </div>
         </div>
       </div>
+      {/* Render ClaimsEditor only for EUDI formats */}
+      {(() => {
+        try {
+          const format = mapFormat(selectedFormat);
+          if (isEudiFormat(format)) {
+            return (
+              <ClaimsEditor
+                credentialTitle={credentialToEdit.title}
+                credentialId={credentialToEdit.id}
+                claims={claims}
+                onChange={setClaims}
+              />
+            );
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })()}
       <EditCredentialModal
         show={modalVisible}
         onClose={() => {
