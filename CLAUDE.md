@@ -208,6 +208,8 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 
 **Important:** The EUDI wallet must have the verifier certificates in its trust store. See `docker-compose/docs/wallet-trust-store-update.md` for configuration instructions.
 
+**Testing:** For end-to-end verification testing instructions, see [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md).
+
 ## Platform-Specific Builds
 
 ```bash
