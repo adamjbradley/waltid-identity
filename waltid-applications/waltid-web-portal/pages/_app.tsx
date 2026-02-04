@@ -2,7 +2,7 @@ import React from "react";
 import axios from "axios";
 import "@/styles/globals.css";
 import type {AppProps} from "next/app";
-import {AvailableCredential} from "@/types/credentials";
+import {AvailableCredential, EudiCredentials} from "@/types/credentials";
 
 export const EnvContext = React.createContext({} as { [key: string]: string });
 export const CredentialsContext = React.createContext([
@@ -13,7 +13,7 @@ export const CredentialsContext = React.createContext([
 export default function App({ Component, pageProps }: AppProps) {
   const [AvailableCredentials, setAvailableCredentials] = React.useState<
     AvailableCredential[]
-  >([]);
+  >([...EudiCredentials]);
   const [env, setEnv] = React.useState({} as { [key: string]: string });
 
   React.useEffect(() => {

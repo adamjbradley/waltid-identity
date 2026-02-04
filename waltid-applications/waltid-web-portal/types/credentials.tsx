@@ -6,6 +6,24 @@ export type AvailableCredential = {
   offer: any;
 };
 
+export const EudiCredentials: AvailableCredential[] = [
+  {
+    id: 'eu.europa.ec.eudi.pid.1',
+    title: 'EU Personal ID (mDoc)',
+    offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+  },
+  {
+    id: 'org.iso.18013.5.1.mDL',
+    title: 'Mobile Driving License',
+    offer: { doctype: 'org.iso.18013.5.1.mDL' }
+  },
+  {
+    id: 'urn:eudi:pid:1',
+    title: 'EU Personal ID (SD-JWT)',
+    offer: { vct: 'urn:eudi:pid:1' }
+  }
+];
+
 export const CredentialFormats = [
   'JWT + W3C VC',
   'SD-JWT + W3C VC',
@@ -29,6 +47,67 @@ export function mapFormat(format: string): string {
     default:
       throw new Error(`Unsupported format: ${format}`);
   }
+}
+
+// Check if format requires Verifier API2 (EUDI formats)
+export function isEudiFormat(format: string): boolean {
+  return format === 'dc+sd-jwt' || format === 'mso_mdoc';
+}
+
+export interface DcqlCredential {
+  id: string;
+  format: string;
+  meta: {
+    doctype_value?: string;
+    vct_values?: string[];
+  };
+}
+
+export interface DcqlQuery {
+  credentials: DcqlCredential[];
+}
+
+export function buildDcqlQuery(credentials: AvailableCredential[], format: string): DcqlQuery {
+  return {
+    credentials: credentials.map((credential) => {
+      if (format === 'mso_mdoc') {
+        return {
+          id: credential.id,
+          format: 'mso_mdoc',
+          meta: {
+            doctype_value: credential.offer.doctype || credential.id,
+          },
+        };
+      } else {
+        // dc+sd-jwt
+        return {
+          id: credential.id,
+          format: 'dc+sd-jwt',
+          meta: {
+            vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
+          },
+        };
+      }
+    }),
+  };
+}
+
+export interface VerificationSessionRequest {
+  flow_type: string;
+  core_flow: {
+    dcql_query: DcqlQuery;
+  };
+}
+
+export function buildVerificationSessionRequest(
+  dcqlQuery: DcqlQuery
+): VerificationSessionRequest {
+  return {
+    flow_type: 'cross_device',
+    core_flow: {
+      dcql_query: dcqlQuery,
+    },
+  };
 }
 
 export const DIDMethods = [
