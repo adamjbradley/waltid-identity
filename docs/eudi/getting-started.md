@@ -266,8 +266,10 @@ Expected result:
 - [Credential Formats](credential-formats.md) - Detailed format specifications
 - [Integration Guide](integration-guide.md) - Issuer API integration details
 - [Deployment Guide](deployment-guide.md) - Production deployment configuration
+- [Issuance Testing](issuance-testing.md) - Issuance flow details and troubleshooting
 - [Verification Testing](verification-testing.md) - Verification flow details and test results
 - [Wallet Trust Store](wallet-trust-store-update.md) - Trust store configuration
+- [Technical Notes](technical-notes.md) - Debugging insights and implementation details
 
 ---
 

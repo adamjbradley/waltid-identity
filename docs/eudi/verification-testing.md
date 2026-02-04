@@ -210,6 +210,12 @@ curl -X POST https://verifier.theaustraliahack.com/openid4vc/verify \
   }'
 ```
 
+## Related Documentation
+
+- [Getting Started](getting-started.md) - End-to-end flow overview
+- [Issuance Testing](issuance-testing.md) - Credential issuance flow
+- [Technical Notes](technical-notes.md) - Debugging insights and implementation details
+
 ## References
 
 - [RFC 9101 - JWT-Secured Authorization Request (JAR)](https://www.rfc-editor.org/rfc/rfc9101.html)
