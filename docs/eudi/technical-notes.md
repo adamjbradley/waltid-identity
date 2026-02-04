@@ -39,6 +39,51 @@ when {
    }
    ```
 
+## SD-JWT Signature Verification Fix
+
+### Problem
+
+SD-JWT credential signature verification was failing with:
+```
+Failed to retrieve issuer key to verify credential signature against
+```
+
+### Root Cause
+
+The `WellKnownKeyResolver` HttpClient was created without the `ContentNegotiation` plugin, causing `.body<JsonObject>()` to fail when fetching issuer JWKS from the well-known endpoint.
+
+**File:** `waltid-libraries/credentials/waltid-digital-credentials/src/commonMain/kotlin/id/walt/credentials/keyresolver/resolvers/WellKnownKeyResolver.kt`
+
+### Solution
+
+Added ContentNegotiation plugin with JSON serialization:
+
+```kotlin
+private val httpClient = HttpClient {
+    install(ContentNegotiation) {
+        json(Json { ignoreUnknownKeys = true })
+    }
+}
+```
+
+### Verification Path
+
+The signature verification chain for SD-JWT credentials:
+1. `CredentialSignaturePolicy` - Entry point
+2. `SdJwtCredential.getSignerKey()` - Get issuer key
+3. `JwtBasedSignature.getJwtBasedIssuer()` - Extract issuer
+4. `IssuerKeyResolver.resolveIssuerKey()` - Resolve key
+5. `WellKnownKeyResolver.resolveKeyFromWellKnown()` - Fetch from `/.well-known/jwt-vc-issuer/{path}`
+
+### Requirements
+
+For SD-JWT signature verification to work:
+1. Issuer must publish JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`
+2. JWT `kid` header must match a key in the JWKS
+3. Verifier must be built with this fix (custom Docker image required)
+
+---
+
 ## Content-Type for JAR Signed Requests
 
 ### RFC 9101 Requirement

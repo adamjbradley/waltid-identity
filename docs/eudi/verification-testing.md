@@ -1,8 +1,16 @@
 # EUDI Wallet Verification Testing Guide
 
-**Verified Working:** 2026-02-04
+**Last Verified:** 2026-02-04
 
 This guide documents the end-to-end verification flow with the EUDI Reference Wallet using the walt.id verifier-api2 service.
+
+## Test Status Summary
+
+| Credential | Issuance | Verification |
+|------------|----------|--------------|
+| PID mDoc | ✅ PASS | ✅ PASS |
+| PID SD-JWT | ✅ PASS | ✅ PASS |
+| mDL | ⚠️ Needs Investigation | ⚠️ Skipped |
 
 ## Overview
 
@@ -107,6 +115,8 @@ Expected result: `"SUCCESSFUL"`
 
 ## Verification Policies
 
+### mDoc Policies
+
 The following policies are applied to mso_mdoc credentials:
 
 | Policy | Description | Required |
@@ -117,7 +127,23 @@ The following policies are applied to mso_mdoc credentials:
 | `mso_mdoc/issuer_signed_integrity` | Verify issuer-signed data integrity | Yes |
 | `mso_mdoc/mso` | Verify Mobile Security Object | Yes |
 
+### SD-JWT Policies
+
+The following policies are applied to dc+sd-jwt credentials:
+
+| Policy | Description | Required |
+|--------|-------------|----------|
+| `sd-jwt/holder-binding` | Verify holder key binding (cnf claim) | Yes |
+| `sd-jwt/not-before` | Check nbf claim | No |
+| `sd-jwt/expiration` | Check exp claim | No |
+| `sd-jwt/issuer-trust` | Verify issuer | Yes |
+| `signature` | Verify credential signature via issuer JWKS | Yes |
+
+**Note:** SD-JWT signature verification requires the issuer to publish JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`. See [Technical Notes](technical-notes.md#sd-jwt-signature-verification-fix) for implementation details.
+
 ## Verified Test Results
+
+### PID mDoc Verification
 
 **Session ID:** `9f9e67bc-dde7-41b2-a7b8-6b96aba33d98`
 **Date:** 2026-02-04T05:37:04Z
@@ -151,6 +177,42 @@ The following policies are applied to mso_mdoc credentials:
 - **Valid:** 2025-06-02 to 2026-09-02
 - **Key Type:** EC P-256
 
+### PID SD-JWT Verification
+
+**Date:** 2026-02-04
+**Status:** SUCCESSFUL
+
+#### DCQL Query for SD-JWT
+
+```json
+{
+  "credentials": [{
+    "id": "eudi_pid_sdjwt",
+    "format": "dc+sd-jwt",
+    "meta": {
+      "vct_values": ["urn:eudi:pid:1"]
+    },
+    "claims": [
+      { "path": ["family_name"] },
+      { "path": ["given_name"] },
+      { "path": ["birth_date"] }
+    ]
+  }]
+}
+```
+
+#### Policy Results
+
+| Policy | Status |
+|--------|--------|
+| sd-jwt/holder-binding | PASS |
+| sd-jwt/not-before | PASS |
+| sd-jwt/expiration | PASS |
+| sd-jwt/issuer-trust | PASS |
+| signature | PASS |
+
+**Note:** SD-JWT verification requires the issuer to publish JWKS. The signature is verified against the issuer's public key fetched from `/.well-known/jwt-vc-issuer/{path}`.
+
 ## Troubleshooting
 
 ### Error: "X509SanDns cannot be used in unsigned request"
@@ -173,6 +235,17 @@ The following policies are applied to mso_mdoc credentials:
 **Cause:** Verifier certificate not in wallet's trust store.
 
 **Solution:** See [wallet-trust-store-update.md](wallet-trust-store-update.md) for instructions on adding certificates to the EUDI wallet trust store.
+
+### Error: "Failed to retrieve issuer key to verify credential signature"
+
+**Cause:** SD-JWT signature verification cannot fetch issuer JWKS.
+
+**Solutions:**
+1. Verify issuer publishes JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`
+2. Ensure the JWT `kid` header matches a key in the JWKS
+3. Rebuild verifier-api2 with the WellKnownKeyResolver fix (requires custom Docker image)
+
+**Technical Details:** See [Technical Notes](technical-notes.md#sd-jwt-signature-verification-fix).
 
 ## OpenID4VP URI Schemes
 

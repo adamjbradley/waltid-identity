@@ -126,9 +126,9 @@ The portal displays a QR code containing the credential offer URL.
 
 | Field | Value |
 |-------|-------|
-| Configuration ID | `urn:eu.europa.ec.eudi:pid:1` |
+| Configuration ID | `urn:eudi:pid:1` |
 | Format | `dc+sd-jwt` |
-| VCT | `urn:eu.europa.ec.eudi:pid:1` |
+| VCT | `urn:eudi:pid:1` |
 
 **Important:** Use `dc+sd-jwt` format, NOT `vc+sd-jwt`.
 

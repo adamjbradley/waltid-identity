@@ -235,7 +235,66 @@ curl -s -D - "https://verifier2.theaustraliahack.com/verification-session/{SESSI
 
 ---
 
-## 2. Mobile Driving License (mDL) - Signed Request
+## 2. EUDI PID (SD-JWT) - Signed Request
+
+### Create Session
+
+```bash
+curl -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flow_type": "cross_device",
+    "core_flow": {
+      "signed_request": true,
+      "clientId": "x509_san_dns:verifier2.theaustraliahack.com",
+      "key": {
+        "type": "jwk",
+        "jwk": {
+          "kty": "EC",
+          "crv": "P-256",
+          "x": "1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY",
+          "y": "tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo",
+          "d": "j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"
+        }
+      },
+      "x5c": ["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="],
+      "dcql_query": {
+        "credentials": [
+          {
+            "id": "eudi_pid_sdjwt",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": ["urn:eudi:pid:1"]
+            },
+            "claims": [
+              { "path": ["family_name"] },
+              { "path": ["given_name"] },
+              { "path": ["birth_date"] }
+            ]
+          }
+        ]
+      }
+    }
+  }'
+```
+
+### SD-JWT Verification Policies
+
+| Policy | Description | Status |
+|--------|-------------|--------|
+| `sd-jwt/holder-binding` | Verify holder key binding | ✅ |
+| `sd-jwt/not-before` | Check nbf claim | ✅ |
+| `sd-jwt/expiration` | Check exp claim | ✅ |
+| `sd-jwt/issuer-trust` | Verify issuer | ✅ |
+| `signature` | Verify credential signature | ✅ |
+
+**Note:** SD-JWT signature verification requires the issuer to publish JWKS at `/.well-known/jwt-vc-issuer/{issuer-path}`.
+
+---
+
+## 3. Mobile Driving License (mDL) - Signed Request
+
+**Status:** ⚠️ Needs Investigation - mDL issuance currently has issues
 
 ### Create Session
 
