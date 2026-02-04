@@ -92,8 +92,9 @@ export interface DcqlQuery {
 export function buildDcqlQuery(credentials: AvailableCredential[], format: string): DcqlQuery {
   return {
     credentials: credentials.map((credential) => {
-      // Get default claims from credential definition, or use fallback defaults
-      const claims = credential.defaultClaims?.map(c => ({ path: c.path })) ||
+      // Prefer user-edited claims, then default claims, then fallback
+      const claims = credential.editedClaims?.map(c => ({ path: c.path })) ||
+        credential.defaultClaims?.map(c => ({ path: c.path })) ||
         getDefaultClaimsForCredential(credential.id, format);
 
       if (format === 'mso_mdoc') {
