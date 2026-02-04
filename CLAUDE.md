@@ -212,42 +212,16 @@ The verifier services are configured with X.509 certificates for EUDI wallet com
 ### EUDI Verification API (verifier-api2)
 
 **CRITICAL:** EUDI wallets require **signed JAR (JWT-Secured Authorization Requests)**. You MUST:
-1. Use `verifier-api2` (port 7004), NOT `verifier-api` (port 7003)
+1. Use `verifier-api2`, NOT `verifier-api` (legacy)
 2. Set `signed_request: true` in the request body
 3. Include the signing `key` (JWK with private key) and `x5c` (certificate chain)
 
-**Endpoint:** `POST https://verifier2.theaustraliahack.com/verification-session/create`
-
-**Minimal Working Example (SD-JWT PID):**
-```bash
-curl -X POST "https://verifier2.theaustraliahack.com/verification-session/create" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "flow_type": "cross_device",
-    "core_flow": {
-      "dcql_query": {
-        "credentials": [{
-          "id": "pid",
-          "format": "dc+sd-jwt",
-          "meta": {"vct_values": ["urn:eudi:pid:1"]},
-          "claims": [{"path": ["given_name"]}, {"path": ["family_name"]}]
-        }]
-      },
-      "signed_request": true,
-      "key": {"type":"jwk","jwk":{"kty":"EC","crv":"P-256","x":"1Z2eGpdQVfWkAQQmNv8oT-lMwbhsFxWTZmhAYFHR5wY","y":"tvX699C21qGEMq7zqjpEhqy2kPT8KInnbxlLZzeSXdo","d":"j6-GyxLnrDSQGCljc678kmrihQFa0GR92JZXHDEQX38"}},
-      "x5c": ["MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs="]
-    }
-  }'
-```
-
-**Response:** Use `bootstrapAuthorizationRequestUrl` for QR code generation.
-
-**Check Result:** `curl https://verifier2.theaustraliahack.com/verification-session/{sessionId}/info`
+See [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md) for copy-paste ready examples.
 
 **Common Wallet Errors:**
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `InvalidClientIdPrefix` | Using verifier-api (7003) | Use verifier-api2 (7004) |
+| `InvalidClientIdPrefix` | Using verifier-api (legacy) | Use verifier-api2 |
 | `InvalidJarJwt` | Missing signed_request | Add `signed_request: true` with key & x5c |
 | `did not provide a key` | Missing key/x5c | Include both in core_flow |
 
