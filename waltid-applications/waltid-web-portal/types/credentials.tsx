@@ -9,6 +9,7 @@ export type AvailableCredential = {
   selectedDID?: String;
   offer: any;
   defaultClaims?: ClaimDefinition[];
+  editedClaims?: ClaimDefinition[];
 };
 
 export const EudiCredentials: AvailableCredential[] = [
