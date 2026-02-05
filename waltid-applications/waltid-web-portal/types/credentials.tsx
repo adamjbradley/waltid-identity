@@ -16,7 +16,19 @@ export const EudiCredentials: AvailableCredential[] = [
   {
     id: 'eu.europa.ec.eudi.pid.1',
     title: 'EU Personal ID (mDoc)',
-    offer: { doctype: 'eu.europa.ec.eudi.pid.1' },
+    offer: {
+      'eu.europa.ec.eudi.pid.1': {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        age_over_18: true,
+        age_over_21: true,
+        issuance_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_authority: 'Test Authority',
+        issuing_country: 'AU',
+      }
+    },
     defaultClaims: [
       { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
       { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
@@ -26,7 +38,26 @@ export const EudiCredentials: AvailableCredential[] = [
   {
     id: 'org.iso.18013.5.1.mDL',
     title: 'Mobile Driving License',
-    offer: { doctype: 'org.iso.18013.5.1.mDL' },
+    offer: {
+      'org.iso.18013.5.1': {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        issue_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_country: 'AU',
+        issuing_authority: 'Test Authority',
+        document_number: 'DL123456789',
+        portrait: '',
+        driving_privileges: [
+          {
+            vehicle_category_code: 'C',
+            issue_date: '2024-01-01',
+            expiry_date: '2034-01-01',
+          }
+        ],
+      }
+    },
     defaultClaims: [
       { path: ['org.iso.18013.5.1', 'family_name'] },
       { path: ['org.iso.18013.5.1', 'given_name'] },
@@ -34,9 +65,21 @@ export const EudiCredentials: AvailableCredential[] = [
     ]
   },
   {
-    id: 'urn:eudi:pid:1',
+    id: 'eu.europa.ec.eudi.pid_vc_sd_jwt',
     title: 'EU Personal ID (SD-JWT)',
-    offer: { vct: 'urn:eudi:pid:1' },
+    offer: {
+      credentialSubject: {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        age_over_18: true,
+        age_over_21: true,
+        issuance_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_authority: 'Test Authority',
+        issuing_country: 'AU',
+      }
+    },
     defaultClaims: [
       { path: ['family_name'] },
       { path: ['given_name'] },

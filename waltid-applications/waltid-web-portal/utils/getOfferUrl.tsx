@@ -52,16 +52,17 @@ const getOfferUrl = async (
 
       if (c.selectedFormat === 'mDoc (ISO 18013-5)') {
         // mDoc format - uses mdocData instead of credentialData
-        // Look for matching mDoc credential configuration
-        payload.credentialConfigurationId = Object.keys(
+        // Look for matching mDoc credential configuration - prioritize exact ID match
+        const exactMatch = Object.keys(credential_configurations_supported).find((key) => {
+          const config = credential_configurations_supported[key];
+          return config.format === 'mso_mdoc' && key === c.id;
+        });
+        payload.credentialConfigurationId = exactMatch || Object.keys(
           credential_configurations_supported
         ).find((key) => {
           const config = credential_configurations_supported[key];
           return config.format === 'mso_mdoc' &&
-                 (key.toLowerCase().includes(c.id.toLowerCase().replace(/\s+/g, '_')) ||
-                  key === 'org.iso.18013.5.1.mDL' ||
-                  key === 'eu.europa.ec.eudi.pid_mso_mdoc' ||
-                  key === 'eu.europa.ec.eudi.pid.1');
+                 key.toLowerCase().includes(c.id.toLowerCase().replace(/\s+/g, '_'));
         }) as string;
 
         // For mDoc, the offer data should already be in namespace format
@@ -69,16 +70,22 @@ const getOfferUrl = async (
         const mdocData: any = {};
         const docType = credential_configurations_supported[payload.credentialConfigurationId]?.docType || 'org.iso.18013.5.1.mDL';
 
-        // If offer already has namespace format, use it directly
-        if (offer[docType]) {
-          Object.assign(mdocData, offer);
+        // Check for namespace format in offer
+        // Note: namespace may differ from docType (e.g., mDL uses namespace 'org.iso.18013.5.1' but docType 'org.iso.18013.5.1.mDL')
+        const namespaceKeys = Object.keys(offer).filter(k => k !== 'id' && typeof offer[k] === 'object');
+
+        if (namespaceKeys.length > 0) {
+          // Offer already has namespace format - copy all namespaces
+          for (const ns of namespaceKeys) {
+            mdocData[ns] = { ...offer[ns] };
+          }
         } else if (offer.credentialSubject) {
           // Convert W3C-style to mDoc namespace format
           mdocData[docType] = { ...offer.credentialSubject };
         } else {
           // Use offer as-is for the namespace
-          mdocData[docType] = { ...offer };
-          delete mdocData[docType].id;
+          const { id, ...offerData } = offer;
+          mdocData[docType] = offerData;
         }
 
         // Replace credentialData with mdocData
@@ -111,7 +118,9 @@ const getOfferUrl = async (
           credential_configurations_supported
         ).find((key) => {
           const config = credential_configurations_supported[key];
-          return config.format === 'dc+sd-jwt' ||
+          return (config.format === 'dc+sd-jwt' &&
+                  (key.includes('pid') || key.includes('sd_jwt'))) ||
+                 key === 'eu.europa.ec.eudi.pid_vc_sd_jwt' ||
                  key === 'urn:eudi:pid:1';
         }) as string;
 

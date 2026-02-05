@@ -11,13 +11,34 @@ type Props = {
   setCredentialsToIssue: (credentials: AvailableCredential[]) => void;
 };
 
+// Extract credential subject from offer - handles both W3C and mDoc formats
+function extractCredentialSubject(offer: any): any {
+  // W3C format: offer.credentialSubject
+  if (offer.credentialSubject) {
+    return offer.credentialSubject;
+  }
+  // mDoc format: offer[namespace] where namespace is a key like 'eu.europa.ec.eudi.pid.1'
+  const namespaceKeys = Object.keys(offer).filter(k =>
+    typeof offer[k] === 'object' && !Array.isArray(offer[k])
+  );
+  if (namespaceKeys.length > 0) {
+    // Return all namespace data combined for editing
+    const combined: any = {};
+    for (const ns of namespaceKeys) {
+      combined[ns] = offer[ns];
+    }
+    return combined;
+  }
+  return offer;
+}
+
 export default function RowCredential({
   credentialToEdit,
   credentialsToIssue,
   setCredentialsToIssue,
 }: Props) {
   const [credentialSubject, setCredentialSubject] = React.useState(
-    credentialToEdit.offer.credentialSubject
+    extractCredentialSubject(credentialToEdit.offer)
   );
   const [selectedFormat, setSelectedFormat] = React.useState(
     CredentialFormats[0]
@@ -32,11 +53,23 @@ export default function RowCredential({
   React.useEffect(() => {
     setCredentialsToIssue(
       credentialsToIssue.map((credential) => {
-        if (credential.offer.id == credentialToEdit.offer.id) {
+        // Match by credential id (not offer.id which may not exist for EUDI credentials)
+        if (credential.id === credentialToEdit.id) {
           let updatedCredential = { ...credential };
 
-          if (credentialSubject !== credential.offer.credentialSubject) {
-            updatedCredential.offer.credentialSubject = credentialSubject;
+          // Update the offer with edited credential subject
+          // For mDoc: credentialSubject is { namespace: { claims } }
+          // For W3C: credentialSubject is { claims }
+          const currentSubject = extractCredentialSubject(credential.offer);
+          if (JSON.stringify(credentialSubject) !== JSON.stringify(currentSubject)) {
+            // Check if this is mDoc format (namespaced) or W3C format
+            if (credential.offer.credentialSubject) {
+              // W3C format
+              updatedCredential.offer = { ...credential.offer, credentialSubject };
+            } else {
+              // mDoc format - credentialSubject IS the namespaced data
+              updatedCredential.offer = { ...credentialSubject };
+            }
           }
           updatedCredential.selectedFormat = selectedFormat;
           updatedCredential.selectedDID = selectedDID;
@@ -122,6 +155,7 @@ export default function RowCredential({
         }}
         credentialSubject={credentialSubject}
         setCredentialSubject={setCredentialSubject}
+        credentialTitle={credentialToEdit.title}
       />
     </>
   );
