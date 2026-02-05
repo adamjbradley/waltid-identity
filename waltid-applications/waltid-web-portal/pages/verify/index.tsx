@@ -9,7 +9,7 @@ import axios from "axios";
 import {sendToWebWallet} from "@/utils/sendToWebWallet";
 import nextConfig from "@/next.config";
 import BackButton from "@/components/walt/button/BackButton";
-import {CredentialFormats, mapFormat, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest} from "@/types/credentials";
+import {CredentialFormats, mapFormat, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest, VerificationSigningConfig} from "@/types/credentials";
 import {checkVerificationResult, getStateFromUrl} from "@/utils/checkVerificationResult";
 
 const BUTTON_COPY_TEXT_DEFAULT = 'Copy offer URL';
@@ -61,7 +61,26 @@ export default function Verification() {
           }
 
           const dcqlQuery = buildDcqlQuery(credentials, credFormat);
-          const requestBody = buildVerificationSessionRequest(dcqlQuery);
+
+          // Build signing config from environment variables if available
+          let signingConfig: VerificationSigningConfig | undefined;
+          const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
+          const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
+          const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
+
+          if (clientId && signingKeyJson && x5c) {
+            try {
+              signingConfig = {
+                clientId,
+                key: JSON.parse(signingKeyJson),
+                x5c: [x5c],
+              };
+            } catch (e) {
+              console.warn('Failed to parse verifier signing config:', e);
+            }
+          }
+
+          const requestBody = buildVerificationSessionRequest(dcqlQuery, signingConfig);
 
           const response = await axios.post(
             `${verifier2Url}/verification-session/create`,
