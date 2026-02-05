@@ -96,6 +96,34 @@ export const CredentialFormats = [
   'mDoc (ISO 18013-5)',
 ];
 
+// Map credential IDs to their supported formats (based on issuer configuration)
+// eu.europa.ec.eudi.pid.1 -> mso_mdoc only
+// org.iso.18013.5.1.mDL -> mso_mdoc only
+// eu.europa.ec.eudi.pid_vc_sd_jwt / urn:eudi:pid:1 -> dc+sd-jwt only
+const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
+  'eu.europa.ec.eudi.pid.1': ['mDoc (ISO 18013-5)'],
+  'org.iso.18013.5.1.mDL': ['mDoc (ISO 18013-5)'],
+  'eu.europa.ec.eudi.pid_vc_sd_jwt': ['DC+SD-JWT (EUDI)'],
+};
+
+// Get available formats for a credential based on issuer support
+export function getAvailableFormatsForCredential(credentialId: string): string[] {
+  return CREDENTIAL_FORMAT_MAP[credentialId] || CredentialFormats.filter(
+    f => f !== 'DC+SD-JWT (EUDI)' && f !== 'mDoc (ISO 18013-5)'
+  );
+}
+
+// Get the default format for a credential
+export function getDefaultFormatForCredential(credentialId: string): string {
+  const formats = getAvailableFormatsForCredential(credentialId);
+  return formats[0];
+}
+
+// Check if credential is EUDI-only (has restricted formats)
+export function isEudiCredential(credentialId: string): boolean {
+  return credentialId in CREDENTIAL_FORMAT_MAP;
+}
+
 // Get Value
 export function mapFormat(format: string): string {
   switch (format) {
