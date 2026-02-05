@@ -30,6 +30,7 @@ export default function IssueSection() {
   const [selectedVpProfile, setSelectedVpProfile] = React.useState(
     VpProfiles[0]
   );
+  const [useServerKeys, setUseServerKeys] = useState<boolean>(true);
 
   const router = useRouter();
   const params = router.query;
@@ -40,6 +41,13 @@ export default function IssueSection() {
   const [credentialsToIssue, setCredentialsToIssue] = useState<
     AvailableCredential[]
   >([]);
+
+  // Check if any credential has EUDI format selected
+  const hasEudiFormat = credentialsToIssue.some(
+    (cred) =>
+      cred.selectedFormat === 'mDoc (ISO 18013-5)' ||
+      cred.selectedFormat === 'DC+SD-JWT (EUDI)'
+  );
 
   React.useEffect(() => {
     setCredentialsToIssue(
@@ -65,7 +73,11 @@ export default function IssueSection() {
         env.NEXT_PUBLIC_VC_REPO ??
           nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VC_REPO,
         env.NEXT_PUBLIC_ISSUER ??
-          nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER
+          nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER,
+        undefined, // authenticationMethod
+        undefined, // vpRequestValue
+        undefined, // vpProfile
+        hasEudiFormat && useServerKeys
       );
       sendToWebWallet(
         decodeURI(params.callback!.toString()),
@@ -82,6 +94,9 @@ export default function IssueSection() {
       }
       if (requireVpProfile && selectedVpProfile?.trim().length) {
         url = url + `&vpProfile=${selectedVpProfile}`;
+      }
+      if (hasEudiFormat && useServerKeys) {
+        url = url + `&useServerKeys=true`;
       }
 
       await router.push(url);
@@ -189,6 +204,19 @@ export default function IssueSection() {
           setSelected={setSelectedVpProfile}
         />
       </div>
+
+      {hasEudiFormat && (
+        <div className="mt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+          <div className="">
+            <Checkbox value={useServerKeys} onChange={setUseServerKeys}>
+              Use server signing keys
+            </Checkbox>
+          </div>
+          <span className="text-sm text-gray-500 mt-1 sm:mt-0">
+            Recommended for EUDI wallets
+          </span>
+        </div>
+      )}
 
       <hr className="my-5" />
       <div className="flex flex-row justify-center gap-3 mt-14">

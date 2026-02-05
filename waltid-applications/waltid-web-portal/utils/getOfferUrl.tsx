@@ -8,7 +8,8 @@ const getOfferUrl = async (
   NEXT_PUBLIC_ISSUER: string,
   authenticationMethod?: string,
   vpRequestValue?: string,
-  vpProfile?: string
+  vpProfile?: string,
+  useServerKeys?: boolean
 ) => {
   const data = await fetch(
     `${NEXT_PUBLIC_ISSUER}/draft13/.well-known/openid-credential-issuer`
@@ -28,8 +29,8 @@ const getOfferUrl = async (
 
       const offer = { ...c.offer, id: uuidv4() };
       let payload: {
-        issuerDid: string;
-        issuerKey: { type: string; jwk: object };
+        issuerDid?: string;
+        issuerKey?: { type: string; jwk: object };
         credentialConfigurationId: string;
         credentialData: any;
         mapping?: any;
@@ -38,12 +39,15 @@ const getOfferUrl = async (
         vpRequestValue?: string;
         vpProfile?: string;
       } = {
-        issuerDid:
-          DIDMethodsConfig[c.selectedDID as keyof typeof DIDMethodsConfig]
-            .issuerDid,
-        issuerKey:
-          DIDMethodsConfig[c.selectedDID as keyof typeof DIDMethodsConfig]
-            .issuerKey,
+        // Only include issuerDid/issuerKey when NOT using server keys
+        ...(useServerKeys ? {} : {
+          issuerDid:
+            DIDMethodsConfig[c.selectedDID as keyof typeof DIDMethodsConfig]
+              .issuerDid,
+          issuerKey:
+            DIDMethodsConfig[c.selectedDID as keyof typeof DIDMethodsConfig]
+              .issuerKey,
+        }),
         credentialConfigurationId: Object.keys(
           credential_configurations_supported
         ).find((key) => key === c.id + '_jwt_vc_json') as string,
