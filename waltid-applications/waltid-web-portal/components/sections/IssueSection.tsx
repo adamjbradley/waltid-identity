@@ -42,11 +42,9 @@ export default function IssueSection() {
     AvailableCredential[]
   >([]);
 
-  // Check if any credential has EUDI format selected
+  // Check if any credential has mDoc format selected (server keys only supported for mDoc)
   const hasEudiFormat = credentialsToIssue.some(
-    (cred) =>
-      cred.selectedFormat === 'mDoc (ISO 18013-5)' ||
-      cred.selectedFormat === 'DC+SD-JWT (EUDI)'
+    (cred) => cred.selectedFormat === 'mDoc (ISO 18013-5)'
   );
 
   React.useEffect(() => {
