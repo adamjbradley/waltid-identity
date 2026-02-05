@@ -1,4 +1,4 @@
-import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest } from '../types/credentials';
+import { EudiCredentials, mapFormat, AvailableCredential, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest, VerificationSigningConfig } from '../types/credentials';
 
 describe('Environment Configuration', () => {
   it('should recognize NEXT_PUBLIC_VERIFIER2 as a valid env variable', () => {
@@ -18,21 +18,27 @@ describe('EudiCredentials', () => {
     const pidMdoc = EudiCredentials.find(c => c.id === 'eu.europa.ec.eudi.pid.1');
     expect(pidMdoc).toBeDefined();
     expect(pidMdoc?.title).toBe('EU Personal ID (mDoc)');
-    expect(pidMdoc?.offer.doctype).toBe('eu.europa.ec.eudi.pid.1');
+    // mDoc credentials have namespace-keyed offer data
+    expect(pidMdoc?.offer['eu.europa.ec.eudi.pid.1']).toBeDefined();
+    expect(pidMdoc?.offer['eu.europa.ec.eudi.pid.1'].family_name).toBe('Doe');
   });
 
   it('should contain Mobile Driving License credential', () => {
     const mdl = EudiCredentials.find(c => c.id === 'org.iso.18013.5.1.mDL');
     expect(mdl).toBeDefined();
     expect(mdl?.title).toBe('Mobile Driving License');
-    expect(mdl?.offer.doctype).toBe('org.iso.18013.5.1.mDL');
+    // mDL credentials have namespace-keyed offer data
+    expect(mdl?.offer['org.iso.18013.5.1']).toBeDefined();
+    expect(mdl?.offer['org.iso.18013.5.1'].family_name).toBe('Doe');
   });
 
   it('should contain EU Personal ID (SD-JWT) credential', () => {
     const pidSdJwt = EudiCredentials.find(c => c.id === 'urn:eudi:pid:1');
     expect(pidSdJwt).toBeDefined();
     expect(pidSdJwt?.title).toBe('EU Personal ID (SD-JWT)');
-    expect(pidSdJwt?.offer.vct).toBe('urn:eudi:pid:1');
+    // SD-JWT credentials have credentialSubject offer data
+    expect(pidSdJwt?.offer.credentialSubject).toBeDefined();
+    expect(pidSdJwt?.offer.credentialSubject.family_name).toBe('Doe');
   });
 
   it('should have exactly 3 EUDI credentials', () => {
@@ -68,13 +74,12 @@ describe('buildDcqlQuery', () => {
 
     const result = buildDcqlQuery(credentials, 'mso_mdoc');
 
-    expect(result).toEqual({
-      credentials: [{
-        id: 'eu.europa.ec.eudi.pid.1',
-        format: 'mso_mdoc',
-        meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' }
-      }]
-    });
+    // ID should be sanitized (dots replaced with underscores)
+    expect(result.credentials[0].id).toBe('eu_europa_ec_eudi_pid_1');
+    expect(result.credentials[0].format).toBe('mso_mdoc');
+    expect(result.credentials[0].meta.doctype_value).toBe('eu.europa.ec.eudi.pid.1');
+    // Claims should be included from fallback defaults
+    expect(result.credentials[0].claims).toBeDefined();
   });
 
   it('should build correct DCQL query for dc+sd-jwt format', () => {
@@ -86,13 +91,12 @@ describe('buildDcqlQuery', () => {
 
     const result = buildDcqlQuery(credentials, 'dc+sd-jwt');
 
-    expect(result).toEqual({
-      credentials: [{
-        id: 'urn:eudi:pid:1',
-        format: 'dc+sd-jwt',
-        meta: { vct_values: ['urn:eudi:pid:1'] }
-      }]
-    });
+    // ID should be sanitized (colons replaced with underscores)
+    expect(result.credentials[0].id).toBe('urn_eudi_pid_1');
+    expect(result.credentials[0].format).toBe('dc+sd-jwt');
+    expect(result.credentials[0].meta.vct_values).toEqual(['urn:eudi:pid:1']);
+    // Claims should be included from fallback defaults
+    expect(result.credentials[0].claims).toBeDefined();
   });
 
   it('should use credential id as fallback for doctype', () => {
@@ -128,6 +132,60 @@ describe('buildDcqlQuery', () => {
     const result = buildDcqlQuery(credentials, 'mso_mdoc');
 
     expect(result.credentials).toHaveLength(2);
+  });
+});
+
+describe('DCQL ID sanitization', () => {
+  it('should sanitize colons in credential ID', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'urn:eudi:pid:1',
+      title: 'EU Personal ID (SD-JWT)',
+      offer: { vct: 'urn:eudi:pid:1' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'dc+sd-jwt');
+
+    // ID should have colons replaced with underscores
+    expect(result.credentials[0].id).toBe('urn_eudi_pid_1');
+  });
+
+  it('should sanitize dots in credential ID', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'eu.europa.ec.eudi.pid.1',
+      title: 'EU Personal ID (mDoc)',
+      offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    // ID should have dots replaced with underscores
+    expect(result.credentials[0].id).toBe('eu_europa_ec_eudi_pid_1');
+  });
+
+  it('should preserve alphanumeric, underscores, and hyphens', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'my-credential_id',
+      title: 'Test',
+      offer: { doctype: 'test' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    // Valid characters should be preserved
+    expect(result.credentials[0].id).toBe('my-credential_id');
+  });
+
+  it('should sanitize mixed special characters', () => {
+    const credentials: AvailableCredential[] = [{
+      id: 'org.iso.18013.5.1.mDL',
+      title: 'Mobile Driving License',
+      offer: { doctype: 'org.iso.18013.5.1.mDL' }
+    }];
+
+    const result = buildDcqlQuery(credentials, 'mso_mdoc');
+
+    // mDL ID has dots that should be replaced
+    expect(result.credentials[0].id).toBe('org_iso_18013_5_1_mDL');
   });
 });
 
@@ -647,6 +705,7 @@ describe('buildVerificationSessionRequest', () => {
     expect(result).toEqual({
       flow_type: 'cross_device',
       core_flow: {
+        signed_request: true,
         dcql_query: dcqlQuery
       }
     });
@@ -676,5 +735,90 @@ describe('checkVerificationResult endpoint selection', () => {
       : `${verifierUrl}/openid4vc/session/${sessionId}`;
 
     expect(endpoint).toBe('http://localhost:7004/verification-session/test-session');
+  });
+});
+
+describe('buildVerificationSessionRequest with signing config', () => {
+  it('should include signing config when provided', () => {
+    const dcqlQuery = {
+      credentials: [{
+        id: 'test',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'test' }
+      }]
+    };
+
+    const signingConfig: VerificationSigningConfig = {
+      clientId: 'x509_san_dns:verifier.example.com',
+      key: {
+        type: 'jwk',
+        jwk: { kty: 'EC', crv: 'P-256', x: 'test-x', y: 'test-y', d: 'test-d' }
+      },
+      x5c: ['MIIBnz...']
+    };
+
+    const result = buildVerificationSessionRequest(dcqlQuery, signingConfig);
+
+    expect(result.flow_type).toBe('cross_device');
+    expect(result.core_flow.signed_request).toBe(true);
+    expect(result.core_flow.clientId).toBe('x509_san_dns:verifier.example.com');
+    expect(result.core_flow.key).toEqual(signingConfig.key);
+    expect(result.core_flow.x5c).toEqual(['MIIBnz...']);
+    expect(result.core_flow.dcql_query).toEqual(dcqlQuery);
+  });
+
+  it('should work without signing config', () => {
+    const dcqlQuery = {
+      credentials: [{
+        id: 'test',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'test' }
+      }]
+    };
+
+    const result = buildVerificationSessionRequest(dcqlQuery);
+
+    expect(result.flow_type).toBe('cross_device');
+    expect(result.core_flow.signed_request).toBe(true);
+    expect(result.core_flow.clientId).toBeUndefined();
+    expect(result.core_flow.key).toBeUndefined();
+    expect(result.core_flow.x5c).toBeUndefined();
+    expect(result.core_flow.dcql_query).toEqual(dcqlQuery);
+  });
+
+  it('should include all signing parameters for EUDI compliance', () => {
+    const dcqlQuery = {
+      credentials: [{
+        id: 'eu_europa_ec_eudi_pid_1',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' }
+      }]
+    };
+
+    const signingConfig: VerificationSigningConfig = {
+      clientId: 'x509_san_dns:verifier2.theaustraliahack.com',
+      key: {
+        type: 'jwk',
+        jwk: {
+          kty: 'EC',
+          crv: 'P-256',
+          x: 'SgfOvOk1TL5yiXhK5Nq7OwKfn_RUkDizlIhAf8qd2wE',
+          y: 'u_y5JZOsw3SrnNPydzJkoaiqb8raSdCNE_nPovt1fNI',
+          d: 'UqSi2MbJmPczfRmwRDeOJrdivoEy-qk4OEDjFwJYlUI'
+        }
+      },
+      x5c: ['MIICBDCCAaqgAwIBAgIUExample...']
+    };
+
+    const result = buildVerificationSessionRequest(dcqlQuery, signingConfig);
+
+    // Verify EUDI wallet requirements are met
+    expect(result.core_flow.signed_request).toBe(true);
+    expect(result.core_flow.clientId).toMatch(/^x509_san_dns:/);
+    expect(result.core_flow.key?.type).toBe('jwk');
+    expect(result.core_flow.key?.jwk.kty).toBe('EC');
+    expect(result.core_flow.key?.jwk.crv).toBe('P-256');
+    expect(result.core_flow.x5c).toBeDefined();
+    expect(result.core_flow.x5c?.length).toBeGreaterThan(0);
   });
 });

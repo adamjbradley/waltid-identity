@@ -6,7 +6,7 @@
 |------------|------------------|--------|------------|--------|
 | EUDI PID (mDoc) | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` | doctype | ✅ Verified |
 | EUDI PID (SD-JWT) | `urn:eudi:pid:1` | `dc+sd-jwt` | vct | ✅ Verified |
-| mDL | `org.iso.18013.5.1.mDL` | `mso_mdoc` | doctype | ⚠️ Needs Investigation |
+| mDL | `org.iso.18013.5.1.mDL` | `mso_mdoc` | doctype | ✅ Verified |
 
 ## EUDI PID (mso_mdoc)
 

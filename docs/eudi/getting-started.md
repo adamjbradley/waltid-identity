@@ -211,7 +211,7 @@ Expected result:
 | Credential | Config ID | Format |
 |------------|-----------|--------|
 | EUDI PID (mDoc) | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` |
-| EUDI PID (SD-JWT) | `urn:eu.europa.ec.eudi:pid:1` | `dc+sd-jwt` |
+| EUDI PID (SD-JWT) | `urn:eudi:pid:1` | `dc+sd-jwt` |
 | Mobile Driving License | `org.iso.18013.5.1.mDL` | `mso_mdoc` |
 
 ### Service URLs (Production Example)
