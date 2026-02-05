@@ -118,14 +118,17 @@ const getOfferUrl = async (
         delete payload.credentialData['id'];
 
         // Find matching DC+SD-JWT credential configuration
-        payload.credentialConfigurationId = Object.keys(
+        // First try exact match with credential ID, then look for dc+sd-jwt variant
+        const exactDcSdJwtMatch = Object.keys(credential_configurations_supported).find((key) => {
+          const config = credential_configurations_supported[key];
+          return config.format === 'dc+sd-jwt' && key === c.id;
+        });
+        payload.credentialConfigurationId = exactDcSdJwtMatch || Object.keys(
           credential_configurations_supported
         ).find((key) => {
           const config = credential_configurations_supported[key];
-          return (config.format === 'dc+sd-jwt' &&
-                  (key.includes('pid') || key.includes('sd_jwt'))) ||
-                 key === 'eu.europa.ec.eudi.pid_vc_sd_jwt' ||
-                 key === 'urn:eudi:pid:1';
+          return config.format === 'dc+sd-jwt' &&
+                 key.toLowerCase().includes(c.id.toLowerCase().replace(/\s+/g, '_'));
         }) as string;
 
         payload.selectiveDisclosure = { fields: {} };
