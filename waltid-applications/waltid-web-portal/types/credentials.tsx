@@ -140,9 +140,14 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
         credential.defaultClaims?.map(c => ({ path: c.path })) ||
         getDefaultClaimsForCredential(credential.id, format);
 
+      // DCQL credential id must be alphanumeric with underscores/hyphens only
+      // The credential.id may contain dots (e.g., "eu.europa.ec.eudi.pid.1")
+      // which are not allowed by EUDI wallets
+      const dcqlId = credential.id.replace(/\./g, '_');
+
       if (format === 'mso_mdoc') {
         return {
-          id: credential.id,
+          id: dcqlId,
           format: 'mso_mdoc',
           meta: {
             doctype_value: credential.offer.doctype || credential.id,
@@ -152,7 +157,7 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
       } else {
         // dc+sd-jwt
         return {
-          id: credential.id,
+          id: dcqlId,
           format: 'dc+sd-jwt',
           meta: {
             vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
