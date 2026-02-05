@@ -1,4 +1,4 @@
-import {AvailableCredential, DIDMethods, mapFormat, isEudiFormat, ClaimDefinition, getAvailableFormatsForCredential, getDefaultFormatForCredential, isEudiCredential} from "@/types/credentials";
+import {AvailableCredential, CredentialFormats, DIDMethods, mapFormat, isEudiFormat, ClaimDefinition} from "@/types/credentials";
 import EditCredentialModal from "../modal/EditCredentialModal";
 import {PencilSquareIcon} from "@heroicons/react/24/outline";
 import Dropdown from "@/components/walt/forms/Dropdown";
@@ -40,10 +40,8 @@ export default function RowCredential({
   const [credentialSubject, setCredentialSubject] = React.useState(
     extractCredentialSubject(credentialToEdit.offer)
   );
-  // Get available formats for this credential (EUDI credentials only show EUDI formats)
-  const availableFormats = getAvailableFormatsForCredential(credentialToEdit.id);
   const [selectedFormat, setSelectedFormat] = React.useState(
-    getDefaultFormatForCredential(credentialToEdit.id)
+    CredentialFormats[0]
   );
   const [selectedDID, setSelectedDID] = React.useState(DIDMethods[0]);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -117,20 +115,18 @@ export default function RowCredential({
           <div className="hidden lg:block w-[2px] h-[2px] bg-gray-200"></div>
           <div className="w-full">
             <Dropdown
-              values={availableFormats}
+              values={CredentialFormats}
               selected={selectedFormat}
               setSelected={setSelectedFormat}
             />
           </div>
-          {!isEudiCredential(credentialToEdit.id) && (
-            <div className="w-full">
-              <Dropdown
-                values={DIDMethods}
-                selected={selectedDID}
-                setSelected={setSelectedDID}
-              />
-            </div>
-          )}
+          <div className="w-full">
+            <Dropdown
+              values={DIDMethods}
+              selected={selectedDID}
+              setSelected={setSelectedDID}
+            />
+          </div>
         </div>
       </div>
       {/* Render ClaimsEditor only for EUDI formats */}
