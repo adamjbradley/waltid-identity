@@ -6,6 +6,7 @@ import id.walt.commons.featureflag.OptionalFeature
 import id.walt.commons.featureflag.ServiceFeatureCatalog
 import id.walt.issuer.config.AuthenticationServiceConfig
 import id.walt.issuer.config.CredentialTypeConfig
+import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 
 object FeatureCatalog : ServiceFeatureCatalog {
@@ -19,7 +20,10 @@ object FeatureCatalog : ServiceFeatureCatalog {
     private val issuerService = BaseFeature(
         "issuer-service",
         "Issuer Service Implementation",
-        OIDCIssuerServiceConfig::class
+        mapOf(
+            "issuer-service" to OIDCIssuerServiceConfig::class,
+            "eudiMdoc" to EudiMdocConfig::class
+        )
     )
 
     private val authenticationService = BaseFeature(

@@ -495,7 +495,7 @@ open class CIProvider(
 
         // Use issuerKey from request, fallback to EUDI config defaults if not provided
         val effectiveIssuerKey = request.issuerKey
-            ?: eudiMdocConfig?.issuerKey
+            ?: eudiMdocConfig?.issuerKey?.let { Json.parseToJsonElement(it).jsonObject }
             ?: throw BadRequestException("No issuerKey provided in request and no EUDI mDoc default configured")
 
         val resolvedIssuerKey = KeyManager.resolveSerializedKey(effectiveIssuerKey)
