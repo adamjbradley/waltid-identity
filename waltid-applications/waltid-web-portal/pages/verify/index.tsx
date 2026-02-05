@@ -248,14 +248,14 @@ export default function Verification() {
             />
           )}
         </div>
-        {/* Same-device button for EUDI formats on mobile */}
-        {isMobile && usedApi2 && !loading && !error && (
+        {/* Same-device button for EUDI formats - show on all devices for EUDI, mobile detection for UX only */}
+        {usedApi2 && !loading && !error && (
           <div className="mb-4">
             <Button onClick={openInEudiWallet} style="button" className="w-full bg-blue-600 hover:bg-blue-700">
               Open in EUDI Wallet
             </Button>
             <p className="text-xs text-gray-500 mt-2 text-center">
-              Or scan the QR code with another device
+              {isMobile ? 'Tap to open wallet app' : 'Or scan the QR code with your mobile device'}
             </p>
           </div>
         )}
