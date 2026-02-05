@@ -37,9 +37,13 @@ private val logger = KotlinLogging.logger {}
 /**
  * Validates the issuer key in an issuance request before processing.
  * Throws BadRequestException with structured error details on validation failure.
+ * Skips validation if issuerKey is null (will use config defaults at issuance time).
  */
 suspend fun validateIssuanceRequestKey(request: IssuanceRequest) {
-    val result = KeyValidationService.validateIssuerKey(request.issuerKey)
+    // Skip validation for requests that will use config defaults
+    val issuerKey = request.issuerKey ?: return
+
+    val result = KeyValidationService.validateIssuerKey(issuerKey)
     if (result.isFailure) {
         val exception = result.exceptionOrNull()
         if (exception is KeyValidationException) {

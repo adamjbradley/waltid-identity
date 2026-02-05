@@ -243,7 +243,9 @@ open class CIProvider(
         authSessions.getAll().forEach { session ->
             totalCount++
             session.issuanceRequests.forEach { request ->
-                val validationResult = KeyValidationService.validateIssuerKey(request.issuerKey)
+                // Skip validation for requests using config defaults (null issuerKey)
+                val issuerKey = request.issuerKey ?: return@forEach
+                val validationResult = KeyValidationService.validateIssuerKey(issuerKey)
                 if (validationResult.isFailure) {
                     val error = validationResult.exceptionOrNull()
                     log.warn { "Removing session ${session.id} due to invalid key: ${error?.message}" }
@@ -366,7 +368,11 @@ open class CIProvider(
             val vc = request.credentialData
                 ?: throw MissingFieldException(listOf("credentialData"), "credentialData")
 
-            val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+            // For SD-JWT and JWT credentials, issuerKey is required (no config fallback)
+            val effectiveIssuerKey = request.issuerKey
+                ?: throw BadRequestException("issuerKey is required for SD-JWT and JWT credentials")
+
+            val resolvedIssuerKey = KeyManager.resolveSerializedKey(effectiveIssuerKey)
 
             val x5c = request.x5Chain?.map {
                 X509CertUtils.parse(it).encoded.encodeToBase64()
@@ -487,7 +493,12 @@ open class CIProvider(
 
         val issuerSignedItems = request.mdocData ?: throw MissingFieldException(listOf("mdocData"), "mdocData")
 
-        val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+        // Use issuerKey from request, fallback to EUDI config defaults if not provided
+        val effectiveIssuerKey = request.issuerKey
+            ?: eudiMdocConfig?.issuerKey
+            ?: throw BadRequestException("No issuerKey provided in request and no EUDI mDoc default configured")
+
+        val resolvedIssuerKey = KeyManager.resolveSerializedKey(effectiveIssuerKey)
 
         val issuerKey = JWK.parse(resolvedIssuerKey.exportJWK()).toECKey()
 
@@ -606,8 +617,10 @@ open class CIProvider(
         }
         authSessions.getAll().forEach { session ->
             session.issuanceRequests.forEach { request ->
+                // Skip requests using config defaults (null issuerKey) - they don't need JWKS exposure
+                val issuerKey = request.issuerKey ?: return@forEach
                 try {
-                    val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+                    val resolvedIssuerKey = KeyManager.resolveSerializedKey(issuerKey)
                     jwksList = buildJsonObject {
                         put("keys", buildJsonArray {
                             val jwkWithKid = buildJsonObject {
