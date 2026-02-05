@@ -1,7 +1,6 @@
 package id.walt.issuer.config
 
 import id.walt.commons.config.WaltConfig
-import kotlinx.serialization.json.JsonObject
 
 /**
  * Configuration for EUDI mDoc issuance defaults.
@@ -12,17 +11,17 @@ import kotlinx.serialization.json.JsonObject
  * Configure in issuer-service.conf under the "eudiMdoc" section:
  * ```hocon
  * eudiMdoc {
- *   issuerKey: { "type": "jwk", "jwk": { ... } }
+ *   issuerKey: """{"type":"jwk","jwk":{...}}"""
  *   x5Chain: ["-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"]
  * }
  * ```
  */
 data class EudiMdocConfig(
     /**
-     * Default issuer key for mDoc signing (JWK format as JsonObject).
+     * Default issuer key for mDoc signing (JSON string that will be parsed to JsonObject).
      * Must be P-256 EC key for EUDI wallet compatibility.
      */
-    val issuerKey: JsonObject? = null,
+    val issuerKey: String? = null,
 
     /**
      * Default X.509 certificate chain for mDoc issuance.
