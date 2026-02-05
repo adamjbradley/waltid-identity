@@ -96,6 +96,45 @@ export const CredentialFormats = [
   'mDoc (ISO 18013-5)',
 ];
 
+// EUDI-only credential IDs that should only show EUDI formats
+const EUDI_MDOC_CREDENTIAL_IDS = [
+  'eu.europa.ec.eudi.pid.1',
+  'org.iso.18013.5.1.mDL',
+];
+
+const EUDI_SDJWT_CREDENTIAL_IDS = [
+  'eu.europa.ec.eudi.pid_vc_sd_jwt',
+];
+
+// Get available formats for a credential based on its ID
+export function getAvailableFormatsForCredential(credentialId: string): string[] {
+  if (EUDI_MDOC_CREDENTIAL_IDS.includes(credentialId)) {
+    return ['mDoc (ISO 18013-5)'];
+  }
+  if (EUDI_SDJWT_CREDENTIAL_IDS.includes(credentialId)) {
+    return ['DC+SD-JWT (EUDI)'];
+  }
+  // Non-EUDI credentials get all formats except EUDI-specific ones
+  return CredentialFormats.filter(f => f !== 'DC+SD-JWT (EUDI)' && f !== 'mDoc (ISO 18013-5)');
+}
+
+// Get the default format for a credential
+export function getDefaultFormatForCredential(credentialId: string): string {
+  if (EUDI_MDOC_CREDENTIAL_IDS.includes(credentialId)) {
+    return 'mDoc (ISO 18013-5)';
+  }
+  if (EUDI_SDJWT_CREDENTIAL_IDS.includes(credentialId)) {
+    return 'DC+SD-JWT (EUDI)';
+  }
+  return CredentialFormats[0]; // JWT + W3C VC
+}
+
+// Check if a credential is EUDI-only
+export function isEudiCredential(credentialId: string): boolean {
+  return EUDI_MDOC_CREDENTIAL_IDS.includes(credentialId) ||
+         EUDI_SDJWT_CREDENTIAL_IDS.includes(credentialId);
+}
+
 // Get Value
 export function mapFormat(format: string): string {
   switch (format) {
