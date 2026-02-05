@@ -220,24 +220,51 @@ function getDefaultClaimsForCredential(credentialId: string, format: string): { 
   return defaultClaimsMap[credentialId] || [];
 }
 
+export interface VerificationSigningConfig {
+  clientId: string;
+  key: {
+    type: string;
+    jwk: {
+      kty: string;
+      crv: string;
+      x: string;
+      y: string;
+      d: string;
+    };
+  };
+  x5c: string[];
+}
+
 export interface VerificationSessionRequest {
   flow_type: string;
   core_flow: {
-    signed_request?: boolean;
+    signed_request: boolean;
+    clientId?: string;
+    key?: VerificationSigningConfig['key'];
+    x5c?: string[];
     dcql_query: DcqlQuery;
   };
 }
 
 export function buildVerificationSessionRequest(
-  dcqlQuery: DcqlQuery
+  dcqlQuery: DcqlQuery,
+  signingConfig?: VerificationSigningConfig
 ): VerificationSessionRequest {
+  const coreFlow: VerificationSessionRequest['core_flow'] = {
+    signed_request: true,
+    dcql_query: dcqlQuery,
+  };
+
+  // Add signing parameters if provided
+  if (signingConfig) {
+    coreFlow.clientId = signingConfig.clientId;
+    coreFlow.key = signingConfig.key;
+    coreFlow.x5c = signingConfig.x5c;
+  }
+
   return {
     flow_type: 'cross_device',
-    core_flow: {
-      // EUDI wallets require signed JAR requests for verification
-      signed_request: true,
-      dcql_query: dcqlQuery,
-    },
+    core_flow: coreFlow,
   };
 }
 
