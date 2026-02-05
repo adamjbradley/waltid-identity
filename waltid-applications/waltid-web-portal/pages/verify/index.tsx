@@ -7,6 +7,7 @@ import {useRouter} from "next/router";
 import QRCode from "react-qr-code";
 import axios from "axios";
 import {sendToWebWallet} from "@/utils/sendToWebWallet";
+import {isMobileDevice} from "@/utils/deviceDetection";
 import nextConfig from "@/next.config";
 import BackButton from "@/components/walt/button/BackButton";
 import {CredentialFormats, mapFormat, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest, VerificationSigningConfig} from "@/types/credentials";
@@ -25,6 +26,12 @@ export default function Verification() {
   const [copyText, setCopyText] = useState(BUTTON_COPY_TEXT_DEFAULT);
   const [error, setError] = useState<string | null>(null);
   const [usedApi2, setUsedApi2] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device on mount (client-side only)
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
 
   function handleCancel() {
     router.push('/');
@@ -205,6 +212,11 @@ export default function Verification() {
     );
   }
 
+  function openInEudiWallet() {
+    // Deep link directly to EUDI wallet app on same device
+    window.location.href = verifyURL;
+  }
+
   return (
     <div className="flex flex-col justify-center items-center bg-gray-50">
       <div
@@ -236,6 +248,17 @@ export default function Verification() {
             />
           )}
         </div>
+        {/* Same-device button for EUDI formats on mobile */}
+        {isMobile && usedApi2 && !loading && !error && (
+          <div className="mb-4">
+            <Button onClick={openInEudiWallet} style="button" className="w-full bg-blue-600 hover:bg-blue-700">
+              Open in EUDI Wallet
+            </Button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Or scan the QR code with another device
+            </p>
+          </div>
+        )}
         <div className="sm:flex flex-row gap-5 justify-center">
           <Button style="link" onClick={copyCurrentURLToClipboard}>
             {copyText}
