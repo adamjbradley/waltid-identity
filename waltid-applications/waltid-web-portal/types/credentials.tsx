@@ -65,7 +65,7 @@ export const EudiCredentials: AvailableCredential[] = [
     ]
   },
   {
-    id: 'eu.europa.ec.eudi.pid_vc_sd_jwt',
+    id: 'urn:eudi:pid:1',
     title: 'EU Personal ID (SD-JWT)',
     offer: {
       credentialSubject: {
@@ -103,7 +103,7 @@ export const CredentialFormats = [
 const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
   'eu.europa.ec.eudi.pid.1': ['mDoc (ISO 18013-5)'],
   'org.iso.18013.5.1.mDL': ['mDoc (ISO 18013-5)'],
-  'eu.europa.ec.eudi.pid_vc_sd_jwt': ['DC+SD-JWT (EUDI)'],
+  'urn:eudi:pid:1': ['DC+SD-JWT (EUDI)'],
 };
 
 // Get available formats for a credential based on issuer support
@@ -169,9 +169,9 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
         getDefaultClaimsForCredential(credential.id, format);
 
       // DCQL credential id must be alphanumeric with underscores/hyphens only
-      // The credential.id may contain dots (e.g., "eu.europa.ec.eudi.pid.1")
-      // which are not allowed by EUDI wallets
-      const dcqlId = credential.id.replace(/\./g, '_');
+      // The credential.id may contain dots (e.g., "eu.europa.ec.eudi.pid.1") or
+      // colons (e.g., "urn:eudi:pid:1") which are not allowed by EUDI wallets
+      const dcqlId = credential.id.replace(/[^a-zA-Z0-9_-]/g, '_');
 
       if (format === 'mso_mdoc') {
         return {
