@@ -16,6 +16,7 @@ import id.walt.crypto.utils.Base64Utils.encodeToBase64
 import id.walt.crypto.utils.Base64Utils.encodeToBase64Url
 import id.walt.crypto.utils.UuidUtils.randomUUIDString
 import id.walt.issuer.config.CredentialTypeConfig
+import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
@@ -106,6 +107,17 @@ open class CIProvider(
 
     companion object {
         private val log = KotlinLogging.logger { }
+
+        // EUDI mDoc config - loaded lazily with null fallback if not configured
+        private val eudiMdocConfig: EudiMdocConfig? by lazy {
+            try {
+                ConfigManager.getConfig<EudiMdocConfig>()
+            } catch (e: Exception) {
+                log.debug { "EudiMdocConfig not configured, mDoc x5Chain defaults not available: ${e.message}" }
+                null
+            }
+        }
+
         private val http = HttpClient {
             install(ContentNegotiation) {
                 json()
@@ -231,7 +243,9 @@ open class CIProvider(
         authSessions.getAll().forEach { session ->
             totalCount++
             session.issuanceRequests.forEach { request ->
-                val validationResult = KeyValidationService.validateIssuerKey(request.issuerKey)
+                // Skip validation for requests using config defaults (null issuerKey)
+                val issuerKey = request.issuerKey ?: return@forEach
+                val validationResult = KeyValidationService.validateIssuerKey(issuerKey)
                 if (validationResult.isFailure) {
                     val error = validationResult.exceptionOrNull()
                     log.warn { "Removing session ${session.id} due to invalid key: ${error?.message}" }
@@ -354,7 +368,11 @@ open class CIProvider(
             val vc = request.credentialData
                 ?: throw MissingFieldException(listOf("credentialData"), "credentialData")
 
-            val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+            // For SD-JWT and JWT credentials, issuerKey is required (no config fallback)
+            val effectiveIssuerKey = request.issuerKey
+                ?: throw BadRequestException("issuerKey is required for SD-JWT and JWT credentials")
+
+            val resolvedIssuerKey = KeyManager.resolveSerializedKey(effectiveIssuerKey)
 
             val x5c = request.x5Chain?.map {
                 X509CertUtils.parse(it).encoded.encodeToBase64()
@@ -475,11 +493,22 @@ open class CIProvider(
 
         val issuerSignedItems = request.mdocData ?: throw MissingFieldException(listOf("mdocData"), "mdocData")
 
-        val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+        // Use issuerKey from request, fallback to EUDI config defaults if not provided
+        val effectiveIssuerKey = request.issuerKey
+            ?: eudiMdocConfig?.issuerKey
+            ?: throw BadRequestException("No issuerKey provided in request and no EUDI mDoc default configured")
+
+        val resolvedIssuerKey = KeyManager.resolveSerializedKey(effectiveIssuerKey)
 
         val issuerKey = JWK.parse(resolvedIssuerKey.exportJWK()).toECKey()
 
         val keyID = resolvedIssuerKey.getKeyId()
+
+        // Use x5Chain from request, fallback to EUDI config defaults if not provided
+        val effectiveX5Chain = request.x5Chain ?: eudiMdocConfig?.x5Chain
+        if (effectiveX5Chain.isNullOrEmpty()) {
+            log.warn { "No x5Chain provided in request and no EUDI mDoc config defaults available. mDoc verification may fail." }
+        }
 
         val cryptoProvider = SimpleCOSECryptoProvider(
             listOf(
@@ -488,7 +517,7 @@ open class CIProvider(
                     algorithmID = AlgorithmID.ECDSA_256,
                     publicKey = issuerKey.toECPublicKey(),
                     privateKey = issuerKey.toECPrivateKey(),
-                    x5Chain = request.x5Chain?.map { X509CertUtils.parse(it) } ?: listOf(),
+                    x5Chain = effectiveX5Chain?.map { X509CertUtils.parse(it) } ?: listOf(),
                     trustedRootCAs = request.trustedRootCAs?.map { X509CertUtils.parse(it) } ?: listOf()
                 )
             )
@@ -588,8 +617,10 @@ open class CIProvider(
         }
         authSessions.getAll().forEach { session ->
             session.issuanceRequests.forEach { request ->
+                // Skip requests using config defaults (null issuerKey) - they don't need JWKS exposure
+                val issuerKey = request.issuerKey ?: return@forEach
                 try {
-                    val resolvedIssuerKey = KeyManager.resolveSerializedKey(request.issuerKey)
+                    val resolvedIssuerKey = KeyManager.resolveSerializedKey(issuerKey)
                     jwksList = buildJsonObject {
                         put("keys", buildJsonArray {
                             val jwkWithKid = buildJsonObject {

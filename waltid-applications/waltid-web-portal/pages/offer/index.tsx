@@ -54,7 +54,8 @@ export default function Offer() {
             : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER,
           router.query.authenticationMethod as string,
           router.query.vpRequestValue as string,
-          router.query.vpProfile as string
+          router.query.vpProfile as string,
+          router.query.useServerKeys === 'true'
         );
         setOfferURL(response.data);
         setLoading(false);

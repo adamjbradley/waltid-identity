@@ -1,26 +1,90 @@
+export interface ClaimDefinition {
+  path: string[];
+}
+
 export type AvailableCredential = {
   id: string;
   title: string;
   selectedFormat?: String;
   selectedDID?: String;
   offer: any;
+  defaultClaims?: ClaimDefinition[];
+  editedClaims?: ClaimDefinition[];
 };
 
 export const EudiCredentials: AvailableCredential[] = [
   {
     id: 'eu.europa.ec.eudi.pid.1',
     title: 'EU Personal ID (mDoc)',
-    offer: { doctype: 'eu.europa.ec.eudi.pid.1' }
+    offer: {
+      'eu.europa.ec.eudi.pid.1': {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        age_over_18: true,
+        age_over_21: true,
+        issuance_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_authority: 'Test Authority',
+        issuing_country: 'AU',
+      }
+    },
+    defaultClaims: [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ]
   },
   {
     id: 'org.iso.18013.5.1.mDL',
     title: 'Mobile Driving License',
-    offer: { doctype: 'org.iso.18013.5.1.mDL' }
+    offer: {
+      'org.iso.18013.5.1': {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        issue_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_country: 'AU',
+        issuing_authority: 'Test Authority',
+        document_number: 'DL123456789',
+        portrait: '',
+        driving_privileges: [
+          {
+            vehicle_category_code: 'C',
+            issue_date: '2024-01-01',
+            expiry_date: '2034-01-01',
+          }
+        ],
+      }
+    },
+    defaultClaims: [
+      { path: ['org.iso.18013.5.1', 'family_name'] },
+      { path: ['org.iso.18013.5.1', 'given_name'] },
+      { path: ['org.iso.18013.5.1', 'birth_date'] },
+    ]
   },
   {
     id: 'urn:eudi:pid:1',
     title: 'EU Personal ID (SD-JWT)',
-    offer: { vct: 'urn:eudi:pid:1' }
+    offer: {
+      credentialSubject: {
+        family_name: 'Doe',
+        given_name: 'John',
+        birth_date: '1990-01-15',
+        age_over_18: true,
+        age_over_21: true,
+        issuance_date: '2024-01-01',
+        expiry_date: '2034-01-01',
+        issuing_authority: 'Test Authority',
+        issuing_country: 'AU',
+      }
+    },
+    defaultClaims: [
+      { path: ['family_name'] },
+      { path: ['given_name'] },
+      { path: ['birth_date'] },
+    ]
   }
 ];
 
@@ -31,6 +95,34 @@ export const CredentialFormats = [
   'DC+SD-JWT (EUDI)',
   'mDoc (ISO 18013-5)',
 ];
+
+// Map credential IDs to their supported formats (based on issuer configuration)
+// eu.europa.ec.eudi.pid.1 -> mso_mdoc only
+// org.iso.18013.5.1.mDL -> mso_mdoc only
+// eu.europa.ec.eudi.pid_vc_sd_jwt / urn:eudi:pid:1 -> dc+sd-jwt only
+const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
+  'eu.europa.ec.eudi.pid.1': ['mDoc (ISO 18013-5)'],
+  'org.iso.18013.5.1.mDL': ['mDoc (ISO 18013-5)'],
+  'urn:eudi:pid:1': ['DC+SD-JWT (EUDI)'],
+};
+
+// Get available formats for a credential based on issuer support
+export function getAvailableFormatsForCredential(credentialId: string): string[] {
+  return CREDENTIAL_FORMAT_MAP[credentialId] || CredentialFormats.filter(
+    f => f !== 'DC+SD-JWT (EUDI)' && f !== 'mDoc (ISO 18013-5)'
+  );
+}
+
+// Get the default format for a credential
+export function getDefaultFormatForCredential(credentialId: string): string {
+  const formats = getAvailableFormatsForCredential(credentialId);
+  return formats[0];
+}
+
+// Check if credential is EUDI-only (has restricted formats)
+export function isEudiCredential(credentialId: string): boolean {
+  return credentialId in CREDENTIAL_FORMAT_MAP;
+}
 
 // Get Value
 export function mapFormat(format: string): string {
@@ -61,6 +153,7 @@ export interface DcqlCredential {
     doctype_value?: string;
     vct_values?: string[];
   };
+  claims?: { path: string[] }[];
 }
 
 export interface DcqlQuery {
@@ -70,43 +163,108 @@ export interface DcqlQuery {
 export function buildDcqlQuery(credentials: AvailableCredential[], format: string): DcqlQuery {
   return {
     credentials: credentials.map((credential) => {
+      // Prefer user-edited claims, then default claims, then fallback
+      const claims = credential.editedClaims?.map(c => ({ path: c.path })) ||
+        credential.defaultClaims?.map(c => ({ path: c.path })) ||
+        getDefaultClaimsForCredential(credential.id, format);
+
+      // DCQL credential id must be alphanumeric with underscores/hyphens only
+      // The credential.id may contain dots (e.g., "eu.europa.ec.eudi.pid.1") or
+      // colons (e.g., "urn:eudi:pid:1") which are not allowed by EUDI wallets
+      const dcqlId = credential.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+
       if (format === 'mso_mdoc') {
         return {
-          id: credential.id,
+          id: dcqlId,
           format: 'mso_mdoc',
           meta: {
             doctype_value: credential.offer.doctype || credential.id,
           },
+          claims,
         };
       } else {
         // dc+sd-jwt
         return {
-          id: credential.id,
+          id: dcqlId,
           format: 'dc+sd-jwt',
           meta: {
             vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
           },
+          claims,
         };
       }
     }),
   };
 }
 
+// Fallback default claims for known EUDI credential types
+function getDefaultClaimsForCredential(credentialId: string, format: string): { path: string[] }[] {
+  const defaultClaimsMap: Record<string, { path: string[] }[]> = {
+    'eu.europa.ec.eudi.pid.1': [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ],
+    'org.iso.18013.5.1.mDL': [
+      { path: ['org.iso.18013.5.1', 'family_name'] },
+      { path: ['org.iso.18013.5.1', 'given_name'] },
+      { path: ['org.iso.18013.5.1', 'birth_date'] },
+    ],
+    'urn:eudi:pid:1': [
+      { path: ['family_name'] },
+      { path: ['given_name'] },
+      { path: ['birth_date'] },
+    ],
+  };
+
+  return defaultClaimsMap[credentialId] || [];
+}
+
+export interface VerificationSigningConfig {
+  clientId: string;
+  key: {
+    type: string;
+    jwk: {
+      kty: string;
+      crv: string;
+      x: string;
+      y: string;
+      d: string;
+    };
+  };
+  x5c: string[];
+}
+
 export interface VerificationSessionRequest {
   flow_type: string;
   core_flow: {
+    signed_request: boolean;
+    clientId?: string;
+    key?: VerificationSigningConfig['key'];
+    x5c?: string[];
     dcql_query: DcqlQuery;
   };
 }
 
 export function buildVerificationSessionRequest(
-  dcqlQuery: DcqlQuery
+  dcqlQuery: DcqlQuery,
+  signingConfig?: VerificationSigningConfig
 ): VerificationSessionRequest {
+  const coreFlow: VerificationSessionRequest['core_flow'] = {
+    signed_request: true,
+    dcql_query: dcqlQuery,
+  };
+
+  // Add signing parameters if provided
+  if (signingConfig) {
+    coreFlow.clientId = signingConfig.clientId;
+    coreFlow.key = signingConfig.key;
+    coreFlow.x5c = signingConfig.x5c;
+  }
+
   return {
     flow_type: 'cross_device',
-    core_flow: {
-      dcql_query: dcqlQuery,
-    },
+    core_flow: coreFlow,
   };
 }
 

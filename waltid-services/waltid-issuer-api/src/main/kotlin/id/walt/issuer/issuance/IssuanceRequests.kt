@@ -77,7 +77,7 @@ data class NewIssuanceRequest(
 
 @Serializable
 data class IssuanceRequest(
-    val issuerKey: JsonObject,
+    val issuerKey: JsonObject? = null,
     val credentialConfigurationId: String,
     val credentialData: JsonObject? = null,
     val vct: String? = null,
@@ -109,8 +109,11 @@ data class IssuanceRequest(
             throw BadRequestException("Credential configuration ID in the request body cannot be empty")
         }
 
-        require(issuerKey.isNotEmpty()) {
-            throw BadRequestException("Issuer key in the request body cannot be empty")
+        // Note: issuerKey validation moved to endpoint level - allows fallback to config defaults for mDoc
+        issuerKey?.let {
+            require(it.isNotEmpty()) {
+                throw BadRequestException("Issuer key in the request body cannot be empty when provided")
+            }
         }
     }
 }

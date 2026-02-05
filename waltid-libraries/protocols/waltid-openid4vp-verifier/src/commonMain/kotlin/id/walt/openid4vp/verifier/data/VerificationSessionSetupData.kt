@@ -53,13 +53,9 @@ data class GeneralFlowConfig(
         // Verify if DCQL Query is correct
         dcqlQuery.precheck()
 
-        if (signedRequest) {
-            requireNotNull(key) { "Requested signed request, but did not provide a key (to sign request with)!" }
-        }
-
-        if (encryptedResponse) {
-            requireNotNull(key) { "Requested encrypted response, but did not provide a key (to decrypt response with)!" }
-        }
+        // Note: key validation for signedRequest and encryptedResponse is performed
+        // in VerificationSessionCreator AFTER config defaults are applied, allowing
+        // the request to omit key when it's configured in verifier-service.conf
     }
 }
 
