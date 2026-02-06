@@ -73,6 +73,7 @@ dependencies {
 
 
     // walt.id
+    implementation(project(":waltid-libraries:credentials:waltid-trust"))
     implementation(project(":waltid-libraries:protocols:waltid-openid4vc"))
     implementation(project(":waltid-libraries:sdjwt:waltid-sdjwt"))
     implementation(project(":waltid-libraries:credentials:waltid-mdoc-credentials"))

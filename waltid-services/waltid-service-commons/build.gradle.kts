@@ -16,6 +16,12 @@ dependencies {
 
     api(project(":waltid-libraries:waltid-did"))
 
+    // Trust lists
+    api(project(":waltid-libraries:credentials:waltid-trust"))
+    api(project(":waltid-libraries:credentials:waltid-digital-credentials"))
+    implementation(project(":waltid-libraries:credentials:waltid-etsi-tsl"))
+    implementation(project(":waltid-libraries:protocols:waltid-openid-federation"))
+
     // Ktor
     api("io.ktor:ktor-server-core-jvm:${Versions.KTOR_VERSION}")
     api("io.ktor:ktor-server-cio-jvm:${Versions.KTOR_VERSION}")
@@ -29,6 +35,7 @@ dependencies {
     api("io.klogging:klogging-jvm:0.11.6") // JVM + ~JS
     implementation("io.klogging:slf4j-klogging:0.11.6")
     implementation("org.slf4j:jul-to-slf4j:2.0.17")
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.5")
 
     // CLI
     api("com.github.ajalt.clikt:clikt:5.0.3")  // JVM
