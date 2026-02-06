@@ -128,9 +128,13 @@ object VerificationService {
                     else -> "pending"
                 }
 
-                // Extract claims if verification was successful
+                // Extract claims and credentials if verification was successful
                 val claims: Map<String, Any>? = if (status == "verified" && verifierInfo.presentedCredentials != null) {
                     extractClaims(verifierInfo.presentedCredentials)
+                } else null
+
+                val credentials: List<CredentialInfo>? = if (status == "verified" && verifierInfo.presentedCredentials != null) {
+                    extractCredentials(verifierInfo.presentedCredentials)
                 } else null
 
                 // Update local session if status changed
@@ -143,7 +147,7 @@ object VerificationService {
                     sessionId = sessionId,
                     status = status,
                     templateName = session.templateName,
-                    result = claims?.let { SessionResult(it) },
+                    result = if (claims != null || credentials != null) SessionResult(answers = claims, credentials = credentials) else null,
                     verifiedAt = if (status == "verified") System.currentTimeMillis() else null,
                     metadata = session.metadata,
                     expiresAt = session.expiresAt
@@ -168,25 +172,73 @@ object VerificationService {
     }
 
     /**
-     * Extracts claims from verifier-api2 presented credentials.
+     * Extracts credentials with full metadata from verifier-api2 presented credentials.
+     */
+    private fun extractCredentials(presentedCredentials: JsonObject): List<CredentialInfo> {
+        val credentials = mutableListOf<CredentialInfo>()
+
+        // Iterate through credential types (e.g., "urn:eudi:pid:1")
+        for ((credType, credArray) in presentedCredentials) {
+            if (credArray is JsonArray) {
+                for (credElement in credArray) {
+                    if (credElement is JsonObject) {
+                        val format = (credElement["format"] as? JsonPrimitive)?.content
+                        val issuer = (credElement["issuer"] as? JsonPrimitive)?.content
+                        val credentialData = credElement["credentialData"]
+
+                        // Extract VCT from credential data
+                        val vct = if (credentialData is JsonObject) {
+                            (credentialData["vct"] as? JsonPrimitive)?.content
+                        } else null
+
+                        // Extract doctype for mDoc credentials
+                        val doctype = if (credentialData is JsonObject) {
+                            (credentialData["docType"] as? JsonPrimitive)?.content
+                        } else null
+
+                        // Extract all disclosed claims
+                        val disclosedClaims = mutableMapOf<String, String>()
+                        if (credentialData is JsonObject) {
+                            for ((key, value) in credentialData) {
+                                // Skip internal metadata fields
+                                if (key.startsWith("_") || key in listOf("iat", "nbf", "exp", "iss", "cnf", "vct", "docType")) {
+                                    continue
+                                }
+                                disclosedClaims[key] = jsonValueToString(value)
+                            }
+                        }
+
+                        credentials.add(CredentialInfo(
+                            format = format,
+                            vct = vct,
+                            doctype = doctype,
+                            issuer = issuer,
+                            disclosedClaims = disclosedClaims
+                        ))
+                    }
+                }
+            }
+        }
+
+        return credentials
+    }
+
+    /**
+     * Extracts simple claims map for backward compatibility (answers field).
      */
     private fun extractClaims(presentedCredentials: JsonObject): Map<String, Any> {
         val claims = mutableMapOf<String, Any>()
 
-        // Iterate through credential types
         for ((_, credArray) in presentedCredentials) {
             if (credArray is JsonArray && credArray.isNotEmpty()) {
                 val cred = credArray[0]
                 if (cred is JsonObject) {
-                    // Get credentialData which contains the actual claims
                     val credentialData = cred["credentialData"]
                     if (credentialData is JsonObject) {
                         for ((key, value) in credentialData) {
-                            // Skip internal SD-JWT fields
-                            if (key.startsWith("_") || key in listOf("iat", "nbf", "exp", "iss", "cnf", "vct")) {
+                            if (key.startsWith("_") || key in listOf("iat", "nbf", "exp", "iss", "cnf", "vct", "docType")) {
                                 continue
                             }
-                            // Convert JSON values to Kotlin types
                             claims[key] = when (value) {
                                 is JsonPrimitive -> {
                                     when {
@@ -209,6 +261,18 @@ object VerificationService {
         return claims
     }
 
+    /**
+     * Convert JSON value to string representation.
+     */
+    private fun jsonValueToString(value: kotlinx.serialization.json.JsonElement): String {
+        return when (value) {
+            is JsonPrimitive -> value.content
+            is JsonObject -> value.toString()
+            is JsonArray -> value.toString()
+            else -> value.toString()
+        }
+    }
+
     data class SessionStatus(
         val sessionId: String,
         val status: String,
@@ -220,6 +284,15 @@ object VerificationService {
     )
 
     data class SessionResult(
-        val claims: Map<String, Any>
+        val answers: Map<String, Any>? = null,
+        val credentials: List<CredentialInfo>? = null
+    )
+
+    data class CredentialInfo(
+        val format: String?,
+        val vct: String?,
+        val doctype: String?,
+        val issuer: String?,
+        val disclosedClaims: Map<String, String>
     )
 }

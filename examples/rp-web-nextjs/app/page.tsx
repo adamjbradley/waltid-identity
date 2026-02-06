@@ -12,12 +12,17 @@ interface VerificationSession {
   expiresAt: string;
 }
 
+interface CredentialInfo {
+  format: string | null;
+  vct: string | null;
+  doctype: string | null;
+  issuer: string | null;
+  disclosedClaims: Record<string, string>;
+}
+
 interface VerificationResult {
-  claims?: {
-    ageOver18?: boolean;
-    ageOver21?: boolean;
-    birthDate?: string;
-  };
+  answers?: Record<string, unknown>;
+  credentials?: CredentialInfo[];
   error?: string;
 }
 
@@ -252,17 +257,51 @@ export default function CheckoutPage() {
                 Your age has been verified. You can now complete your purchase.
               </p>
 
-              {result?.claims && (
+              {result?.credentials && result.credentials.length > 0 && (
                 <div className="bg-green-50 rounded-lg p-4 mb-6 text-left">
-                  <h4 className="font-medium text-green-800 mb-2">Verification Details:</h4>
-                  <ul className="text-sm text-green-700 space-y-1">
-                    {result.claims.ageOver21 !== undefined && (
-                      <li>Age over 21: {result.claims.ageOver21 ? 'Yes' : 'No'}</li>
-                    )}
-                    {result.claims.ageOver18 !== undefined && (
-                      <li>Age over 18: {result.claims.ageOver18 ? 'Yes' : 'No'}</li>
-                    )}
-                  </ul>
+                  <h4 className="font-medium text-green-800 mb-3">Shared Credentials:</h4>
+                  {result.credentials.map((cred, idx) => (
+                    <div key={idx} className={`${idx > 0 ? 'mt-4 pt-4 border-t border-green-200' : ''}`}>
+                      {/* Credential Header */}
+                      <div className="mb-2">
+                        <span className="inline-block bg-green-200 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+                          {cred.format || 'Unknown format'}
+                        </span>
+                        {cred.vct && (
+                          <span className="ml-2 text-xs text-green-600">
+                            {cred.vct}
+                          </span>
+                        )}
+                        {cred.doctype && (
+                          <span className="ml-2 text-xs text-green-600">
+                            {cred.doctype}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Issuer */}
+                      {cred.issuer && (
+                        <p className="text-xs text-green-600 mb-2 truncate" title={cred.issuer}>
+                          Issuer: {cred.issuer.length > 50 ? `${cred.issuer.substring(0, 50)}...` : cred.issuer}
+                        </p>
+                      )}
+
+                      {/* Disclosed Claims */}
+                      <div className="bg-white rounded p-3 border border-green-200">
+                        <h5 className="text-xs font-semibold text-green-700 mb-2">Disclosed Claims:</h5>
+                        <ul className="text-sm text-green-700 space-y-1">
+                          {Object.entries(cred.disclosedClaims).map(([key, value]) => (
+                            <li key={key} className="flex justify-between">
+                              <span className="font-medium">{key}:</span>
+                              <span className="text-green-600 ml-2 truncate max-w-[200px]" title={String(value)}>
+                                {String(value).length > 30 ? `${String(value).substring(0, 30)}...` : String(value)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 

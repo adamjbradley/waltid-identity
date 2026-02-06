@@ -43,9 +43,10 @@ data class SessionResultResponse(
  */
 @Serializable
 data class CredentialResponse(
-    val format: String,
+    val format: String? = null,
     val vct: String? = null,
     val doctype: String? = null,
+    val issuer: String? = null,
     @SerialName("disclosed_claims")
     val disclosedClaims: Map<String, String>
 )
@@ -128,8 +129,16 @@ fun Route.sessionRoutes() {
                 // Convert service status to response
                 val resultResponse = status.result?.let { result ->
                     SessionResultResponse(
-                        answers = result.claims.mapValues { it.value.toString() },
-                        credentials = null
+                        answers = result.answers?.mapValues { it.value.toString() },
+                        credentials = result.credentials?.map { cred ->
+                            CredentialResponse(
+                                format = cred.format,
+                                vct = cred.vct,
+                                doctype = cred.doctype,
+                                issuer = cred.issuer,
+                                disclosedClaims = cred.disclosedClaims
+                            )
+                        }
                     )
                 }
 
