@@ -61,6 +61,11 @@ object OrchestrationEngine {
     }
 
     /**
+     * Public method for generating orchestration session IDs (for testing).
+     */
+    internal fun generateOrchestrationSessionId(): String = generateSessionId()
+
+    /**
      * Start a new orchestration session.
      *
      * Creates a session and identifies the first step to execute (one with no dependencies).
@@ -238,7 +243,7 @@ object OrchestrationEngine {
      * @param completedSteps Map of completed step IDs to results
      * @return The next eligible step, or null if none available
      */
-    private fun findNextEligibleStep(
+    internal fun findNextEligibleStep(
         orchestration: OrchestrationDefinition,
         completedSteps: Map<String, StepResult>
     ): OrchestrationStep? {
@@ -249,6 +254,91 @@ object OrchestrationEngine {
                         depResult != null && depResult.success
                     }
         }
+    }
+
+    /**
+     * Find the first step that can be executed (no dependencies).
+     *
+     * @param orchestration The orchestration definition
+     * @return The first eligible step, or null if all steps have dependencies
+     */
+    internal fun findFirstStep(orchestration: OrchestrationDefinition): OrchestrationStep? {
+        return orchestration.steps.firstOrNull { it.dependsOn.isEmpty() }
+    }
+
+    /**
+     * Result of orchestration validation.
+     */
+    data class ValidationResult(
+        val isValid: Boolean,
+        val error: String? = null
+    )
+
+    /**
+     * Validate an orchestration definition.
+     *
+     * Checks:
+     * - At least one step exists
+     * - All dependency references are valid
+     * - No circular dependencies exist
+     * - At least one step has no dependencies (starting point)
+     *
+     * @param orchestration The orchestration to validate
+     * @return ValidationResult with success status and error message if invalid
+     */
+    internal fun validateOrchestration(orchestration: OrchestrationDefinition): ValidationResult {
+        // Check for empty orchestration
+        if (orchestration.steps.isEmpty()) {
+            return ValidationResult(false, "Orchestration must have at least one step")
+        }
+
+        val stepIds = orchestration.steps.map { it.id }.toSet()
+
+        // Check all dependencies reference valid steps
+        for (step in orchestration.steps) {
+            for (depId in step.dependsOn) {
+                if (depId !in stepIds) {
+                    return ValidationResult(false, "Step ${step.id} depends on unknown step $depId")
+                }
+                if (depId == step.id) {
+                    return ValidationResult(false, "Step ${step.id} cannot depend on itself (self-reference)")
+                }
+            }
+        }
+
+        // Check for at least one step without dependencies
+        val hasStartingStep = orchestration.steps.any { it.dependsOn.isEmpty() }
+        if (!hasStartingStep) {
+            return ValidationResult(false, "Orchestration has no step without dependencies (no starting point)")
+        }
+
+        // Check for circular dependencies using DFS
+        val visited = mutableSetOf<String>()
+        val inStack = mutableSetOf<String>()
+
+        fun hasCycle(stepId: String): Boolean {
+            if (stepId in inStack) return true
+            if (stepId in visited) return false
+
+            visited.add(stepId)
+            inStack.add(stepId)
+
+            val step = orchestration.steps.find { it.id == stepId }!!
+            for (depId in step.dependsOn) {
+                if (hasCycle(depId)) return true
+            }
+
+            inStack.remove(stepId)
+            return false
+        }
+
+        for (step in orchestration.steps) {
+            if (hasCycle(step.id)) {
+                return ValidationResult(false, "Circular dependency detected involving step ${step.id}")
+            }
+        }
+
+        return ValidationResult(true)
     }
 
     /**
