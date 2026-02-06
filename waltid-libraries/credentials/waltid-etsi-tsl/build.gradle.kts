@@ -42,6 +42,7 @@ kotlin {
             implementation(kotlin("test"))
             implementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
             implementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
+            implementation(identityLibs.ktor.client.cio)
         }
         jsMain.dependencies {
         }

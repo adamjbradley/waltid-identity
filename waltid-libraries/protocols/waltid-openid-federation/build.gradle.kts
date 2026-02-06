@@ -41,6 +41,7 @@ kotlin {
             implementation(kotlin("test"))
             implementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
             implementation("org.junit.jupiter:junit-jupiter-params:5.11.4")
+            implementation("io.ktor:ktor-client-mock:3.3.3")
         }
         jsMain.dependencies {
         }

@@ -73,6 +73,7 @@ dependencies {
 
     // Test
     testImplementation(identityLibs.bundles.waltid.ktortesting)
+    testImplementation("io.mockk:mockk:1.14.2")
 
     testImplementation(project(":waltid-services:waltid-service-commons-test"))
     testImplementation(project(":waltid-libraries:protocols:waltid-openid4vp-wallet"))

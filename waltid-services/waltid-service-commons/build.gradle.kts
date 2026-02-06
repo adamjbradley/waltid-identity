@@ -68,6 +68,7 @@ dependencies {
 
     // Testing
     testImplementation(identityLibs.bundles.waltid.ktortesting)
+    testImplementation("io.mockk:mockk:1.14.2")
 }
 
 mavenPublishing {
