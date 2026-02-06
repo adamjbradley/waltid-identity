@@ -6,6 +6,7 @@ import io.ktor.http.*
 import io.ktor.server.auth.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,12 +15,16 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class SessionStatusResponse(
+    @SerialName("session_id")
     val sessionId: String,
     val status: String,
+    @SerialName("template_name")
     val templateName: String,
     val result: SessionResultResponse? = null,
+    @SerialName("verified_at")
     val verifiedAt: Long? = null,
     val metadata: Map<String, String>? = null,
+    @SerialName("expires_at")
     val expiresAt: Long
 )
 
@@ -40,6 +45,7 @@ data class CredentialResponse(
     val format: String,
     val vct: String? = null,
     val doctype: String? = null,
+    @SerialName("disclosed_claims")
     val disclosedClaims: Map<String, String>
 )
 

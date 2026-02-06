@@ -8,6 +8,7 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -18,8 +19,10 @@ data class IdentityVerificationRequest(
     /** Name of the verification template to use */
     val template: String,
     /** How to return verification results: "answers" or "raw_credentials" */
+    @SerialName("response_mode")
     val responseMode: String = "answers",
     /** Optional redirect URI for same-device flows */
+    @SerialName("redirect_uri")
     val redirectUri: String? = null,
     /** Optional metadata to attach to the session */
     val metadata: Map<String, String>? = null
@@ -31,14 +34,19 @@ data class IdentityVerificationRequest(
 @Serializable
 data class VerificationResponse(
     /** Unique session ID (vs_xxxx format) */
+    @SerialName("session_id")
     val sessionId: String,
     /** URL to retrieve the QR code image */
+    @SerialName("qr_code_url")
     val qrCodeUrl: String,
     /** Raw data encoded in the QR code (openid4vp:// URL) */
+    @SerialName("qr_code_data")
     val qrCodeData: String,
     /** Deep link URL for same-device wallet flows */
+    @SerialName("deep_link")
     val deepLink: String,
     /** Epoch millis when session expires */
+    @SerialName("expires_at")
     val expiresAt: Long
 )
 
