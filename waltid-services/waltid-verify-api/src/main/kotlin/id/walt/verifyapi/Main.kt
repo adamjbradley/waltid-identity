@@ -2,11 +2,13 @@ package id.walt.verifyapi
 
 import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
+import id.walt.verifyapi.routes.orchestrationRoutes
 import id.walt.verifyapi.routes.sessionRoutes
 import id.walt.verifyapi.routes.templateRoutes
 import id.walt.verifyapi.routes.verifyRoutes
 import id.walt.verifyapi.routes.webhookRoutes
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.smiley4.ktorswaggerui.swaggerUI
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -55,9 +57,29 @@ fun Application.module() {
     configureStatusPages()
     configureDatabase()
     configureAuthentication()
+    configureOpenAPI()
     configureRouting()
 
     logger.info { "Verify API started successfully on port 7010" }
+}
+
+fun Application.configureOpenAPI() {
+    routing {
+        // Serve the OpenAPI spec file
+        get("/openapi.yaml") {
+            val openApiSpec = this::class.java.classLoader.getResourceAsStream("openapi/openapi.yaml")
+                ?.bufferedReader()?.readText()
+                ?: throw IllegalStateException("OpenAPI spec not found")
+            call.respondText(openApiSpec, ContentType.parse("application/x-yaml"))
+        }
+
+        // Swagger UI at /docs, pointing to the OpenAPI spec
+        route("docs") {
+            swaggerUI("/openapi.yaml") {
+                filter = true
+            }
+        }
+    }
 }
 
 fun Application.configureSerialization() {
@@ -134,7 +156,8 @@ fun Application.configureRouting() {
                 |  /v1/sessions/{session_id} - Get session status
                 |  /v1/templates - List/create verification templates
                 |  /v1/webhooks - Manage webhook subscriptions
-                |  /docs - API documentation (coming soon)
+                |  /v1/orchestrations - Multi-step verification flows
+                |  /docs - API documentation (Swagger UI)
                 """.trimMargin(),
                 ContentType.Text.Plain
             )
@@ -160,5 +183,8 @@ fun Application.configureRouting() {
 
         // Verification routes (identity, document, etc.)
         verifyRoutes()
+
+        // Orchestration routes (multi-step verification flows)
+        orchestrationRoutes()
     }
 }
