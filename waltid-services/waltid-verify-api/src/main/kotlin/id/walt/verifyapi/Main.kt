@@ -131,6 +131,7 @@ fun Application.configureRouting() {
                 |  /health - Health check
                 |  /v1/verify/identity - Create identity verification (POST)
                 |  /v1/sessions/{session_id} - Get session status
+                |  /v1/templates - List/create verification templates
                 |  /docs - API documentation (coming soon)
                 """.trimMargin(),
                 ContentType.Text.Plain
