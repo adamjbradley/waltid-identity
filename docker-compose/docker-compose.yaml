@@ -31,6 +31,10 @@ services:
       - caddy
     env_file:
       - .env
+      - path: .env.local
+        required: false
+    # PWA (Payment Wallet Attestation) environment variables are loaded from .env.local
+    # To enable: echo "PWA_ENABLED=true" >> .env.local
     volumes:
       - ./issuer-api/config:/waltid-issuer-api/config
 

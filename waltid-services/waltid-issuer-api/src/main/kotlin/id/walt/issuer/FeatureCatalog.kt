@@ -8,6 +8,7 @@ import id.walt.issuer.config.AuthenticationServiceConfig
 import id.walt.issuer.config.CredentialTypeConfig
 import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
+import id.walt.issuer.psp.PwaConfig
 
 object FeatureCatalog : ServiceFeatureCatalog {
 
@@ -36,7 +37,22 @@ object FeatureCatalog : ServiceFeatureCatalog {
 
     val devModeFeature = OptionalFeature("dev-mode", "Development mode", DevModeConfig::class, default = false)
 
+    /**
+     * Payment Wallet Attestation (EWC RFC007) feature.
+     * Enables PSPs to issue credentials that bind payment funding sources to EUDI wallets.
+     * DISABLED by default - enable via PWA_ENABLED=true environment variable.
+     *
+     * Note: We check the environment variable directly here because the feature must be
+     * enabled BEFORE its config is loaded (chicken-and-egg problem with HOCON substitution).
+     */
+    val pwaFeature = OptionalFeature(
+        "pwa",
+        "Payment Wallet Attestation (EWC RFC007)",
+        PwaConfig::class,
+        default = System.getenv("PWA_ENABLED")?.toBoolean() ?: false
+    )
+
     override val baseFeatures = listOf(credentialTypes, issuerService, authenticationService)
-    override val optionalFeatures = listOf(entra, devModeFeature)
+    override val optionalFeatures = listOf(entra, devModeFeature, pwaFeature)
 
 }

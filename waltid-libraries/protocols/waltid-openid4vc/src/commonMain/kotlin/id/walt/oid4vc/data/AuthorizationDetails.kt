@@ -40,6 +40,17 @@ data class AuthorizationDetails(
     @Serializable(ClaimDescriptorNamespacedMapSerializer::class) val claims: Map<String, Map<String, ClaimDescriptor>>? = null,
     @SerialName("credential_definition") val credentialDefinition: CredentialDefinition? = null,
     val locations: List<String>? = null,
+    /**
+     * Used in token response to identify which credential configuration this authorization applies to.
+     * Per OpenID4VCI spec, when authorization_details is returned in token response.
+     */
+    @SerialName("credential_configuration_id") val credentialConfigurationId: String? = null,
+    /**
+     * Used in token response to provide unique identifiers for each credential that can be issued.
+     * The wallet uses these identifiers in subsequent credential requests.
+     * Per OpenID4VCI spec section 6.2 (Token Response).
+     */
+    @SerialName("credential_identifiers") val credentialIdentifiers: List<String>? = null,
     override val customParameters: Map<String, JsonElement>? = mapOf()
 ) : JsonDataObject() {
     override fun toJSON() = json.encodeToJsonElement(AuthorizationDetailsSerializer, this).jsonObject
@@ -50,16 +61,18 @@ data class AuthorizationDetails(
 
         fun fromOfferedCredential(offeredCredential: OfferedCredential, issuerLocation: String? = null) =
             AuthorizationDetails(
-                OPENID_CREDENTIAL_AUTHORIZATION_TYPE,
-                offeredCredential.format,
-                offeredCredential.vct,
-                offeredCredential.types,
-                null,
-                offeredCredential.docType,
-                null,
-                offeredCredential.credentialDefinition,
-                issuerLocation?.let { listOf(it) },
-                offeredCredential.customParameters
+                type = OPENID_CREDENTIAL_AUTHORIZATION_TYPE,
+                format = offeredCredential.format,
+                vct = offeredCredential.vct,
+                types = offeredCredential.types,
+                credentialSubject = null,
+                docType = offeredCredential.docType,
+                claims = null,
+                credentialDefinition = offeredCredential.credentialDefinition,
+                locations = issuerLocation?.let { listOf(it) },
+                credentialConfigurationId = null,
+                credentialIdentifiers = null,
+                customParameters = offeredCredential.customParameters
             )
     }
 }

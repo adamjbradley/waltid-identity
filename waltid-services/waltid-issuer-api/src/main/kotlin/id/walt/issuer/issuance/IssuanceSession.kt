@@ -2,6 +2,7 @@
 
 package id.walt.issuer.issuance
 
+import id.walt.issuer.psp.FundingSource
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.TxCode
 import id.walt.oid4vc.providers.AuthorizationSession
@@ -33,4 +34,9 @@ data class IssuanceSession(
     val statusReason: String? = null,
     val isClosed: Boolean = false,
     val dpopThumbprint: String? = null, // DPoP JWK thumbprint for token binding
+    // PWA (Payment Wallet Attestation) fields - only populated when PWA feature enabled
+    /** Resolved funding sources from PSP adapter (null when PWA disabled) */
+    val resolvedFundingSources: List<FundingSource>? = null,
+    /** Mapping from credential_identifier to funding source for credential issuance (null when PWA disabled) */
+    val credentialIdentifierMapping: Map<String, FundingSource>? = null,
 ) : AuthorizationSession()

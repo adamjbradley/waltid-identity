@@ -201,6 +201,39 @@ data class CredentialTypeConfig(
             )
         ),
 
+        // Payment Wallet Attestation (EWC RFC007)
+        // Binds payment funding sources (cards, accounts) to EUDI wallets
+        "PaymentWalletAttestation" to vc(
+            CredentialSupported(
+                format = CredentialFormat.sd_jwt_dc,
+                cryptographicBindingMethodsSupported = setOf("jwk"),
+                credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(
+                    ProofType.jwt to ProofTypeMetadata(setOf("ES256"))
+                ),
+                vct = "PaymentWalletAttestation",
+                credentialSubject = mapOf(
+                    "funding_source" to ClaimDescriptor(mandatory = true),
+                    "funding_source.type" to ClaimDescriptor(mandatory = true),
+                    "funding_source.pan_last_four" to ClaimDescriptor(),
+                    "funding_source.iin" to ClaimDescriptor(),
+                    "funding_source.iban_last_four" to ClaimDescriptor(),
+                    "funding_source.bic" to ClaimDescriptor(),
+                    "funding_source.scheme" to ClaimDescriptor(),
+                    "funding_source.currency" to ClaimDescriptor(),
+                    "funding_source.icon" to ClaimDescriptor(),
+                    "funding_source.alias_id" to ClaimDescriptor()
+                ),
+                display = listOf(
+                    DisplayProperties(
+                        name = "Payment Wallet Attestation",
+                        locale = "en",
+                        description = "Attestation binding a payment funding source to this wallet"
+                    )
+                )
+            )
+        ),
+
     ),
 ) : WaltConfig() {
     fun parse(): Map<String, CredentialSupported> {

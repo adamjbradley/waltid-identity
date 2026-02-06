@@ -192,3 +192,6 @@ iOSInjectionProject/
 
 # Claude Code developer state
 .claude/active-feature.json
+
+# Docker Compose local overrides
+docker-compose/.env.local
