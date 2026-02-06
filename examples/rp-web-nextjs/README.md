@@ -226,6 +226,54 @@ CMD ["npm", "start"]
 
 4. **HTTPS**: Use HTTPS in production for all endpoints.
 
+## Testing
+
+This example includes comprehensive Playwright E2E tests.
+
+### Running Tests
+
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install
+
+# Run tests (headless)
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests in headed mode (visible browser)
+npm run test:headed
+
+# Debug tests
+npm run test:debug
+```
+
+### Test Coverage
+
+The Playwright tests cover:
+
+| Test Suite | Tests | Description |
+|------------|-------|-------------|
+| Checkout Page | 4 | Page loads, product display, idle state |
+| Loading State | 1 | Loading spinner display |
+| QR Code Display | 5 | QR code rendering, deep link, cancel flow |
+| Mobile Flow | 1 | Same-device wallet button |
+| Success Flow | 2 | Verified state, start over option |
+| Failure Flow | 3 | Failed state, expired state, retry flow |
+| API Error Handling | 2 | Server errors, network errors |
+| Accessibility | 3 | Headings, focus, visual indicators |
+
+**Total: 21 tests**
+
+### Test Configuration
+
+Tests are configured in `playwright.config.ts`:
+- Runs against `http://localhost:3000` (dev server auto-started)
+- Tests Chromium, Firefox, and WebKit browsers
+- Mobile viewport tests for responsive design
+- API mocking for consistent test behavior
+
 ## Troubleshooting
 
 ### "Failed to start verification"
