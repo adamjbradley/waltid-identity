@@ -1,5 +1,9 @@
 package id.walt.verifyapi
 
+import id.walt.commons.config.ConfigManager
+import id.walt.commons.config.statics.RunConfiguration
+import id.walt.commons.featureflag.CommonsFeatureCatalog
+import id.walt.commons.featureflag.FeatureManager
 import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
 import id.walt.verifyapi.routes.orchestrationRoutes
@@ -47,6 +51,16 @@ fun main() {
     }
 
     logger.info { "Verify API is ENABLED. Starting server on port 7010..." }
+
+    // Initialize feature management and configuration
+    RunConfiguration.args = emptyArray()
+    RunConfiguration.configArgs = emptyArray()
+    kotlinx.coroutines.runBlocking {
+        FeatureManager.registerCatalog(CommonsFeatureCatalog)
+        ConfigManager.loadConfigs(emptyArray())
+        FeatureManager.load(emptyMap())
+        logger.info { "Loaded features: ${FeatureManager.enabledFeatures}" }
+    }
 
     embeddedServer(CIO, port = 7010, module = Application::module).start(wait = true)
 }
