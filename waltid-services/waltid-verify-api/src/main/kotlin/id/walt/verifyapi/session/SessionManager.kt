@@ -35,7 +35,7 @@ object SessionManager {
     /**
      * Generate a unique session ID in the format vs_xxxxxxxxxxxx
      */
-    private fun generateSessionId(): String {
+    internal fun generateSessionId(): String {
         val uuid = UUID.randomUUID().toString().replace("-", "").take(12)
         return "vs_$uuid"
     }

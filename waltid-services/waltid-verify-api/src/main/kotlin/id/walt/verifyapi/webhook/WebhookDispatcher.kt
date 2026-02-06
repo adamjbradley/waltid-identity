@@ -215,7 +215,7 @@ object WebhookDispatcher {
      * @param data The data to sign (timestamp.body)
      * @return Hex-encoded HMAC-SHA256 signature
      */
-    private fun sign(secret: String, data: String): String {
+    internal fun sign(secret: String, data: String): String {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
         return mac.doFinal(data.toByteArray(Charsets.UTF_8))
