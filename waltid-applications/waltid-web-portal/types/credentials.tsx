@@ -85,6 +85,30 @@ export const EudiCredentials: AvailableCredential[] = [
       { path: ['given_name'] },
       { path: ['birth_date'] },
     ]
+  },
+  {
+    id: 'PaymentWalletAttestation',
+    title: 'Payment Wallet Attestation',
+    offer: {
+      credentialSubject: {
+        funding_source: {
+          type: 'CARD',
+          panLastFour: '1234',
+          iin: '411111',
+          scheme: 'visa',
+          currency: 'EUR',
+          icon: 'https://example.com/visa-icon.png',
+          aliasId: 'pwa_visa_1234',
+        },
+      },
+      vct: 'PaymentWalletAttestation',
+    },
+    defaultClaims: [
+      { path: ['funding_source'] },
+      { path: ['funding_source', 'type'] },
+      { path: ['funding_source', 'panLastFour'] },
+      { path: ['funding_source', 'scheme'] },
+    ]
   }
 ];
 
@@ -100,10 +124,12 @@ export const CredentialFormats = [
 // eu.europa.ec.eudi.pid.1 -> mso_mdoc only
 // org.iso.18013.5.1.mDL -> mso_mdoc only
 // eu.europa.ec.eudi.pid_vc_sd_jwt / urn:eudi:pid:1 -> dc+sd-jwt only
+// PaymentWalletAttestation -> dc+sd-jwt only
 const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
   'eu.europa.ec.eudi.pid.1': ['mDoc (ISO 18013-5)'],
   'org.iso.18013.5.1.mDL': ['mDoc (ISO 18013-5)'],
   'urn:eudi:pid:1': ['DC+SD-JWT (EUDI)'],
+  'PaymentWalletAttestation': ['DC+SD-JWT (EUDI)'],
 };
 
 // Get available formats for a credential based on issuer support
@@ -214,6 +240,12 @@ function getDefaultClaimsForCredential(credentialId: string, format: string): { 
       { path: ['family_name'] },
       { path: ['given_name'] },
       { path: ['birth_date'] },
+    ],
+    'PaymentWalletAttestation': [
+      { path: ['funding_source'] },
+      { path: ['funding_source', 'type'] },
+      { path: ['funding_source', 'panLastFour'] },
+      { path: ['funding_source', 'scheme'] },
     ],
   };
 

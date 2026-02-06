@@ -3,6 +3,8 @@ package id.walt.oid4vc.responses
 import id.walt.crypto.utils.JweUtils
 import id.walt.crypto.utils.JwsUtils
 import id.walt.oid4vc.data.*
+import id.walt.oid4vc.data.AuthorizationDetails
+import id.walt.oid4vc.data.AuthorizationDetailsListSerializer
 import id.walt.oid4vc.data.dif.PresentationSubmission
 import id.walt.oid4vc.data.dif.PresentationSubmissionSerializer
 import kotlinx.serialization.*
@@ -36,6 +38,13 @@ data class TokenResponse(
     @Serializable(PresentationSubmissionSerializer::class)
     @SerialName("presentation_submission") val presentationSubmission: PresentationSubmission? = null,
     val state: String? = null,
+    /**
+     * Authorization details returned in token response per OpenID4VCI spec section 6.2.
+     * Contains credential_configuration_id and credential_identifiers for each authorized credential.
+     * Used for Payment Wallet Attestation (EWC RFC007) and other multi-credential scenarios.
+     */
+    @Serializable(AuthorizationDetailsListSerializer::class)
+    @SerialName("authorization_details") val authorizationDetails: List<AuthorizationDetails>? = null,
     val error: String? = null,
     @SerialName("error_description") val errorDescription: String? = null,
     @SerialName("error_uri") val errorUri: String? = null,
@@ -60,7 +69,8 @@ data class TokenResponse(
             cNonceExpiresIn: Duration? = null,
             authorizationPending: Boolean? = null,
             interval: Long? = null,
-            state: String? = null
+            state: String? = null,
+            authorizationDetails: List<AuthorizationDetails>? = null
         ) = TokenResponse(
             accessToken = accessToken,
             tokenType = tokenType,
@@ -71,7 +81,8 @@ data class TokenResponse(
             cNonceExpiresIn = cNonceExpiresIn,
             authorizationPending = authorizationPending,
             interval = interval,
-            state = state
+            state = state,
+            authorizationDetails = authorizationDetails
         )
 
         /**
@@ -114,6 +125,7 @@ data class TokenResponse(
             "interval",
             "presentation_submission",
             "state",
+            "authorization_details",
             "error",
             "error_description",
             "error_uri"
@@ -122,24 +134,27 @@ data class TokenResponse(
         fun fromHttpParameters(parameters: Map<String, List<String>>): TokenResponse {
             if (isDirectPostJWT(parameters)) throw IllegalArgumentException("The given POST parameters are in direct_post.jwt format, use fromDirectPostJwt instead")
             return TokenResponse(
-                parameters["access_token"]?.firstOrNull(),
-                parameters["token_type"]?.firstOrNull(),
-                parameters["expires_in"]?.firstOrNull()?.toLong(),
-                parameters["refresh_token"]?.firstOrNull(),
-                parameters["vp_token"]?.firstOrNull()?.let { Json.parseToJsonElement(it) },
-                parameters["id_token"]?.firstOrNull(),
-                parameters["scope"]?.firstOrNull(),
-                parameters["c_nonce"]?.firstOrNull(),
-                parameters["c_nonce_expires_in"]?.firstOrNull()?.toLong()?.seconds,
-                parameters["authorization_pending"]?.firstOrNull()?.toBoolean(),
-                parameters["interval"]?.firstOrNull()?.toLong(),
-                parameters["presentation_submission"]?.firstOrNull()?.let { PresentationSubmission.fromJSONString(it) },
-                parameters["state"]?.firstOrNull(),
-                parameters["error"]?.firstOrNull(),
-                parameters["error_description"]?.firstOrNull(),
-                parameters["error_uri"]?.firstOrNull(),
-                null,
-                parameters.filter { !knownKeys.contains(it.key) && it.value.isNotEmpty() }
+                accessToken = parameters["access_token"]?.firstOrNull(),
+                tokenType = parameters["token_type"]?.firstOrNull(),
+                expiresIn = parameters["expires_in"]?.firstOrNull()?.toLong(),
+                refreshToken = parameters["refresh_token"]?.firstOrNull(),
+                vpToken = parameters["vp_token"]?.firstOrNull()?.let { Json.parseToJsonElement(it) },
+                idToken = parameters["id_token"]?.firstOrNull(),
+                scope = parameters["scope"]?.firstOrNull(),
+                cNonce = parameters["c_nonce"]?.firstOrNull(),
+                cNonceExpiresIn = parameters["c_nonce_expires_in"]?.firstOrNull()?.toLong()?.seconds,
+                authorizationPending = parameters["authorization_pending"]?.firstOrNull()?.toBoolean(),
+                interval = parameters["interval"]?.firstOrNull()?.toLong(),
+                presentationSubmission = parameters["presentation_submission"]?.firstOrNull()?.let { PresentationSubmission.fromJSONString(it) },
+                state = parameters["state"]?.firstOrNull(),
+                authorizationDetails = parameters["authorization_details"]?.firstOrNull()?.let {
+                    Json.decodeFromString(AuthorizationDetailsListSerializer, it)
+                },
+                error = parameters["error"]?.firstOrNull(),
+                errorDescription = parameters["error_description"]?.firstOrNull(),
+                errorUri = parameters["error_uri"]?.firstOrNull(),
+                jwsParts = null,
+                customParameters = parameters.filter { !knownKeys.contains(it.key) && it.value.isNotEmpty() }
                     .mapValues { Json.parseToJsonElement(it.value.first()) }
             )
         }
@@ -171,6 +186,9 @@ data class TokenResponse(
             interval?.let { put("interval", listOf(it.toString())) }
             presentationSubmission?.let { put("presentation_submission", listOf(it.toJSONString())) }
             state?.let { put("state", listOf(it)) }
+            authorizationDetails?.let { details ->
+                put("authorization_details", listOf(Json.encodeToString(AuthorizationDetailsListSerializer, details)))
+            }
             error?.let { put("error", listOf(it)) }
             errorDescription?.let { put("error_description", listOf(it)) }
             errorUri?.let { put("error_uri", listOf(it)) }

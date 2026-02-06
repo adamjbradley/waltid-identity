@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.util.X509CertUtils
 import id.walt.commons.config.ConfigManager
+import id.walt.commons.featureflag.FeatureManager
 import id.walt.commons.persistence.ConfiguredPersistence
 import id.walt.crypto.keys.KeyManager
 import id.walt.crypto.keys.jwk.JWKKey
@@ -18,6 +19,8 @@ import id.walt.crypto.utils.UuidUtils.randomUUIDString
 import id.walt.issuer.config.CredentialTypeConfig
 import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
+import id.walt.issuer.FeatureCatalog
+import id.walt.issuer.psp.PwaConfig
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
 import id.walt.mdoc.cose.COSESign1
@@ -988,13 +991,17 @@ open class CIProvider(
             tokenKey = CI_TOKEN_KEY
         )
 
+        // Build authorization_details for PWA (Payment Wallet Attestation) if enabled and session has funding sources
+        val pwaAuthorizationDetails = buildPwaAuthorizationDetails(session)
+
         return@runBlocking TokenResponse.success(
             accessToken = accessToken,
             tokenType = if (dpopThumbprint != null) "DPoP" else "bearer",
             expiresIn = expirationTime,
             cNonce = generateProofOfPossessionNonceFor(session).cNonce,
             cNonceExpiresIn = session.expirationTimestamp - Clock.System.now(),
-            state = session.authorizationRequest?.state
+            state = session.authorizationRequest?.state,
+            authorizationDetails = pwaAuthorizationDetails
         ).also {
             if (!session.callbackUrl.isNullOrEmpty())
                 sendCallback(
@@ -1006,6 +1013,43 @@ open class CIProvider(
                     callbackUrl = session.callbackUrl
                 )
         }
+    }
+
+    /**
+     * Build authorization_details for PWA (Payment Wallet Attestation) token response.
+     * Returns null if PWA feature is disabled or session has no funding sources.
+     *
+     * Per OpenID4VCI spec section 6.2, the authorization_details in the token response
+     * contains credential_identifiers that the wallet can use in subsequent credential requests.
+     */
+    private fun buildPwaAuthorizationDetails(session: IssuanceSession): List<AuthorizationDetails>? {
+        // Check if PWA feature is enabled
+        if (!FeatureManager.isFeatureEnabled(FeatureCatalog.pwaFeature)) {
+            return null
+        }
+
+        // Check if session has resolved funding sources (PWA flow)
+        val fundingSources = session.resolvedFundingSources
+        if (fundingSources.isNullOrEmpty()) {
+            return null
+        }
+
+        // Get PWA config for credential configuration ID
+        val pwaConfig = try {
+            ConfigManager.getConfig<PwaConfig>()
+        } catch (e: Exception) {
+            log.warn { "PWA config not available: ${e.message}" }
+            return null
+        }
+
+        // Build authorization_details with credential_identifiers for each funding source
+        return listOf(
+            AuthorizationDetails(
+                type = OPENID_CREDENTIAL_AUTHORIZATION_TYPE,
+                credentialConfigurationId = pwaConfig.credentialConfigurationId,
+                credentialIdentifiers = fundingSources.map { it.credentialIdentifier }
+            )
+        )
     }
 
     private fun resolveBaseUrl(version: OpenID4VCIVersion): String {

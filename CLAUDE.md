@@ -233,6 +233,50 @@ For ADB-based testing with copy-paste ready commands and payloads:
 
 **Note:** ADB verification commands require backslash-escaped ampersands (`\&`) - see docs for details.
 
+## Payment Wallet Attestation (PWA)
+
+The issuer-api supports Payment Wallet Attestation (EWC RFC007) for binding payment funding sources to EUDI wallets.
+
+**IMPORTANT: PWA is DISABLED by default.** It requires explicit opt-in and has zero impact on existing flows when disabled.
+
+### Default State
+
+| Location | Default | Notes |
+|----------|---------|-------|
+| `config/pwa.conf` | `enabled = false` | Base config |
+| `docker-compose.yaml` | `${PWA_ENABLED:-false}` | Defaults to `false` |
+| `.env.local` | Does not exist | Gitignored, must be created manually |
+
+### Enable PWA
+
+```bash
+# Create .env.local with PWA enabled
+echo "PWA_ENABLED=true" >> docker-compose/.env.local
+docker compose --profile identity up -d issuer-api
+
+# Verify it's enabled
+curl http://localhost:7002/.well-known/openid-credential-issuer | jq '.credential_configurations_supported.PaymentWalletAttestation'
+```
+
+### Key Features
+
+- **PaymentWalletAttestation** credential type (dc+sd-jwt format)
+- **authorization_details** in token response with credential_identifiers
+- **PSP adapter interface** for production integrations
+- **Feature-flagged** - disabled by default, zero impact on existing flows
+
+### Documentation
+
+- **Overview:** [`docs/pwa/README.md`](docs/pwa/README.md)
+- **Custom PSP Adapter:** [`docs/pwa/custom-psp-adapter.md`](docs/pwa/custom-psp-adapter.md)
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `PWA_ENABLED` | `false` | Enable PWA feature (must be explicitly set to `true`) |
+| `PWA_PSP_ADAPTER` | `mock` | PSP adapter implementation |
+
 ## Platform-Specific Builds
 
 ```bash
