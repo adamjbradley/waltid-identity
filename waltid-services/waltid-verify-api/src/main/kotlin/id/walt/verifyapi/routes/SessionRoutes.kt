@@ -1,6 +1,7 @@
 package id.walt.verifyapi.routes
 
 import id.walt.verifyapi.auth.ApiKeyPrincipal
+import id.walt.verifyapi.service.VerificationService
 import id.walt.verifyapi.session.SessionManager
 import io.ktor.http.*
 import io.ktor.server.auth.*
@@ -73,6 +74,7 @@ fun Route.sessionRoutes() {
                         ErrorResponse("Missing session_id")
                     )
 
+                // First check if session exists and belongs to org
                 val session = SessionManager.getSession(sessionId)
 
                 if (session == null) {
@@ -92,29 +94,54 @@ fun Route.sessionRoutes() {
                     return@get
                 }
 
-                val resultResponse = session.result?.let { result ->
+                // Poll verifier-api2 for latest status
+                val status = try {
+                    VerificationService.getSessionStatus(sessionId)
+                } catch (e: Exception) {
+                    // If polling fails, fall back to local session data
+                    val resultResponse = session.result?.let { result ->
+                        SessionResultResponse(
+                            answers = result.answers,
+                            credentials = result.credentials?.map { cred ->
+                                CredentialResponse(
+                                    format = cred.format,
+                                    vct = cred.vct,
+                                    doctype = cred.doctype,
+                                    disclosedClaims = cred.disclosedClaims
+                                )
+                            }
+                        )
+                    }
+                    return@get call.respond(
+                        SessionStatusResponse(
+                            sessionId = session.id,
+                            status = session.status.name.lowercase(),
+                            templateName = session.templateName,
+                            result = resultResponse,
+                            verifiedAt = session.result?.verifiedAt,
+                            metadata = session.metadata,
+                            expiresAt = session.expiresAt
+                        )
+                    )
+                }
+
+                // Convert service status to response
+                val resultResponse = status.result?.let { result ->
                     SessionResultResponse(
-                        answers = result.answers,
-                        credentials = result.credentials?.map { cred ->
-                            CredentialResponse(
-                                format = cred.format,
-                                vct = cred.vct,
-                                doctype = cred.doctype,
-                                disclosedClaims = cred.disclosedClaims
-                            )
-                        }
+                        answers = result.claims.mapValues { it.value.toString() },
+                        credentials = null
                     )
                 }
 
                 call.respond(
                     SessionStatusResponse(
-                        sessionId = session.id,
-                        status = session.status.name.lowercase(),
-                        templateName = session.templateName,
+                        sessionId = status.sessionId,
+                        status = status.status,
+                        templateName = status.templateName,
                         result = resultResponse,
-                        verifiedAt = session.result?.verifiedAt,
-                        metadata = session.metadata,
-                        expiresAt = session.expiresAt
+                        verifiedAt = status.verifiedAt,
+                        metadata = status.metadata,
+                        expiresAt = status.expiresAt
                     )
                 )
             }

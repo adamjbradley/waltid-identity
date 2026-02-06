@@ -8,7 +8,13 @@ interface SessionResponse {
   status: 'pending' | 'verified' | 'failed' | 'expired';
   template_name: string;
   result?: {
-    claims?: Record<string, unknown>;
+    answers?: Record<string, string>;
+    credentials?: Array<{
+      format: string;
+      vct?: string;
+      doctype?: string;
+      disclosed_claims: Record<string, string>;
+    }>;
   } | null;
   verified_at?: number | null;
   metadata?: Record<string, string> | null;

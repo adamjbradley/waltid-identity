@@ -64,3 +64,4 @@
 :{$VERIFY_API_PORT:7010} {
     reverse_proxy http://verify-api:{$VERIFY_API_PORT:7010}
 }
+

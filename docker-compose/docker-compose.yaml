@@ -338,6 +338,32 @@ services:
     volumes:
       - ./verify-api/config:/waltid-verify-api/config
 
+# ==================================================
+# RP EXAMPLE APP - Relying Party Demo
+# ==================================================
+# Next.js web app demonstrating verify-api integration
+# External: https://rp.theaustraliahack.com
+# Local: http://localhost:4000
+# ==================================================
+  rp-example:
+    build:
+      context: ../examples/rp-web-nextjs
+      dockerfile: Dockerfile
+    profiles:
+      - verify-api
+      - all
+    depends_on:
+      verify-api:
+        condition: service_started
+      caddy:
+        condition: service_started
+    environment:
+      VERIFY_API_URL: "http://verify-api:7010"
+      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_xxx}"
+      NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
+    ports:
+      - "4000:3000"
+
 volumes:
   wallet-api-db:
   vault_data:

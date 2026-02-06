@@ -47,13 +47,15 @@ object SessionManager {
      * @param templateName Name of the verification template to use
      * @param responseMode How to return verification results
      * @param metadata Optional metadata from the requesting application
+     * @param verifierSessionId Optional session ID from verifier-api2
      * @return The created session
      */
     fun createSession(
         organizationId: UUID,
         templateName: String,
         responseMode: ResponseMode,
-        metadata: Map<String, String>? = null
+        metadata: Map<String, String>? = null,
+        verifierSessionId: String? = null
     ): VerificationSession {
         val sessionId = generateSessionId()
         val now = System.currentTimeMillis()
@@ -64,6 +66,7 @@ object SessionManager {
             templateName = templateName,
             responseMode = responseMode,
             status = SessionStatus.PENDING,
+            verifierSessionId = verifierSessionId,
             createdAt = now,
             expiresAt = now + sessionTtl.inWholeMilliseconds,
             metadata = metadata
@@ -71,6 +74,9 @@ object SessionManager {
 
         sessionPersistence[sessionId] = session
         logger.debug { "Created session $sessionId for org $organizationId with template $templateName" }
+        if (verifierSessionId != null) {
+            logger.debug { "Linked to verifier-api2 session: $verifierSessionId" }
+        }
 
         return session
     }
@@ -164,5 +170,38 @@ object SessionManager {
     fun deleteSession(sessionId: String) {
         sessionPersistence.remove(sessionId)
         logger.debug { "Deleted session $sessionId" }
+    }
+
+    /**
+     * Update session status and optionally set result claims.
+     *
+     * @param sessionId The session ID
+     * @param status The new status string ("pending", "verified", "failed", "expired")
+     * @param claims Optional claims to store as verification result
+     * @return The updated session or null if session not found
+     */
+    fun updateSessionStatus(sessionId: String, status: String, claims: Map<String, Any>? = null): VerificationSession? {
+        val session = getSession(sessionId) ?: return null
+
+        val sessionStatus = when (status.lowercase()) {
+            "verified" -> SessionStatus.VERIFIED
+            "failed" -> SessionStatus.FAILED
+            "expired" -> SessionStatus.EXPIRED
+            else -> SessionStatus.PENDING
+        }
+
+        val result = if (claims != null && sessionStatus == SessionStatus.VERIFIED) {
+            VerificationResult(
+                answers = claims.mapValues { it.value.toString() },
+                verifiedAt = System.currentTimeMillis()
+            )
+        } else null
+
+        val updated = session.copy(
+            status = sessionStatus,
+            result = result
+        )
+
+        return updateSession(updated)
     }
 }
