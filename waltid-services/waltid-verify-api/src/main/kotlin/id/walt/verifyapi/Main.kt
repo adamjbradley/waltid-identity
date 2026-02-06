@@ -1,5 +1,6 @@
 package id.walt.verifyapi
 
+import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
@@ -49,6 +50,7 @@ fun Application.module() {
     configureCORS()
     configureStatusPages()
     configureDatabase()
+    configureAuthentication()
     configureRouting()
 
     logger.info { "Verify API started successfully on port 7010" }
