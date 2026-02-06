@@ -5,6 +5,7 @@ import id.walt.verifyapi.db.configureDatabase
 import id.walt.verifyapi.routes.sessionRoutes
 import id.walt.verifyapi.routes.templateRoutes
 import id.walt.verifyapi.routes.verifyRoutes
+import id.walt.verifyapi.routes.webhookRoutes
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -132,6 +133,7 @@ fun Application.configureRouting() {
                 |  /v1/verify/identity - Create identity verification (POST)
                 |  /v1/sessions/{session_id} - Get session status
                 |  /v1/templates - List/create verification templates
+                |  /v1/webhooks - Manage webhook subscriptions
                 |  /docs - API documentation (coming soon)
                 """.trimMargin(),
                 ContentType.Text.Plain
@@ -152,6 +154,9 @@ fun Application.configureRouting() {
 
         // Template management routes
         templateRoutes()
+
+        // Webhook management routes
+        webhookRoutes()
 
         // Verification routes (identity, document, etc.)
         verifyRoutes()
