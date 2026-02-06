@@ -8,9 +8,11 @@ interface VerifyRequest {
 }
 
 interface VerifyApiResponse {
-  sessionId: string;
-  authorizationRequest: string;
-  expiresAt: string;
+  session_id: string;
+  qr_code_url: string;
+  qr_code_data: string;
+  deep_link: string;
+  expires_at: number;
 }
 
 export async function POST(request: Request) {
@@ -50,22 +52,12 @@ export async function POST(request: Request) {
 
     const data: VerifyApiResponse = await response.json();
 
-    // Transform response for frontend
-    // The authorizationRequest is the OpenID4VP URL that can be:
-    // - Encoded in QR code for cross-device flow
-    // - Used as deep link for same-device flow
-    const qrCodeData = data.authorizationRequest;
-
-    // Create deep link for same-device flow
-    // This converts the openid4vp:// URL to a universal link format
-    // that wallet apps can handle
-    const deepLink = data.authorizationRequest;
-
+    // Transform snake_case API response to camelCase for frontend
     return NextResponse.json({
-      sessionId: data.sessionId,
-      qrCodeData,
-      deepLink,
-      expiresAt: data.expiresAt,
+      sessionId: data.session_id,
+      qrCodeData: data.qr_code_data,
+      deepLink: data.deep_link,
+      expiresAt: new Date(data.expires_at).toISOString(),
     });
   } catch (error) {
     console.error('Error starting verification:', error);

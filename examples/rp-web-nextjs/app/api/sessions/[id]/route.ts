@@ -4,11 +4,15 @@ const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_xxx';
 const VERIFY_API_URL = process.env.VERIFY_API_URL || 'http://localhost:7010';
 
 interface SessionResponse {
-  id: string;
+  session_id: string;
   status: 'pending' | 'verified' | 'failed' | 'expired';
+  template_name: string;
   result?: {
     claims?: Record<string, unknown>;
-  };
+  } | null;
+  verified_at?: number | null;
+  metadata?: Record<string, string> | null;
+  expires_at: number;
   error?: string;
 }
 
@@ -51,10 +55,15 @@ export async function GET(
 
     const data: SessionResponse = await response.json();
 
+    // Transform snake_case API response to camelCase for frontend
     return NextResponse.json({
-      sessionId: data.id,
+      sessionId: data.session_id,
       status: data.status,
+      templateName: data.template_name,
       result: data.result,
+      verifiedAt: data.verified_at,
+      metadata: data.metadata,
+      expiresAt: data.expires_at,
       error: data.error,
     });
   } catch (error) {
