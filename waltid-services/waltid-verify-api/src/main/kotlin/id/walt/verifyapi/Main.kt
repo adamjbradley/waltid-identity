@@ -2,6 +2,9 @@ package id.walt.verifyapi
 
 import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
+import id.walt.verifyapi.routes.sessionRoutes
+import id.walt.verifyapi.routes.templateRoutes
+import id.walt.verifyapi.routes.verifyRoutes
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -126,8 +129,9 @@ fun Application.configureRouting() {
                 |
                 |Endpoints:
                 |  /health - Health check
+                |  /v1/verify/identity - Create identity verification (POST)
+                |  /v1/sessions/{session_id} - Get session status
                 |  /docs - API documentation (coming soon)
-                |  /api/v1 - API endpoints (coming soon)
                 """.trimMargin(),
                 ContentType.Text.Plain
             )
@@ -141,5 +145,14 @@ fun Application.configureRouting() {
                 "status" to "enabled"
             ))
         }
+
+        // Session management routes
+        sessionRoutes()
+
+        // Template management routes
+        templateRoutes()
+
+        // Verification routes (identity, document, etc.)
+        verifyRoutes()
     }
 }
