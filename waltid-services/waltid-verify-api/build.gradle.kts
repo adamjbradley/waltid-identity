@@ -35,6 +35,9 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation-jvm:${Versions.KTOR_VERSION}")
     implementation("io.ktor:ktor-server-cio-jvm:${Versions.KTOR_VERSION}")
 
+    /* -- OPENAPI / SWAGGER -- */
+    implementation("io.github.smiley4:ktor-swagger-ui:5.3.0")
+
     /* -- KTOR CLIENT (for verifier-api2 calls) -- */
     implementation("io.ktor:ktor-client-core-jvm:${Versions.KTOR_VERSION}")
     implementation("io.ktor:ktor-client-serialization-jvm:${Versions.KTOR_VERSION}")
