@@ -3,110 +3,12 @@ package id.walt.verifyapi.orchestration
 import id.walt.commons.persistence.ConfiguredPersistence
 import id.walt.verifyapi.session.SessionStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
 
 private val logger = KotlinLogging.logger {}
-
-/**
- * Defines a multi-step verification orchestration.
- *
- * Orchestrations allow chaining multiple verification steps together,
- * such as identity verification followed by payment authorization.
- */
-@Serializable
-data class OrchestrationDefinition(
-    /** Unique identifier for this orchestration definition */
-    val id: String,
-    /** Human-readable name */
-    val name: String,
-    /** Ordered list of verification steps */
-    val steps: List<OrchestrationStep>,
-    /** Actions to take when orchestration completes */
-    val onComplete: OnComplete? = null
-)
-
-/**
- * A single step in an orchestration flow.
- */
-@Serializable
-data class OrchestrationStep(
-    /** Unique identifier for this step within the orchestration */
-    val id: String,
-    /** Step type: "identity" for credential verification, "payment" for payment auth */
-    val type: String,
-    /** Name of the verification template to use for this step */
-    val template: String,
-    /** List of step IDs that must complete before this step can run */
-    val dependsOn: List<String> = emptyList()
-)
-
-/**
- * Actions to execute when an orchestration completes.
- */
-@Serializable
-data class OnComplete(
-    /** Webhook URL to POST results to */
-    val webhook: String? = null,
-    /** URL to redirect the user to on completion */
-    val redirect: String? = null
-)
-
-/**
- * An active orchestration session tracking progress through steps.
- */
-@Serializable
-data class OrchestrationSession(
-    /** Unique session ID in format orch_xxxxxxxxxxxx */
-    val id: String,
-    /** ID of the orchestration definition being executed */
-    val orchestrationId: String,
-    /** Organization ID that owns this session */
-    val organizationId: String,
-    /** ID of the step currently waiting for completion, null if orchestration is complete */
-    val currentStepId: String?,
-    /** Map of completed step IDs to their results */
-    val completedSteps: Map<String, StepResult> = emptyMap(),
-    /** Current status of the orchestration */
-    val status: OrchestrationStatus,
-    /** Epoch millis when session was created */
-    val createdAt: Long,
-    /** Epoch millis when session expires */
-    val expiresAt: Long,
-    /** Optional metadata from the requesting application */
-    val metadata: Map<String, String>? = null
-)
-
-/**
- * Status of an orchestration session.
- */
-@Serializable
-enum class OrchestrationStatus {
-    /** Orchestration is in progress, waiting for current step to complete */
-    IN_PROGRESS,
-    /** All steps completed successfully */
-    COMPLETED,
-    /** One or more steps failed */
-    FAILED
-}
-
-/**
- * Result of a completed orchestration step.
- */
-@Serializable
-data class StepResult(
-    /** ID of the verification session that completed this step */
-    val verificationSessionId: String,
-    /** Final status of the step */
-    val status: String,
-    /** Epoch millis when the step completed */
-    val completedAt: Long,
-    /** Extracted result data from the verification */
-    val result: Map<String, String>? = null
-)
 
 /**
  * Engine for executing multi-step verification orchestrations.
@@ -123,7 +25,7 @@ data class StepResult(
  * 3. Continue until all steps complete or a step fails
  *
  * Example orchestration:
- * ```
+ * ```json
  * {
  *   "id": "identity-then-payment",
  *   "name": "Identity + Payment",
@@ -238,7 +140,7 @@ object OrchestrationEngine {
      * @param stepId The step that completed
      * @param verificationSessionId The verification session ID that completed the step
      * @param status The verification status
-     * @param result Optional result data from the verification
+     * @param claims Optional claim data from the verification
      * @param orchestration The orchestration definition (needed for dependency resolution)
      * @return The updated session, or null if session not found
      */
@@ -247,7 +149,7 @@ object OrchestrationEngine {
         stepId: String,
         verificationSessionId: String,
         status: SessionStatus,
-        result: Map<String, String>?,
+        claims: Map<String, String>?,
         orchestration: OrchestrationDefinition
     ): OrchestrationSession? {
         val session = getSession(sessionId)
@@ -261,18 +163,21 @@ object OrchestrationEngine {
             return session
         }
 
+        val success = status == SessionStatus.VERIFIED
         val stepResult = StepResult(
             verificationSessionId = verificationSessionId,
             status = status.name.lowercase(),
             completedAt = System.currentTimeMillis(),
-            result = result
+            success = success,
+            claims = claims,
+            error = if (!success) "Verification failed with status: ${status.name}" else null
         )
 
         val updatedCompleted = session.completedSteps + (stepId to stepResult)
 
         // Check completion conditions
         val allComplete = orchestration.steps.all { it.id in updatedCompleted }
-        val anyFailed = updatedCompleted.values.any { it.status == "failed" }
+        val anyFailed = updatedCompleted.values.any { !it.success }
 
         // Find next eligible step if not done
         val nextStep = if (!allComplete && !anyFailed) {
@@ -327,7 +232,7 @@ object OrchestrationEngine {
      *
      * A step is eligible if:
      * - It hasn't been completed yet
-     * - All its dependencies have been completed
+     * - All its dependencies have been completed successfully
      *
      * @param orchestration The orchestration definition
      * @param completedSteps Map of completed step IDs to results
@@ -339,7 +244,10 @@ object OrchestrationEngine {
     ): OrchestrationStep? {
         return orchestration.steps.firstOrNull { step ->
             step.id !in completedSteps &&
-                    step.dependsOn.all { depId -> depId in completedSteps }
+                    step.dependsOn.all { depId ->
+                        val depResult = completedSteps[depId]
+                        depResult != null && depResult.success
+                    }
         }
     }
 
