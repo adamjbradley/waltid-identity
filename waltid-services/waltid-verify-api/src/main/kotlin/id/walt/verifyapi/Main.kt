@@ -1,0 +1,190 @@
+package id.walt.verifyapi
+
+import id.walt.verifyapi.auth.configureAuthentication
+import id.walt.verifyapi.db.configureDatabase
+import id.walt.verifyapi.routes.orchestrationRoutes
+import id.walt.verifyapi.routes.sessionRoutes
+import id.walt.verifyapi.routes.templateRoutes
+import id.walt.verifyapi.routes.verifyRoutes
+import id.walt.verifyapi.routes.webhookRoutes
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.github.smiley4.ktorswaggerui.swaggerUI
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.cio.*
+import io.ktor.server.engine.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
+
+private val logger = KotlinLogging.logger {}
+
+fun main() {
+    // ============================================================
+    // CRITICAL: Feature flag check - service exits if not enabled
+    // ============================================================
+    val enabled = System.getenv("VERIFY_API_ENABLED")?.toBoolean() ?: false
+
+    if (!enabled) {
+        logger.warn {
+            """
+            |
+            |+============================================================+
+            ||  Verify API is DISABLED                                    |
+            ||                                                            |
+            ||  To enable, set environment variable:                      |
+            ||    VERIFY_API_ENABLED=true                                 |
+            ||                                                            |
+            ||  This service will NOT start until explicitly enabled.    |
+            |+============================================================+
+            """.trimMargin()
+        }
+        return  // Exit cleanly without binding port
+    }
+
+    logger.info { "Verify API is ENABLED. Starting server on port 7010..." }
+
+    embeddedServer(CIO, port = 7010, module = Application::module).start(wait = true)
+}
+
+fun Application.module() {
+    configureSerialization()
+    configureCORS()
+    configureStatusPages()
+    configureDatabase()
+    configureAuthentication()
+    configureOpenAPI()
+    configureRouting()
+
+    logger.info { "Verify API started successfully on port 7010" }
+}
+
+fun Application.configureOpenAPI() {
+    routing {
+        // Serve the OpenAPI spec file
+        get("/openapi.yaml") {
+            val openApiSpec = this::class.java.classLoader.getResourceAsStream("openapi/openapi.yaml")
+                ?.bufferedReader()?.readText()
+                ?: throw IllegalStateException("OpenAPI spec not found")
+            call.respondText(openApiSpec, ContentType.parse("application/x-yaml"))
+        }
+
+        // Swagger UI at /docs, pointing to the OpenAPI spec
+        route("docs") {
+            swaggerUI("/openapi.yaml") {
+                filter = true
+            }
+        }
+    }
+}
+
+fun Application.configureSerialization() {
+    install(ContentNegotiation) {
+        json(Json {
+            prettyPrint = true
+            isLenient = true
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        })
+    }
+}
+
+fun Application.configureCORS() {
+    install(CORS) {
+        anyHost()
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader("X-API-Key")
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Patch)
+        allowMethod(HttpMethod.Options)
+    }
+}
+
+fun Application.configureStatusPages() {
+    install(StatusPages) {
+        exception<IllegalArgumentException> { call, cause ->
+            logger.warn(cause) { "Bad request: ${cause.message}" }
+            call.respondText(
+                text = cause.message ?: "Bad Request",
+                status = HttpStatusCode.BadRequest
+            )
+        }
+        exception<IllegalStateException> { call, cause ->
+            logger.warn(cause) { "Conflict: ${cause.message}" }
+            call.respondText(
+                text = cause.message ?: "Conflict",
+                status = HttpStatusCode.Conflict
+            )
+        }
+        exception<Throwable> { call, cause ->
+            logger.error(cause) { "Unhandled exception" }
+            call.respondText(
+                text = "Internal Server Error",
+                status = HttpStatusCode.InternalServerError
+            )
+        }
+    }
+}
+
+fun Application.configureRouting() {
+    routing {
+        // Health check endpoint
+        get("/health") {
+            call.respondText("OK", ContentType.Text.Plain)
+        }
+
+        // Root endpoint with service info
+        get("/") {
+            call.respondText(
+                """
+                |Verify API - Multi-tenant Verification Gateway
+                |Status: ENABLED
+                |Version: 1.0.0-SNAPSHOT
+                |Port: 7010
+                |
+                |Endpoints:
+                |  /health - Health check
+                |  /v1/verify/identity - Create identity verification (POST)
+                |  /v1/sessions/{session_id} - Get session status
+                |  /v1/templates - List/create verification templates
+                |  /v1/webhooks - Manage webhook subscriptions
+                |  /v1/orchestrations - Multi-step verification flows
+                |  /docs - API documentation (Swagger UI)
+                """.trimMargin(),
+                ContentType.Text.Plain
+            )
+        }
+
+        // API version info
+        get("/version") {
+            call.respond(mapOf(
+                "service" to "verify-api",
+                "version" to "1.0.0-SNAPSHOT",
+                "status" to "enabled"
+            ))
+        }
+
+        // Session management routes
+        sessionRoutes()
+
+        // Template management routes
+        templateRoutes()
+
+        // Webhook management routes
+        webhookRoutes()
+
+        // Verification routes (identity, document, etc.)
+        verifyRoutes()
+
+        // Orchestration routes (multi-step verification flows)
+        orchestrationRoutes()
+    }
+}

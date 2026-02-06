@@ -59,6 +59,7 @@ services:
     profiles:
       - services
       - identity
+      - verify-api  # Required by verify-api service
       - all
     pull_policy: missing
     depends_on:
@@ -156,6 +157,7 @@ services:
     image: valkey/valkey:${VERSION_VALKEY:-7.2}
     profiles:
       - valkey
+      - verify-api  # Required by verify-api service
       - all
     container_name: valkey
     healthcheck:
@@ -293,8 +295,49 @@ services:
         protocol: tcp
         mode: host
 
+      - target: "${VERIFY_API_PORT:-7010}"
+        published: ${VERIFY_API_PORT:-7010} # verify-api
+        protocol: tcp
+        mode: host
+
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+# ==================================================
+# VERIFY API - NEW FEATURE-FLAGGED SERVICE
+# ==================================================
+# This service is COMPLETELY SEPARATE from existing services.
+# It requires explicit opt-in via --profile verify-api
+# ==================================================
+  verify-api:
+    image: ${IMAGE_PREFIX}waltid/verify-api:${VERSION_TAG:-latest}
+    profiles:
+      - verify-api    # SEPARATE PROFILE - not part of 'identity' or 'services'
+      - all
+    pull_policy: missing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      verifier-api2:
+        condition: service_started
+      caddy:
+        condition: service_started
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    environment:
+      VERIFY_API_ENABLED: ${VERIFY_API_ENABLED:-false}
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/${DB_NAME}"
+      DATABASE_USER: "${DB_USERNAME}"
+      DATABASE_PASSWORD: "${DB_PASSWORD}"
+      VALKEY_URL: "redis://valkey:6379"
+      VERIFIER_API2_URL: "http://verifier-api2:7004"
+      PUBLIC_BASE_URL: "${VERIFY_API_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFY_API_PORT}"
+    volumes:
+      - ./verify-api/config:/waltid-verify-api/config
+
 volumes:
   wallet-api-db:
   vault_data:

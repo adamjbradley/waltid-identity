@@ -59,3 +59,8 @@
 :{$PG_ADMIN_PORT} {
     reverse_proxy http://phpmyadmin:{$PG_ADMIN_PORT}
 }
+
+# Verify API (Feature-flagged, port 7010)
+:{$VERIFY_API_PORT:7010} {
+    reverse_proxy http://verify-api:{$VERIFY_API_PORT:7010}
+}
