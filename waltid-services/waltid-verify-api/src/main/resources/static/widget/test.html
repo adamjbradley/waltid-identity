@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaltVerify Widget SDK Test</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #1f2937;
+            font-size: 18px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #374151;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .button-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .button-secondary {
+            background: #6b7280;
+        }
+        .button-secondary:hover {
+            background: #4b5563;
+        }
+        #inline-container {
+            min-height: 100px;
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        #log {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            background: #1f2937;
+            color: #10b981;
+            padding: 16px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-initialized {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status-not-initialized {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .qr-test-container {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .qr-box {
+            text-align: center;
+        }
+        .qr-box p {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <h1>WaltVerify Widget SDK Test</h1>
+    <p class="subtitle">Interactive test page for the verification widget SDK</p>
+
+    <!-- Initialization -->
+    <div class="card">
+        <h2>1. Initialize SDK</h2>
+        <div class="form-group">
+            <label for="clientToken">Client Token</label>
+            <input type="text" id="clientToken" placeholder="ct_xxxx.yyyy" value="">
+        </div>
+        <div class="form-group">
+            <label for="apiBase">API Base URL (optional)</label>
+            <input type="text" id="apiBase" placeholder="Auto-detected from script src">
+        </div>
+        <div class="button-row">
+            <button onclick="initSDK()">Initialize</button>
+            <span id="init-status" class="status status-not-initialized">Not Initialized</span>
+        </div>
+    </div>
+
+    <!-- QR Code Test -->
+    <div class="card">
+        <h2>2. QR Code Generation Test</h2>
+        <p style="color: #6b7280; margin-bottom: 16px;">Test the built-in QR code generator with sample data.</p>
+        <button onclick="testQRCode()">Generate Test QR Codes</button>
+        <div id="qr-test-output" class="qr-test-container" style="margin-top: 16px;"></div>
+    </div>
+
+    <!-- Age Verification -->
+    <div class="card">
+        <h2>3. Age Verification (Modal)</h2>
+        <div class="form-group">
+            <label for="minAge">Minimum Age</label>
+            <select id="minAge">
+                <option value="18">18+</option>
+                <option value="21">21+</option>
+                <option value="25">25+</option>
+            </select>
+        </div>
+        <button onclick="verifyAge()">Verify Age</button>
+    </div>
+
+    <!-- Template Verification -->
+    <div class="card">
+        <h2>4. Template Verification</h2>
+        <div class="form-group">
+            <label for="template">Template Name</label>
+            <input type="text" id="template" placeholder="e.g., kyc_basic, age_over_18" value="kyc_basic">
+        </div>
+        <div class="form-group">
+            <label for="uiMode">UI Mode</label>
+            <select id="uiMode">
+                <option value="modal">Modal</option>
+                <option value="inline">Inline (below)</option>
+            </select>
+        </div>
+        <button onclick="verifyTemplate()">Start Verification</button>
+        <div id="inline-container"></div>
+    </div>
+
+    <!-- Console Log -->
+    <div class="card">
+        <h2>Console Log</h2>
+        <button onclick="clearLog()" class="button-secondary" style="margin-bottom: 12px;">Clear Log</button>
+        <div id="log"></div>
+    </div>
+
+    <!-- Load SDK -->
+    <script src="sdk.js"></script>
+    <script>
+        // Override console.log to capture output
+        const logEl = document.getElementById('log');
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        function appendLog(level, args) {
+            const time = new Date().toLocaleTimeString();
+            const prefix = level === 'error' ? '[ERROR]' : level === 'warn' ? '[WARN]' : '[LOG]';
+            const message = Array.from(args).map(arg => {
+                if (typeof arg === 'object') {
+                    return JSON.stringify(arg, null, 2);
+                }
+                return String(arg);
+            }).join(' ');
+            logEl.textContent += `${time} ${prefix} ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        console.log = function() {
+            originalLog.apply(console, arguments);
+            appendLog('log', arguments);
+        };
+
+        console.warn = function() {
+            originalWarn.apply(console, arguments);
+            appendLog('warn', arguments);
+        };
+
+        console.error = function() {
+            originalError.apply(console, arguments);
+            appendLog('error', arguments);
+        };
+
+        function clearLog() {
+            logEl.textContent = '';
+        }
+
+        function updateInitStatus() {
+            const statusEl = document.getElementById('init-status');
+            if (WaltVerify.isInitialized()) {
+                statusEl.textContent = 'Initialized';
+                statusEl.className = 'status status-initialized';
+            } else {
+                statusEl.textContent = 'Not Initialized';
+                statusEl.className = 'status status-not-initialized';
+            }
+        }
+
+        function initSDK() {
+            const clientToken = document.getElementById('clientToken').value.trim();
+            const apiBase = document.getElementById('apiBase').value.trim();
+
+            if (!clientToken) {
+                console.error('Client token is required');
+                alert('Please enter a client token');
+                return;
+            }
+
+            try {
+                const options = { clientToken };
+                if (apiBase) {
+                    options.apiBase = apiBase;
+                }
+
+                WaltVerify.init(options);
+                console.log('SDK initialized successfully');
+                updateInitStatus();
+            } catch (error) {
+                console.error('Failed to initialize SDK:', error.message);
+                alert('Failed to initialize: ' + error.message);
+            }
+        }
+
+        function testQRCode() {
+            const container = document.getElementById('qr-test-output');
+            container.innerHTML = '';
+
+            // Test 1: Simple text
+            const box1 = document.createElement('div');
+            box1.className = 'qr-box';
+            box1.innerHTML = WaltVerify.generateQR('Hello, World!', { scale: 3 });
+            box1.innerHTML += '<p>Simple text</p>';
+            container.appendChild(box1);
+
+            // Test 2: URL
+            const box2 = document.createElement('div');
+            box2.className = 'qr-box';
+            box2.innerHTML = WaltVerify.generateQR('https://walt.id', { scale: 3 });
+            box2.innerHTML += '<p>URL</p>';
+            container.appendChild(box2);
+
+            // Test 3: OpenID4VP URL (typical verification URL)
+            const box3 = document.createElement('div');
+            box3.className = 'qr-box';
+            const testUrl = 'openid4vp://authorize?request_uri=https://verifier.example.com/request/abc123';
+            box3.innerHTML = WaltVerify.generateQR(testUrl, { scale: 3 });
+            box3.innerHTML += '<p>OpenID4VP URL</p>';
+            container.appendChild(box3);
+
+            console.log('Generated 3 test QR codes');
+        }
+
+        function verifyAge() {
+            if (!WaltVerify.isInitialized()) {
+                alert('Please initialize the SDK first');
+                return;
+            }
+
+            const minAge = parseInt(document.getElementById('minAge').value);
+            console.log('Starting age verification for ' + minAge + '+');
+
+            WaltVerify.verifyAge({
+                minAge: minAge,
+                onSuccess: function(result) {
+                    console.log('Age verification successful:', result);
+                    alert('Age verified! You are ' + minAge + ' or older.');
+                },
+                onFailure: function(error) {
+                    console.error('Age verification failed:', error);
+                    alert('Verification failed: ' + error.message);
+                },
+                onCancel: function() {
+                    console.log('Age verification cancelled by user');
+                }
+            }).catch(function(error) {
+                console.error('Age verification error:', error);
+            });
+        }
+
+        function verifyTemplate() {
+            if (!WaltVerify.isInitialized()) {
+                alert('Please initialize the SDK first');
+                return;
+            }
+
+            const template = document.getElementById('template').value.trim();
+            const uiMode = document.getElementById('uiMode').value;
+
+            if (!template) {
+                alert('Please enter a template name');
+                return;
+            }
+
+            console.log('Starting verification with template:', template, 'UI mode:', uiMode);
+
+            const options = {
+                template: template,
+                ui: uiMode,
+                onSuccess: function(result) {
+                    console.log('Verification successful:', result);
+                    alert('Verification successful!');
+                },
+                onFailure: function(error) {
+                    console.error('Verification failed:', error);
+                    alert('Verification failed: ' + error.message);
+                },
+                onCancel: function() {
+                    console.log('Verification cancelled by user');
+                }
+            };
+
+            if (uiMode === 'inline') {
+                options.container = '#inline-container';
+            }
+
+            WaltVerify.verify(options).catch(function(error) {
+                console.error('Verification error:', error);
+            });
+        }
+
+        // Initial status check
+        updateInitStatus();
+        console.log('WaltVerify SDK Test Page loaded');
+        console.log('SDK Version:', WaltVerify.version);
+    </script>
+</body>
+</html>

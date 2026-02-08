@@ -8,6 +8,7 @@ import id.walt.verifyapi.widget.TokenValidationResult
 import id.walt.verifyapi.widget.ValidatedClientToken
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
+import io.ktor.http.HttpHeaders
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -99,10 +100,48 @@ fun Route.widgetRoutes() {
          *
          * Serve the widget SDK JavaScript file.
          * This endpoint is PUBLIC (no authentication required).
+         *
+         * The SDK is served from a static file with cache headers for performance.
+         * In development, the file is loaded from resources; in production, it's cached.
          */
         get("/sdk.js") {
-            val sdkJs = generateSdkJs()
+            // Load SDK from static resources
+            val sdkJs = loadSdkJs()
+
+            // Set cache headers (1 hour in dev, longer in production)
+            val maxAge = System.getenv("SDK_CACHE_MAX_AGE")?.toIntOrNull() ?: 3600
+            call.response.header(HttpHeaders.CacheControl, "public, max-age=$maxAge")
+            call.response.header(HttpHeaders.ContentType, "application/javascript; charset=utf-8")
+
             call.respondText(sdkJs, ContentType.Text.JavaScript)
+        }
+
+        /**
+         * GET /widget/v1/sdk.min.js
+         *
+         * Serve the minified widget SDK JavaScript file (~21KB).
+         * This endpoint is PUBLIC (no authentication required).
+         */
+        get("/sdk.min.js") {
+            val sdkMinJs = loadSdkMinJs()
+
+            // Longer cache for minified version (immutable)
+            val maxAge = System.getenv("SDK_CACHE_MAX_AGE")?.toIntOrNull() ?: 86400
+            call.response.header(HttpHeaders.CacheControl, "public, max-age=$maxAge, immutable")
+            call.response.header(HttpHeaders.ContentType, "application/javascript; charset=utf-8")
+
+            call.respondText(sdkMinJs, ContentType.Text.JavaScript)
+        }
+
+        /**
+         * GET /widget/v1/test
+         *
+         * Serve the SDK test page for development/testing.
+         * This endpoint is PUBLIC (no authentication required).
+         */
+        get("/test") {
+            val testHtml = loadTestHtml()
+            call.respondText(testHtml, ContentType.Text.Html)
         }
 
         /**
@@ -413,156 +452,84 @@ private suspend fun validateClientToken(call: io.ktor.server.application.Applica
     }
 }
 
-/**
- * Generate the widget SDK JavaScript code.
- *
- * This is a minimal placeholder that will be expanded in Phase 10.5.
- * The SDK provides a simple API for merchants to embed verification widgets.
- */
-private fun generateSdkJs(): String {
-    val publicBaseUrl = System.getenv("PUBLIC_BASE_URL") ?: "http://localhost:7010"
+/** Cache for the loaded SDK JavaScript (unminified) */
+private var cachedSdkJs: String? = null
 
-    // Using buildString to avoid Kotlin parser issues with JS comments
-    return buildString {
-        appendLine("// Walt.id Verify Widget SDK")
-        appendLine("// Version: 1.0.0-SNAPSHOT")
-        appendLine("//")
-        appendLine("// Usage:")
-        appendLine("//   const verify = new WaltIdVerify({ clientToken: 'ct_xxx.yyy' });")
-        appendLine("//   const session = await verify.createSession({ template: 'age_check' });")
-        appendLine("//   verify.showQRCode(session.qr_code_data, '#container');")
-        appendLine("//   const result = await verify.waitForResult(session.session_id);")
-        appendLine("")
-        appendLine("(function(global) {")
-        appendLine("    'use strict';")
-        appendLine("")
-        appendLine("    const API_BASE = '$publicBaseUrl';")
-        appendLine("")
-        appendLine("    // Walt.id Verify Widget SDK")
-        appendLine("    // @param {Object} options - Configuration options")
-        appendLine("    // @param {string} options.clientToken - Client token (ct_xxx.yyy) obtained from your backend")
-        appendLine("    function WaltIdVerify(options) {")
-        appendLine("        if (!options || !options.clientToken) {")
-        appendLine("            throw new Error('WaltIdVerify: clientToken is required');")
-        appendLine("        }")
-        appendLine("        if (!options.clientToken.startsWith('ct_')) {")
-        appendLine("            throw new Error('WaltIdVerify: clientToken must start with \"ct_\"');")
-        appendLine("        }")
-        appendLine("        this.clientToken = options.clientToken;")
-        appendLine("        this.pollInterval = options.pollInterval || 2000;")
-        appendLine("    }")
-        appendLine("")
-        appendLine("    // Create a new verification session")
-        appendLine("    // @param {Object} params - Session parameters")
-        appendLine("    // @param {string} params.template - Template name to use")
-        appendLine("    // @returns {Promise<Object>} Session details including QR code data")
-        appendLine("    WaltIdVerify.prototype.createSession = async function(params) {")
-        appendLine("        if (!params || !params.template) {")
-        appendLine("            throw new Error('WaltIdVerify.createSession: template is required');")
-        appendLine("        }")
-        appendLine("")
-        appendLine("        const response = await fetch(API_BASE + '/widget/v1/verify', {")
-        appendLine("            method: 'POST',")
-        appendLine("            headers: {")
-        appendLine("                'Content-Type': 'application/json',")
-        appendLine("                'Authorization': 'Bearer ' + this.clientToken")
-        appendLine("            },")
-        appendLine("            body: JSON.stringify({")
-        appendLine("                template: params.template,")
-        appendLine("                response_mode: params.responseMode || 'answers',")
-        appendLine("                redirect_uri: params.redirectUri,")
-        appendLine("                metadata: params.metadata")
-        appendLine("            })")
-        appendLine("        });")
-        appendLine("")
-        appendLine("        if (!response.ok) {")
-        appendLine("            const error = await response.json().catch(() => ({ error: 'Unknown error' }));")
-        appendLine("            throw new Error('Failed to create session: ' + (error.error || response.statusText));")
-        appendLine("        }")
-        appendLine("")
-        appendLine("        return response.json();")
-        appendLine("    };")
-        appendLine("")
-        appendLine("    // Get the status of a verification session")
-        appendLine("    // @param {string} sessionId - The session ID to check")
-        appendLine("    // @returns {Promise<Object>} Session status and result if available")
-        appendLine("    WaltIdVerify.prototype.getSessionStatus = async function(sessionId) {")
-        appendLine("        if (!sessionId) {")
-        appendLine("            throw new Error('WaltIdVerify.getSessionStatus: sessionId is required');")
-        appendLine("        }")
-        appendLine("")
-        appendLine("        const response = await fetch(API_BASE + '/widget/v1/sessions/' + encodeURIComponent(sessionId), {")
-        appendLine("            method: 'GET',")
-        appendLine("            headers: {")
-        appendLine("                'Authorization': 'Bearer ' + this.clientToken")
-        appendLine("            }")
-        appendLine("        });")
-        appendLine("")
-        appendLine("        if (!response.ok) {")
-        appendLine("            const error = await response.json().catch(() => ({ error: 'Unknown error' }));")
-        appendLine("            throw new Error('Failed to get session status: ' + (error.error || response.statusText));")
-        appendLine("        }")
-        appendLine("")
-        appendLine("        return response.json();")
-        appendLine("    };")
-        appendLine("")
-        appendLine("    // Wait for verification result by polling")
-        appendLine("    // @param {string} sessionId - The session ID to wait for")
-        appendLine("    // @param {Object} [options] - Polling options")
-        appendLine("    // @returns {Promise<Object>} Final session result")
-        appendLine("    WaltIdVerify.prototype.waitForResult = async function(sessionId, options) {")
-        appendLine("        options = options || {};")
-        appendLine("        const timeout = options.timeout || 300000;")
-        appendLine("        const startTime = Date.now();")
-        appendLine("        let lastStatus = null;")
-        appendLine("")
-        appendLine("        while (Date.now() - startTime < timeout) {")
-        appendLine("            const status = await this.getSessionStatus(sessionId);")
-        appendLine("")
-        appendLine("            if (status.status !== lastStatus && options.onStatusChange) {")
-        appendLine("                options.onStatusChange(status);")
-        appendLine("                lastStatus = status.status;")
-        appendLine("            }")
-        appendLine("")
-        appendLine("            if (status.status === 'verified' || status.status === 'failed' || status.status === 'expired') {")
-        appendLine("                return status;")
-        appendLine("            }")
-        appendLine("")
-        appendLine("            await new Promise(resolve => setTimeout(resolve, this.pollInterval));")
-        appendLine("        }")
-        appendLine("")
-        appendLine("        throw new Error('Verification timeout');")
-        appendLine("    };")
-        appendLine("")
-        appendLine("    // Render a QR code into a container element")
-        appendLine("    // NOTE: This is a placeholder. Full implementation in Phase 10.5.")
-        appendLine("    WaltIdVerify.prototype.showQRCode = function(data, container) {")
-        appendLine("        const el = typeof container === 'string' ? document.querySelector(container) : container;")
-        appendLine("        if (!el) {")
-        appendLine("            throw new Error('WaltIdVerify.showQRCode: container not found');")
-        appendLine("        }")
-        appendLine("        // Placeholder: In Phase 10.5, this will use a QR code library")
-        appendLine("        el.innerHTML = '<div style=\"padding: 20px; background: #f0f0f0; text-align: center;\">' +")
-        appendLine("            '<p style=\"font-size: 12px; word-break: break-all;\">QR Data: ' + data + '</p>' +")
-        appendLine("            '<p style=\"color: #666;\">Full QR rendering coming in Phase 10.5</p>' +")
-        appendLine("            '</div>';")
-        appendLine("    };")
-        appendLine("")
-        appendLine("    // Show a modal verification dialog")
-        appendLine("    // NOTE: This is a placeholder. Full implementation in Phase 10.5/10.9.")
-        appendLine("    WaltIdVerify.prototype.showModal = function(params) {")
-        appendLine("        console.warn('WaltIdVerify.showModal: Not yet implemented. Coming in Phase 10.5/10.9.');")
-        appendLine("    };")
-        appendLine("")
-        appendLine("    // Export for different module systems")
-        appendLine("    if (typeof module !== 'undefined' && module.exports) {")
-        appendLine("        module.exports = WaltIdVerify;")
-        appendLine("    } else if (typeof define === 'function' && define.amd) {")
-        appendLine("        define([], function() { return WaltIdVerify; });")
-        appendLine("    } else {")
-        appendLine("        global.WaltIdVerify = WaltIdVerify;")
-        appendLine("    }")
-        appendLine("")
-        appendLine("})(typeof window !== 'undefined' ? window : this);")
-    }
+/** Cache for the loaded SDK JavaScript (minified) */
+private var cachedSdkMinJs: String? = null
+
+/** Cache for the test HTML page */
+private var cachedTestHtml: String? = null
+
+/**
+ * Load the widget SDK JavaScript from static resources.
+ *
+ * The SDK provides a full-featured API for merchants to embed verification widgets:
+ * - WaltVerify.init({ clientToken, theme })
+ * - WaltVerify.verifyAge({ minAge, onSuccess, onFailure })
+ * - WaltVerify.verify({ template, ... })
+ * - Built-in QR code generation and modal UI
+ * - Automatic status polling with callbacks
+ *
+ * @return The SDK JavaScript code as a string (~60KB unminified)
+ */
+private fun loadSdkJs(): String {
+    // Return cached version if available
+    cachedSdkJs?.let { return it }
+
+    // Load from static resources
+    val sdk = object {}.javaClass.getResourceAsStream("/static/widget/sdk.js")
+        ?.bufferedReader()
+        ?.readText()
+        ?: throw IllegalStateException("Widget SDK not found at /static/widget/sdk.js")
+
+    // Cache for subsequent requests
+    cachedSdkJs = sdk
+    logger.info { "Widget SDK loaded from static resources (${sdk.length} bytes)" }
+
+    return sdk
+}
+
+/**
+ * Load the minified widget SDK JavaScript from static resources.
+ *
+ * @return The minified SDK JavaScript code as a string (~21KB minified)
+ */
+private fun loadSdkMinJs(): String {
+    // Return cached version if available
+    cachedSdkMinJs?.let { return it }
+
+    // Load from static resources
+    val sdk = object {}.javaClass.getResourceAsStream("/static/widget/sdk.min.js")
+        ?.bufferedReader()
+        ?.readText()
+        ?: throw IllegalStateException("Minified Widget SDK not found at /static/widget/sdk.min.js")
+
+    // Cache for subsequent requests
+    cachedSdkMinJs = sdk
+    logger.info { "Minified Widget SDK loaded from static resources (${sdk.length} bytes)" }
+
+    return sdk
+}
+
+/**
+ * Load the test HTML page from static resources.
+ *
+ * @return The test HTML page as a string
+ */
+private fun loadTestHtml(): String {
+    // Return cached version if available
+    cachedTestHtml?.let { return it }
+
+    // Load from static resources
+    val html = object {}.javaClass.getResourceAsStream("/static/widget/test.html")
+        ?.bufferedReader()
+        ?.readText()
+        ?: throw IllegalStateException("Test HTML not found at /static/widget/test.html")
+
+    // Cache for subsequent requests
+    cachedTestHtml = html
+    logger.info { "Test HTML loaded from static resources (${html.length} bytes)" }
+
+    return html
 }
