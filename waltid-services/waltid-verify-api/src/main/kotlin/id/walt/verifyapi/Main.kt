@@ -114,17 +114,25 @@ fun Application.configureSerialization() {
 }
 
 fun Application.configureCORS() {
-    install(CORS) {
-        anyHost()
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader(HttpHeaders.Authorization)
-        allowHeader("X-API-Key")
-        allowMethod(HttpMethod.Get)
-        allowMethod(HttpMethod.Post)
-        allowMethod(HttpMethod.Put)
-        allowMethod(HttpMethod.Delete)
-        allowMethod(HttpMethod.Patch)
-        allowMethod(HttpMethod.Options)
+    // CORS is handled by the external reverse proxy (nginx) when deployed externally.
+    // Only enable app-level CORS for local development without nginx.
+    val enableAppCors = System.getenv("ENABLE_APP_CORS")?.toBoolean() ?: false
+    if (enableAppCors) {
+        install(CORS) {
+            anyHost()
+            allowHeader(HttpHeaders.ContentType)
+            allowHeader(HttpHeaders.Authorization)
+            allowHeader("X-API-Key")
+            allowMethod(HttpMethod.Get)
+            allowMethod(HttpMethod.Post)
+            allowMethod(HttpMethod.Put)
+            allowMethod(HttpMethod.Delete)
+            allowMethod(HttpMethod.Patch)
+            allowMethod(HttpMethod.Options)
+        }
+        logger.info { "App-level CORS enabled" }
+    } else {
+        logger.info { "App-level CORS disabled (handled by external proxy)" }
     }
 }
 

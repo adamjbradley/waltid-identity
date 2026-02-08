@@ -64,6 +64,7 @@ data class VerificationRequest(
  * @property sessionId Unique session identifier (vs_xxxx format)
  * @property qrCodeUrl URL to retrieve the QR code image
  * @property qrCodeData Raw data encoded in the QR code (openid4vp:// URL)
+ * @property qrCodeImage QR code as base64 PNG data URL (data:image/png;base64,...)
  * @property deepLink Deep link URL for same-device wallet flows
  * @property expiresAt Epoch millis when session expires
  */
@@ -75,6 +76,8 @@ data class VerificationResponse(
     val qrCodeUrl: String,
     @SerialName("qr_code_data")
     val qrCodeData: String,
+    @SerialName("qr_code_image")
+    val qrCodeImage: String,
     @SerialName("deep_link")
     val deepLink: String,
     @SerialName("expires_at")

@@ -1241,20 +1241,13 @@
             applyStyles(qrWrapper, STYLES.qrContainer(theme));
         }
 
-        // Generate QR code
-        var qrSvg = QRCode.toSVG(session.qr_code_data, {
-            scale: 4,
-            margin: 2,
-            dark: '#000000',
-            light: '#ffffff'
-        });
-
-        qrWrapper.innerHTML = qrSvg;
-        var svgElement = qrWrapper.querySelector('svg');
-        if (svgElement) {
-            svgElement.style.width = '200px';
-            svgElement.style.height = '200px';
-        }
+        // Use server-generated QR code image from session response
+        var qrImg = document.createElement('img');
+        qrImg.src = session.qr_code_image;
+        qrImg.alt = 'Scan QR code';
+        qrImg.style.width = '200px';
+        qrImg.style.height = '200px';
+        qrWrapper.appendChild(qrImg);
         container.appendChild(qrWrapper);
 
         // Divider

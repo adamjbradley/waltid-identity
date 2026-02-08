@@ -1,5 +1,10 @@
 package id.walt.verifyapi.routes
 
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.client.j2se.MatrixToImageWriter
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import id.walt.verifyapi.service.VerificationService
 import id.walt.verifyapi.session.ResponseMode
 import id.walt.verifyapi.session.SessionManager
@@ -14,6 +19,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.io.ByteArrayOutputStream
 
 private val logger = KotlinLogging.logger {}
 
@@ -48,6 +54,9 @@ data class WidgetVerifyResponse(
     /** Raw data encoded in the QR code (openid4vp:// URL) */
     @SerialName("qr_code_data")
     val qrCodeData: String,
+    /** QR code as base64 PNG data URL (data:image/png;base64,...) */
+    @SerialName("qr_code_image")
+    val qrCodeImage: String,
     /** Deep link URL for same-device wallet flows */
     @SerialName("deep_link")
     val deepLink: String,
@@ -145,6 +154,77 @@ fun Route.widgetRoutes() {
         }
 
         /**
+         * GET /widget/v1/qr
+         *
+         * Generate a QR code image for any data.
+         * This endpoint is PUBLIC (no authentication required).
+         * Used by the SDK to generate QR codes server-side for reliability.
+         *
+         * Query params:
+         *   data - The data to encode in the QR code (URL encoded)
+         *   size - Size of the QR code in pixels (default: 300, max: 1000)
+         *   format - Image format: png or svg (default: png)
+         */
+        get("/qr") {
+            val data = call.request.queryParameters["data"]
+            if (data.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, WidgetErrorResponse("Missing 'data' parameter", "MISSING_DATA"))
+                return@get
+            }
+
+            val size = call.request.queryParameters["size"]?.toIntOrNull()?.coerceIn(100, 1000) ?: 300
+            val format = call.request.queryParameters["format"]?.lowercase() ?: "png"
+
+            try {
+                val hints = mapOf(
+                    EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+                    EncodeHintType.MARGIN to 2,
+                    EncodeHintType.CHARACTER_SET to "UTF-8"
+                )
+
+                val qrCodeWriter = QRCodeWriter()
+                val bitMatrix = qrCodeWriter.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
+
+                when (format) {
+                    "svg" -> {
+                        // Generate SVG
+                        val svg = buildString {
+                            append("""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 $size $size" width="$size" height="$size">""")
+                            append("""<rect width="100%" height="100%" fill="white"/>""")
+                            append("<path d=\"")
+                            for (y in 0 until bitMatrix.height) {
+                                for (x in 0 until bitMatrix.width) {
+                                    if (bitMatrix.get(x, y)) {
+                                        append("M${x},${y}h1v1h-1z")
+                                    }
+                                }
+                            }
+                            append("""" fill="black"/>""")
+                            append("</svg>")
+                        }
+                        call.response.header(HttpHeaders.CacheControl, "public, max-age=3600")
+                        call.respondText(svg, ContentType.Image.SVG)
+                    }
+                    else -> {
+                        // Generate PNG
+                        val outputStream = ByteArrayOutputStream()
+                        MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream)
+                        val bytes = outputStream.toByteArray()
+
+                        call.response.header(HttpHeaders.CacheControl, "public, max-age=3600")
+                        call.respondBytes(bytes, ContentType.Image.PNG)
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "Failed to generate QR code for data: $data" }
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    WidgetErrorResponse("Failed to generate QR code: ${e.message}", "QR_GENERATION_FAILED")
+                )
+            }
+        }
+
+        /**
          * POST /widget/v1/verify
          *
          * Start a verification session using a client token.
@@ -233,6 +313,7 @@ fun Route.widgetRoutes() {
                     sessionId = result.sessionId,
                     qrCodeUrl = result.qrCodeUrl,
                     qrCodeData = result.qrCodeData,
+                    qrCodeImage = generateQrCodeDataUrl(result.qrCodeData),
                     deepLink = result.deepLink,
                     expiresAt = result.expiresAt
                 )
@@ -450,6 +531,30 @@ private suspend fun validateClientToken(call: io.ktor.server.application.Applica
             null
         }
     }
+}
+
+/**
+ * Generate a QR code as a base64 data URL.
+ *
+ * @param data The data to encode in the QR code
+ * @param size The size in pixels (default 250)
+ * @return Base64 data URL (data:image/png;base64,...)
+ */
+private fun generateQrCodeDataUrl(data: String, size: Int = 250): String {
+    val hints = mapOf(
+        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+        EncodeHintType.MARGIN to 2,
+        EncodeHintType.CHARACTER_SET to "UTF-8"
+    )
+
+    val qrCodeWriter = QRCodeWriter()
+    val bitMatrix = qrCodeWriter.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
+
+    val outputStream = ByteArrayOutputStream()
+    MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream)
+    val base64 = java.util.Base64.getEncoder().encodeToString(outputStream.toByteArray())
+
+    return "data:image/png;base64,$base64"
 }
 
 /** Cache for the loaded SDK JavaScript (unminified) */

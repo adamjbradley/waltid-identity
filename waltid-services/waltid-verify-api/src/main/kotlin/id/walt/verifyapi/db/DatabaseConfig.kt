@@ -113,6 +113,36 @@ private fun seedSystemTemplates() {
                 it[updatedAt] = now
             }
 
+            // Age Over 18 template - used by Widget SDK verifyAge({minAge: 18})
+            VerifyTemplates.insert {
+                it[organizationId] = null
+                it[name] = "age_over_18"
+                it[displayName] = "Age 18+ Verification"
+                it[description] = "Verify user is 18 years or older"
+                it[templateType] = "identity"
+                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}"""
+                it[responseMode] = "answers"
+                it[claimMappings] = """{"age_over_18":"is_adult"}"""
+                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+
+            // Age Over 21 template - used by Widget SDK verifyAge({minAge: 21})
+            VerifyTemplates.insert {
+                it[organizationId] = null
+                it[name] = "age_over_21"
+                it[displayName] = "Age 21+ Verification"
+                it[description] = "Verify user is 21 years or older"
+                it[templateType] = "identity"
+                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]}]}"""
+                it[responseMode] = "answers"
+                it[claimMappings] = """{"age_over_21":"is_adult"}"""
+                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
+                it[createdAt] = now
+                it[updatedAt] = now
+            }
+
             // Full KYC template - complete identity verification
             VerifyTemplates.insert {
                 it[organizationId] = null
@@ -173,7 +203,7 @@ private fun seedSystemTemplates() {
                 it[updatedAt] = now
             }
 
-            logger.info { "Seeded 5 system templates" }
+            logger.info { "Seeded 7 system templates" }
         } else {
             logger.info { "System templates already exist (count: $existingCount), skipping seed" }
         }
@@ -210,10 +240,8 @@ private fun seedSandboxOrganization() {
         VerifyOrganizations.insert {
             it[id] = orgId
             it[name] = "Sandbox Demo"
-            it[displayName] = "Sandbox Demo Organization"
-            it[webhookUrl] = null
-            it[webhookSecret] = null
-            it[settings] = """{"environment":"sandbox","description":"Demo organization for testing the Verify API. These credentials work out of the box for development and integration testing."}"""
+            it[billingEmail] = "sandbox@demo.example.com"
+            it[plan] = "sandbox"
             it[createdAt] = now
             it[updatedAt] = now
         }
@@ -226,12 +254,8 @@ private fun seedSandboxOrganization() {
             it[keyPrefix] = "vfy_test_sandbox"
             it[name] = "Sandbox Test Key"
             it[environment] = "test"
-            it[scopes] = """["verify:read","verify:write","sessions:read","sessions:write","templates:read","widget:read","widget:write"]"""
-            it[rateLimit] = 1000  // Generous rate limit for testing
-            it[expiresAt] = null  // Never expires for sandbox
             it[lastUsedAt] = null
             it[createdAt] = now
-            it[updatedAt] = now
         }
 
         // Create sandbox live API key (for production-like testing)
@@ -242,12 +266,8 @@ private fun seedSandboxOrganization() {
             it[keyPrefix] = "vfy_live_sandbox"
             it[name] = "Sandbox Live Key"
             it[environment] = "live"
-            it[scopes] = """["verify:read","verify:write","sessions:read","sessions:write","templates:read","widget:read","widget:write"]"""
-            it[rateLimit] = 1000
-            it[expiresAt] = null
             it[lastUsedAt] = null
             it[createdAt] = now
-            it[updatedAt] = now
         }
 
         logger.info { "Seeded sandbox organization with test and live API keys" }

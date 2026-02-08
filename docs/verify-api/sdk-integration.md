@@ -4,10 +4,125 @@ This guide covers detailed integration with the Verify API SDKs for JavaScript/T
 
 ## Table of Contents
 
-1. [JavaScript/TypeScript SDK](#javascripttypescript-sdk)
-2. [iOS Swift SDK](#ios-swift-sdk)
-3. [Android Kotlin SDK](#android-kotlin-sdk)
-4. [Cross-Platform Patterns](#cross-platform-patterns)
+1. [Widget SDK (Zero Backend)](#widget-sdk-zero-backend)
+2. [JavaScript/TypeScript SDK](#javascripttypescript-sdk)
+3. [iOS Swift SDK](#ios-swift-sdk)
+4. [Android Kotlin SDK](#android-kotlin-sdk)
+5. [Cross-Platform Patterns](#cross-platform-patterns)
+
+---
+
+## Widget SDK (Zero Backend)
+
+The Widget SDK enables verification with minimal backend code - just a single endpoint to generate client tokens. QR codes are generated server-side and returned as base64 PNG data URLs.
+
+### Quick Start
+
+**Step 1: Backend - Generate Client Token (one endpoint)**
+
+```javascript
+// Node.js / Express
+app.post('/api/verification-token', async (req, res) => {
+  const response = await fetch('https://verify.waltid.com/v1/widget/tokens', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.VERIFY_API_KEY}`,  // Server-side only!
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      templates: ['age_over_18', 'age_over_21'],  // Allowed templates
+      expires_in: 900,                              // 15 minutes
+      allowed_origins: ['https://shop.example.com']
+    })
+  });
+  const { client_token } = await response.json();
+  res.json({ clientToken: client_token });
+});
+```
+
+**Step 2: Frontend - Add Widget**
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://verify.waltid.com/widget/v1/sdk.js"></script>
+</head>
+<body>
+    <h1>Premium Wine - $49.99</h1>
+    <button id="buy">Verify Age & Purchase</button>
+
+    <script>
+        document.getElementById('buy').onclick = async () => {
+            // 1. Get client token from YOUR backend
+            const { clientToken } = await fetch('/api/verification-token', {
+                method: 'POST'
+            }).then(r => r.json());
+
+            // 2. Initialize widget with token (NOT API key)
+            WaltVerify.init({ clientToken });
+
+            // 3. Start verification - QR code is generated server-side
+            await WaltVerify.verifyAge({
+                minAge: 21,
+                onSuccess: (data) => {
+                    alert('Age verified! Proceeding to payment...');
+                },
+                onFailure: (error) => {
+                    alert('Verification failed: ' + error.message);
+                }
+            });
+        };
+    </script>
+</body>
+</html>
+```
+
+### How It Works
+
+```
+┌──────────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│   MERCHANT BACKEND   │     │   MERCHANT FRONTEND  │     │   VERIFY API    │
+│                      │     │                      │     │                 │
+│  1. Call with        │     │                      │     │                 │
+│     API key ─────────┼────►│                      │────►│ POST /v1/widget │
+│                      │     │                      │     │   /tokens       │
+│  2. Get client_token │◄────┼──────────────────────┼─────│                 │
+│     (15 min TTL)     │     │                      │     │                 │
+│                      │     │                      │     │                 │
+│  3. Pass token       │────►│  4. SDK uses token   │     │                 │
+│     to frontend      │     │     (no API key!)    │────►│ POST /widget/v1 │
+│                      │     │                      │     │   /verify       │
+│                      │     │  5. Display QR       │◄────│ (qr_code_image) │
+│                      │     │     (base64 PNG)     │     │                 │
+└──────────────────────┘     └──────────────────────┘     └─────────────────┘
+```
+
+### Security Model
+
+| Layer | Protection |
+|-------|------------|
+| **Token Generation** | Requires API key (server-side only) |
+| **Token Expiry** | 15 minutes default (configurable 5-60 min) |
+| **Token Scope** | Limited to specific templates |
+| **QR Generation** | Server-side (ZXing) - no client-side libraries needed |
+
+### Response Fields
+
+The verification response includes a server-generated QR code:
+
+```typescript
+interface VerificationResponse {
+  sessionId: string;      // vs_abc123
+  qrCodeUrl: string;      // URL to QR image (legacy)
+  qrCodeData: string;     // Raw OpenID4VP URL
+  qrCodeImage: string;    // Base64 PNG: data:image/png;base64,...
+  deepLink: string;       // Mobile deep link
+  expiresAt: number;      // Expiration timestamp
+}
+```
+
+**Recommended:** Use `qrCodeImage` for displaying QR codes - it's a self-contained base64 PNG that requires no additional HTTP requests.
 
 ---
 
@@ -52,6 +167,7 @@ const session = await client.verifyIdentity({
 console.log(session.sessionId);  // vs_abc123
 console.log(session.qrCodeUrl);  // URL to QR code image
 console.log(session.qrCodeData); // Raw OID4VP URL
+console.log(session.qrCodeImage); // Base64 PNG data URL (data:image/png;base64,...)
 console.log(session.deepLink);   // Mobile deep link
 console.log(session.expiresAt);  // Expiration timestamp
 ```
@@ -141,7 +257,8 @@ function VerificationFlow() {
   if (verification) {
     return (
       <div className="verification">
-        <img src={verification.qrCodeUrl} alt="Scan to verify" />
+        {/* Use qrCodeImage for inline base64 PNG - no additional HTTP request needed */}
+        <img src={verification.qrCodeImage} alt="Scan to verify" />
         <p>Scan with your wallet app</p>
         <p>Status: {status?.status || 'Waiting...'}</p>
 
@@ -298,6 +415,7 @@ let session = try await client.verifyIdentity(request)
 
 print("Session ID: \(session.sessionId)")
 print("QR Code URL: \(session.qrCodeUrl)")
+print("QR Code Image: \(session.qrCodeImage)") // Base64 PNG data URL
 print("Deep Link: \(session.deepLink)")
 ```
 
@@ -355,14 +473,17 @@ struct VerificationView: View {
                     Text("Scan with your wallet")
                         .font(.headline)
 
-                    AsyncImage(url: URL(string: session.qrCodeUrl)) { image in
-                        image
+                    // Use qrCodeImage - base64 PNG data URL
+                    if let imageData = Data(base64Encoded: session.qrCodeImage.replacingOccurrences(of: "data:image/png;base64,", with: "")),
+                       let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                    } placeholder: {
+                            .frame(width: 250, height: 250)
+                    } else {
                         ProgressView()
+                            .frame(width: 250, height: 250)
                     }
-                    .frame(width: 250, height: 250)
 
                     // Same-device flow
                     Link("Open in Wallet", destination: URL(string: session.deepLink)!)
@@ -531,7 +652,8 @@ val session = client.verifyIdentity(VerificationRequest(
 ))
 
 println("Session ID: ${session.sessionId}")
-println("QR Code: ${session.qrCodeUrl}")
+println("QR Code URL: ${session.qrCodeUrl}")
+println("QR Code Image: ${session.qrCodeImage}") // Base64 PNG data URL
 println("Deep Link: ${session.deepLink}")
 ```
 
@@ -617,8 +739,14 @@ fun VerificationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                AsyncImage(
-                    model = currentState.session.qrCodeUrl,
+                // Use qrCodeImage - base64 PNG data URL (no additional HTTP request)
+                val imageBytes = android.util.Base64.decode(
+                    currentState.session.qrCodeImage.removePrefix("data:image/png;base64,"),
+                    android.util.Base64.DEFAULT
+                )
+                val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
                     contentDescription = "Verification QR Code",
                     modifier = Modifier.size(250.dp)
                 )

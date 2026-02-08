@@ -63,6 +63,8 @@ public struct VerificationResponse: Decodable {
     public let qrCodeUrl: String
     /// Raw data encoded in the QR code
     public let qrCodeData: String
+    /// QR code as base64 PNG data URL (data:image/png;base64,...)
+    public let qrCodeImage: String
     /// Deep link for same-device flow
     public let deepLink: String
     /// Unix timestamp when the session expires
@@ -72,6 +74,7 @@ public struct VerificationResponse: Decodable {
         case sessionId = "session_id"
         case qrCodeUrl = "qr_code_url"
         case qrCodeData = "qr_code_data"
+        case qrCodeImage = "qr_code_image"
         case deepLink = "deep_link"
         case expiresAt = "expires_at"
     }

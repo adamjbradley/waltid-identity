@@ -52,6 +52,8 @@ export interface VerificationResponse {
   qrCodeUrl: string;
   /** Raw QR code data (OpenID4VP authorization request) */
   qrCodeData: string;
+  /** QR code as base64 PNG data URL (data:image/png;base64,...) */
+  qrCodeImage: string;
   /** Deep link for same-device flow */
   deepLink: string;
   /** Unix timestamp when the session expires */
@@ -233,6 +235,7 @@ export class VerifyClient {
       sessionId: data.session_id,
       qrCodeUrl: data.qr_code_url,
       qrCodeData: data.qr_code_data,
+      qrCodeImage: data.qr_code_image,
       deepLink: data.deep_link,
       expiresAt: data.expires_at,
     };
