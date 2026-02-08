@@ -300,6 +300,16 @@ services:
         protocol: tcp
         mode: host
 
+      - target: "${VERIFY_PORTAL_PORT:-7011}"
+        published: ${VERIFY_PORTAL_PORT:-7011} # verify-portal
+        protocol: tcp
+        mode: host
+
+      - target: "${RP_DEMO_PORT:-7020}"
+        published: ${RP_DEMO_PORT:-7020} # rp-demo (widget or nextjs)
+        protocol: tcp
+        mode: host
+
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
 # ==================================================
@@ -339,15 +349,16 @@ services:
       - ./verify-api/config:/waltid-verify-api/config
 
 # ==================================================
-# RP EXAMPLE APP - Relying Party Demo
+# VERIFY PORTAL - Admin/Management UI for Verify API
 # ==================================================
-# Next.js web app demonstrating verify-api integration
-# External: https://rp.theaustraliahack.com
-# Local: http://localhost:4000
+# Next.js portal for managing verification templates,
+# API keys, and monitoring usage.
+# External: https://verify-portal.theaustraliahack.com
+# Local: http://localhost:7011
 # ==================================================
-  rp-example:
+  verify-portal:
     build:
-      context: ../examples/rp-web-nextjs
+      context: ../waltid-applications/waltid-verify-portal
       dockerfile: Dockerfile
     profiles:
       - verify-api
@@ -358,11 +369,59 @@ services:
       caddy:
         condition: service_started
     environment:
+      NEXT_PUBLIC_VERIFY_API_URL: "${VERIFY_API_EXTERNAL_URL:-http://localhost:7010}"
+    ports:
+      - "${VERIFY_PORTAL_PORT:-7011}:3001"
+
+# ==================================================
+# RP DEMOS - Relying Party Integration Examples
+# ==================================================
+# These demos show how to integrate with Verify API.
+# IMPORTANT: Only run ONE demo at a time as they share
+# the same domain (rp.theaustraliahack.com) via Caddy.
+#
+# Widget Demo: docker compose --profile rp-widget-demo up
+# Next.js Demo: docker compose --profile rp-nextjs-demo up
+# ==================================================
+
+# RP Widget Demo - Minimal Express server with Widget SDK
+# Uses the JavaScript Widget SDK for frontend-only integration
+  rp-widget-demo:
+    build:
+      context: ../examples/rp-widget-demo
+      dockerfile: Dockerfile
+    profiles:
+      - rp-widget-demo
+    depends_on:
+      verify-api:
+        condition: service_started
+      caddy:
+        condition: service_started
+    environment:
+      VERIFY_API_URL: "http://verify-api:7010"
+      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_xxx}"
+    ports:
+      - "${RP_DEMO_PORT:-7020}:3002"
+
+# RP Next.js Demo - Full Next.js application
+# Shows server-side API integration patterns
+  rp-nextjs-demo:
+    build:
+      context: ../examples/rp-web-nextjs
+      dockerfile: Dockerfile
+    profiles:
+      - rp-nextjs-demo
+    depends_on:
+      verify-api:
+        condition: service_started
+      caddy:
+        condition: service_started
+    environment:
       VERIFY_API_URL: "http://verify-api:7010"
       VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_xxx}"
       NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
     ports:
-      - "4000:3000"
+      - "${RP_DEMO_PORT:-7020}:3000"
 
 volumes:
   wallet-api-db:
