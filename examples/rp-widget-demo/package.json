@@ -1,0 +1,20 @@
+{
+  "name": "rp-widget-demo",
+  "version": "1.0.0",
+  "description": "Demo showcasing the WaltVerify Widget SDK for frontend-only integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "verification",
+    "widget",
+    "sdk",
+    "demo"
+  ],
+  "license": "Apache-2.0"
+}

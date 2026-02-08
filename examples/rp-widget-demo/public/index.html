@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VintageVino - Premium Wine Shop</title>
+    <style>
+        :root {
+            --primary: #7c2d12;
+            --primary-dark: #5c211d;
+            --secondary: #fef3c7;
+            --accent: #d97706;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --background: #fefce8;
+            --white: #ffffff;
+            --border: #e5e7eb;
+            --success: #059669;
+            --error: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: var(--white);
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: var(--secondary);
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            font-size: 18px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Demo Sections */
+        .demo-section {
+            padding: 60px 20px;
+        }
+
+        .demo-section h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        .demo-section .subtitle {
+            color: var(--text-light);
+            margin-bottom: 32px;
+        }
+
+        /* Product Card */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .product-card {
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .product-image {
+            height: 200px;
+            background: linear-gradient(135deg, #450a0a 0%, #7c2d12 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--secondary);
+            font-size: 64px;
+        }
+
+        .product-info {
+            padding: 24px;
+        }
+
+        .product-info h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .product-info .description {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .product-info .price {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--secondary);
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-light);
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+            background: var(--secondary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            background: var(--secondary);
+            font-weight: 600;
+        }
+
+        /* Demo Boxes */
+        .demo-box {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+        }
+
+        .demo-box h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .demo-box .description {
+            color: var(--text-light);
+            margin-bottom: 24px;
+        }
+
+        /* Inline Container */
+        #inline-verification-container {
+            min-height: 400px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        #inline-verification-container:not(:empty) {
+            border: none;
+            min-height: auto;
+        }
+
+        /* Theme Customization */
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .theme-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .theme-option label {
+            font-weight: 500;
+            min-width: 120px;
+        }
+
+        .theme-option input[type="color"] {
+            width: 50px;
+            height: 36px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .theme-option input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* Status Messages */
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-badge.success {
+            background: #d1fae5;
+            color: var(--success);
+        }
+
+        .status-badge.error {
+            background: #fee2e2;
+            color: var(--error);
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: var(--accent);
+        }
+
+        /* Code Block */
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .code-block .comment {
+            color: #6b7280;
+        }
+
+        .code-block .keyword {
+            color: #a78bfa;
+        }
+
+        .code-block .string {
+            color: #34d399;
+        }
+
+        .code-block .function {
+            color: #60a5fa;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary);
+            color: var(--white);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        footer p {
+            opacity: 0.8;
+        }
+
+        footer a {
+            color: var(--secondary);
+        }
+
+        /* Results Display */
+        .result-display {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .result-display h4 {
+            margin-bottom: 12px;
+        }
+
+        .result-display pre {
+            background: var(--white);
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">Vintage<span>Vino</span></div>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="container">
+            <h1>Premium Wines Delivered to Your Door</h1>
+            <p>Experience the finest selection of wines from around the world. Age verification required for purchases.</p>
+        </div>
+    </div>
+
+    <!-- Product Demo Section -->
+    <section class="demo-section">
+        <div class="container">
+            <h2>Featured Wine Selection</h2>
+            <p class="subtitle">Click "Add to Cart" to see the age verification modal in action</p>
+
+            <div class="product-grid">
+                <!-- Product 1 -->
+                <div class="product-card">
+                    <div class="product-image">
+                        <span>&#127863;</span>
+                    </div>
+                    <div class="product-info">
+                        <h3>Chateau Margaux 2015</h3>
+                        <p class="description">A prestigious Bordeaux with notes of blackcurrant, violet, and subtle oak. Perfect for special occasions.</p>
+                        <div class="price">$299.00</div>
+                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(18, 'modal')">
+                            Add to Cart (18+)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product 2 -->
+                <div class="product-card">
+                    <div class="product-image" style="background: linear-gradient(135deg, #064e3b 0%, #059669 100%);">
+                        <span>&#127867;</span>
+                    </div>
+                    <div class="product-info">
+                        <h3>Aged Irish Whiskey</h3>
+                        <p class="description">18-year aged single malt with smooth vanilla and honey undertones. Triple distilled perfection.</p>
+                        <div class="price">$189.00</div>
+                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(21, 'modal')">
+                            Add to Cart (21+)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product 3 -->
+                <div class="product-card">
+                    <div class="product-image" style="background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);">
+                        <span>&#127870;</span>
+                    </div>
+                    <div class="product-info">
+                        <h3>Sparkling Rose</h3>
+                        <p class="description">Delicate bubbles with hints of strawberry and cream. A perfect celebration starter.</p>
+                        <div class="price">$45.00</div>
+                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(18, 'modal')">
+                            Add to Cart (18+)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Display -->
+            <div id="modal-result" class="result-display hidden">
+                <h4>Verification Result</h4>
+                <pre id="modal-result-content"></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Inline Demo Section -->
+    <section class="demo-section" style="background: var(--white);">
+        <div class="container">
+            <h2>Inline Verification Mode</h2>
+            <p class="subtitle">Embed the verification widget directly in your page</p>
+
+            <div class="demo-box">
+                <h3>KYC Verification</h3>
+                <p class="description">This demo shows the inline mode where the QR code is embedded directly in the page rather than a popup modal.</p>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="selectTab('age')">Age Verification</button>
+                    <button class="tab" onclick="selectTab('kyc')">KYC Basic</button>
+                    <button class="tab" onclick="selectTab('custom')">Custom Template</button>
+                </div>
+
+                <div id="tab-age" class="tab-content">
+                    <button class="btn btn-primary" onclick="startInlineVerification('age_over_18')">
+                        Start Age Verification (Inline)
+                    </button>
+                </div>
+
+                <div id="tab-kyc" class="tab-content hidden">
+                    <button class="btn btn-primary" onclick="startInlineVerification('kyc_basic')">
+                        Start KYC Verification (Inline)
+                    </button>
+                </div>
+
+                <div id="tab-custom" class="tab-content hidden">
+                    <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
+                        <input type="text" id="custom-template" placeholder="Enter template name..."
+                               style="flex: 1; padding: 12px; border: 2px solid var(--border); border-radius: 8px;">
+                        <button class="btn btn-primary" onclick="startInlineVerification(document.getElementById('custom-template').value)">
+                            Start Verification
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Inline Container -->
+                <div id="inline-verification-container">
+                    <p>Verification widget will appear here</p>
+                </div>
+
+                <!-- Inline Result -->
+                <div id="inline-result" class="result-display hidden">
+                    <h4>Verification Result</h4>
+                    <pre id="inline-result-content"></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Theme Customization Section -->
+    <section class="demo-section">
+        <div class="container">
+            <h2>Theme Customization</h2>
+            <p class="subtitle">Customize the widget appearance to match your brand</p>
+
+            <div class="demo-box">
+                <h3>Widget Theme Options</h3>
+                <p class="description">Adjust the colors and styling of the verification widget</p>
+
+                <div class="theme-options">
+                    <div class="theme-option">
+                        <label>Primary Color:</label>
+                        <input type="color" id="theme-primary" value="#7c2d12" onchange="updateTheme()">
+                    </div>
+                    <div class="theme-option">
+                        <label>Background:</label>
+                        <input type="color" id="theme-background" value="#ffffff" onchange="updateTheme()">
+                    </div>
+                    <div class="theme-option">
+                        <label>Text Color:</label>
+                        <input type="color" id="theme-text" value="#1f2937" onchange="updateTheme()">
+                    </div>
+                    <div class="theme-option">
+                        <label>Border Radius:</label>
+                        <input type="text" id="theme-radius" value="12px" onchange="updateTheme()">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="showThemedVerification()">
+                    Preview Themed Modal
+                </button>
+                <button class="btn btn-secondary" style="margin-left: 12px;" onclick="resetTheme()">
+                    Reset to Default
+                </button>
+
+                <div class="code-block">
+                    <span class="comment">// Initialize with custom theme</span><br>
+                    <span class="function">WaltVerify</span>.<span class="function">init</span>({<br>
+                    &nbsp;&nbsp;clientToken: <span class="string">'ct_xxx...'</span>,<br>
+                    &nbsp;&nbsp;theme: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;primaryColor: <span class="string" id="code-primary">'#7c2d12'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;backgroundColor: <span class="string" id="code-background">'#ffffff'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;textColor: <span class="string" id="code-text">'#1f2937'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;borderRadius: <span class="string" id="code-radius">'12px'</span><br>
+                    &nbsp;&nbsp;}<br>
+                    });
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Integration Code Section -->
+    <section class="demo-section" style="background: var(--white);">
+        <div class="container">
+            <h2>Quick Integration Guide</h2>
+            <p class="subtitle">Add age verification to your site in minutes</p>
+
+            <div class="demo-box">
+                <h3>Step 1: Include the SDK</h3>
+                <div class="code-block">
+                    <span class="comment">&lt;!-- Add this to your HTML --&gt;</span><br>
+                    &lt;script src=<span class="string">"https://verify.example.com/widget/v1/sdk.js"</span>&gt;&lt;/script&gt;
+                </div>
+            </div>
+
+            <div class="demo-box">
+                <h3>Step 2: Get a Client Token (Server-side)</h3>
+                <div class="code-block">
+                    <span class="comment">// Your backend generates a token using your API key</span><br>
+                    <span class="keyword">const</span> response = <span class="keyword">await</span> <span class="function">fetch</span>(<span class="string">'/api/token'</span>);<br>
+                    <span class="keyword">const</span> { clientToken } = <span class="keyword">await</span> response.<span class="function">json</span>();
+                </div>
+            </div>
+
+            <div class="demo-box">
+                <h3>Step 3: Initialize and Verify</h3>
+                <div class="code-block">
+                    <span class="comment">// Initialize the SDK</span><br>
+                    <span class="function">WaltVerify</span>.<span class="function">init</span>({ clientToken: clientToken });<br>
+                    <br>
+                    <span class="comment">// Age verification (modal mode)</span><br>
+                    <span class="function">WaltVerify</span>.<span class="function">verifyAge</span>({<br>
+                    &nbsp;&nbsp;minAge: <span class="string">18</span>,<br>
+                    &nbsp;&nbsp;onSuccess: (result) =&gt; {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;console.<span class="function">log</span>(<span class="string">'User is verified!'</span>, result);<br>
+                    &nbsp;&nbsp;},<br>
+                    &nbsp;&nbsp;onFailure: (error) =&gt; {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;console.<span class="function">log</span>(<span class="string">'Verification failed'</span>, error);<br>
+                    &nbsp;&nbsp;}<br>
+                    });<br>
+                    <br>
+                    <span class="comment">// Or use inline mode</span><br>
+                    <span class="function">WaltVerify</span>.<span class="function">verify</span>({<br>
+                    &nbsp;&nbsp;template: <span class="string">'kyc_basic'</span>,<br>
+                    &nbsp;&nbsp;ui: <span class="string">'inline'</span>,<br>
+                    &nbsp;&nbsp;container: <span class="string">'#verification-container'</span><br>
+                    });
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>WaltVerify Widget SDK Demo | <a href="https://walt.id" target="_blank">walt.id</a></p>
+            <p style="margin-top: 8px; font-size: 14px;">This is a demonstration page. No actual purchases are processed.</p>
+        </div>
+    </footer>
+
+    <!-- SDK Loading State -->
+    <div id="sdk-loading" style="position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 9999;">
+        <div class="loading">
+            <div class="spinner"></div>
+            <span>Loading SDK...</span>
+        </div>
+    </div>
+
+    <!-- Load Widget SDK from Verify API -->
+    <script>
+        // Configuration
+        let config = {
+            apiBaseUrl: 'http://localhost:7010'
+        };
+        let clientToken = null;
+        let sdkReady = false;
+        let currentTheme = {
+            primaryColor: '#7c2d12',
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            borderRadius: '12px'
+        };
+
+        // Fetch config from server
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                config.apiBaseUrl = data.apiBaseUrl;
+                console.log('[Config] API URL:', config.apiBaseUrl);
+            } catch (error) {
+                console.warn('[Config] Using default:', config.apiBaseUrl);
+            }
+        }
+
+        // Load SDK script dynamically
+        async function loadSDK() {
+            await loadConfig();
+
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = `${config.apiBaseUrl}/widget/v1/sdk.js`;
+                script.onload = () => {
+                    console.log('[SDK] Loaded successfully');
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('[SDK] Failed to load');
+                    reject(new Error('Failed to load SDK'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Get client token from server
+        async function getClientToken() {
+            try {
+                const response = await fetch('/api/token');
+                if (!response.ok) {
+                    throw new Error('Failed to get token');
+                }
+                const data = await response.json();
+                return data.clientToken;
+            } catch (error) {
+                console.error('[Token] Error:', error);
+                throw error;
+            }
+        }
+
+        // Initialize SDK
+        async function initializeSDK() {
+            try {
+                // Load SDK script
+                await loadSDK();
+
+                // Get client token
+                clientToken = await getClientToken();
+                console.log('[Token] Received:', clientToken.substring(0, 20) + '...');
+
+                // Initialize WaltVerify
+                WaltVerify.init({
+                    clientToken: clientToken,
+                    apiBase: config.apiBaseUrl,
+                    theme: currentTheme
+                });
+
+                sdkReady = true;
+                console.log('[SDK] Initialized successfully');
+
+                // Hide loading indicator
+                document.getElementById('sdk-loading').style.display = 'none';
+
+            } catch (error) {
+                console.error('[SDK] Initialization failed:', error);
+                document.getElementById('sdk-loading').innerHTML = `
+                    <span style="color: #ef4444;">SDK Error: ${error.message}</span>
+                `;
+            }
+        }
+
+        // Show age verification modal
+        function showAgeVerification(minAge, mode) {
+            if (!sdkReady) {
+                alert('SDK is still loading. Please wait...');
+                return;
+            }
+
+            console.log(`[Verify] Starting age verification for ${minAge}+`);
+
+            WaltVerify.verifyAge({
+                minAge: minAge,
+                ui: mode,
+                onSuccess: function(result) {
+                    console.log('[Verify] Success:', result);
+                    showResult('modal', result);
+                    alert(`Age verified! You are ${minAge} or older.`);
+                },
+                onFailure: function(error) {
+                    console.error('[Verify] Failed:', error);
+                    showResult('modal', { error: error.message });
+                },
+                onCancel: function() {
+                    console.log('[Verify] Cancelled by user');
+                }
+            }).catch(function(error) {
+                console.error('[Verify] Error:', error);
+            });
+        }
+
+        // Start inline verification
+        function startInlineVerification(template) {
+            if (!sdkReady) {
+                alert('SDK is still loading. Please wait...');
+                return;
+            }
+
+            if (!template) {
+                alert('Please enter a template name');
+                return;
+            }
+
+            // Clear container
+            document.getElementById('inline-verification-container').innerHTML = '';
+            document.getElementById('inline-result').classList.add('hidden');
+
+            console.log(`[Verify] Starting inline verification with template: ${template}`);
+
+            WaltVerify.verify({
+                template: template,
+                ui: 'inline',
+                container: '#inline-verification-container',
+                onSuccess: function(result) {
+                    console.log('[Verify] Success:', result);
+                    showResult('inline', result);
+                },
+                onFailure: function(error) {
+                    console.error('[Verify] Failed:', error);
+                    showResult('inline', { error: error.message });
+                },
+                onCancel: function() {
+                    console.log('[Verify] Cancelled by user');
+                }
+            }).catch(function(error) {
+                console.error('[Verify] Error:', error);
+                document.getElementById('inline-verification-container').innerHTML = `
+                    <p style="color: #dc2626;">Error: ${error.message}</p>
+                `;
+            });
+        }
+
+        // Tab selection
+        function selectTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        }
+
+        // Show verification result
+        function showResult(type, result) {
+            const container = document.getElementById(`${type}-result`);
+            const content = document.getElementById(`${type}-result-content`);
+            container.classList.remove('hidden');
+            content.textContent = JSON.stringify(result, null, 2);
+        }
+
+        // Update theme
+        function updateTheme() {
+            currentTheme = {
+                primaryColor: document.getElementById('theme-primary').value,
+                backgroundColor: document.getElementById('theme-background').value,
+                textColor: document.getElementById('theme-text').value,
+                borderRadius: document.getElementById('theme-radius').value
+            };
+
+            // Update code display
+            document.getElementById('code-primary').textContent = `'${currentTheme.primaryColor}'`;
+            document.getElementById('code-background').textContent = `'${currentTheme.backgroundColor}'`;
+            document.getElementById('code-text').textContent = `'${currentTheme.textColor}'`;
+            document.getElementById('code-radius').textContent = `'${currentTheme.borderRadius}'`;
+
+            // Re-initialize SDK with new theme
+            if (sdkReady && clientToken) {
+                WaltVerify.init({
+                    clientToken: clientToken,
+                    apiBase: config.apiBaseUrl,
+                    theme: currentTheme
+                });
+                console.log('[Theme] Updated:', currentTheme);
+            }
+        }
+
+        // Reset theme to defaults
+        function resetTheme() {
+            document.getElementById('theme-primary').value = '#2563eb';
+            document.getElementById('theme-background').value = '#ffffff';
+            document.getElementById('theme-text').value = '#1f2937';
+            document.getElementById('theme-radius').value = '12px';
+            updateTheme();
+        }
+
+        // Show themed verification
+        function showThemedVerification() {
+            showAgeVerification(18, 'modal');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeSDK);
+    </script>
+</body>
+</html>
