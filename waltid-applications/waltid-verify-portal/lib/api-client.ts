@@ -80,9 +80,14 @@ export interface DailyUsage {
   count: number;
 }
 
-export interface ApiError {
+export class ApiError extends Error {
   error: string;
-  message: string;
+
+  constructor(error: string, message: string) {
+    super(message);
+    this.error = error;
+    this.name = 'ApiError';
+  }
 }
 
 class ApiClient {

@@ -370,8 +370,9 @@ services:
         condition: service_started
     environment:
       NEXT_PUBLIC_VERIFY_API_URL: "${VERIFY_API_EXTERNAL_URL:-http://localhost:7010}"
-    ports:
-      - "${VERIFY_PORTAL_PORT:-7011}:3001"
+    # Port 7011 is exposed via Caddy reverse proxy, no direct host mapping needed
+    expose:
+      - "3001"
 
 # ==================================================
 # RP DEMOS - Relying Party Integration Examples
@@ -399,7 +400,10 @@ services:
       caddy:
         condition: service_started
     environment:
+      # Server-to-server API calls (Docker internal)
       VERIFY_API_URL: "http://verify-api:7010"
+      # Browser SDK loading (must be publicly accessible)
+      PUBLIC_VERIFY_API_URL: "${VERIFY_API_EXTERNAL_URL:-http://localhost:7010}"
       VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
       PORT: 4000
     ports:

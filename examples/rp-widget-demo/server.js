@@ -18,10 +18,16 @@ const path = require('path');
 const VERIFY_API_URL = process.env.VERIFY_API_URL || 'http://localhost:7010';
 const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_sandbox_demo_key_12345678';
 
+// PUBLIC_VERIFY_API_URL is what the browser uses to load the SDK
+// This must be browser-accessible (e.g., http://localhost:7010 or https://verify-api.example.com)
+// VERIFY_API_URL is for server-to-server calls (can be Docker internal hostname)
+const PUBLIC_VERIFY_API_URL = process.env.PUBLIC_VERIFY_API_URL || VERIFY_API_URL;
+
 // Export for use in tests
 const config = {
   VERIFY_API_URL,
-  VERIFY_API_KEY
+  VERIFY_API_KEY,
+  PUBLIC_VERIFY_API_URL
 };
 
 /**
@@ -95,12 +101,12 @@ function createApp() {
   /**
    * GET /api/config
    *
-   * Return the Verify API URL for the widget SDK.
-   * This allows the demo to work with different API endpoints.
+   * Return the PUBLIC Verify API URL for the widget SDK.
+   * This URL must be browser-accessible (not Docker internal hostname).
    */
   app.get('/api/config', (req, res) => {
     res.json({
-      apiBaseUrl: config.VERIFY_API_URL
+      apiBaseUrl: config.PUBLIC_VERIFY_API_URL
     });
   });
 
