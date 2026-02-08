@@ -14,6 +14,7 @@ import id.walt.verifyapi.routes.sessionRoutes
 import id.walt.verifyapi.routes.templateRoutes
 import id.walt.verifyapi.routes.verifyRoutes
 import id.walt.verifyapi.routes.webhookRoutes
+import id.walt.verifyapi.routes.widgetRoutes
 import id.walt.verifyapi.routes.widgetTokenRoutes
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.smiley4.ktorswaggerui.swaggerUI
@@ -176,6 +177,9 @@ fun Application.configureRouting() {
                 |  /v1/webhooks - Manage webhook subscriptions
                 |  /v1/orchestrations - Multi-step verification flows
                 |  /v1/widget/tokens - Generate client tokens for widget SDK (POST)
+                |  /widget/v1/verify - Start verification (widget SDK, POST)
+                |  /widget/v1/sessions/{id} - Get session status (widget SDK)
+                |  /widget/v1/sdk.js - Widget SDK JavaScript (public)
                 |  /portal/auth/ - Portal authentication (signup, login, refresh)
                 |  /portal/usage - Usage analytics (Portal JWT auth required)
                 |  /portal/api-keys - Manage API keys (GET/POST/DELETE)
@@ -211,6 +215,9 @@ fun Application.configureRouting() {
 
         // Widget token routes (client token generation for widget SDK)
         widgetTokenRoutes()
+
+        // Widget SDK routes (client token authenticated endpoints)
+        widgetRoutes()
 
         // Portal authentication routes (signup, login, refresh, password reset)
         portalAuthRoutes()
