@@ -387,6 +387,7 @@ services:
 # RP Widget Demo - Minimal Express server with Widget SDK
 # Uses the JavaScript Widget SDK for frontend-only integration
   rp-widget-demo:
+    container_name: rp-widget-example-1
     build:
       context: ../examples/rp-widget-demo
       dockerfile: Dockerfile
@@ -399,13 +400,15 @@ services:
         condition: service_started
     environment:
       VERIFY_API_URL: "http://verify-api:7010"
-      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_xxx}"
+      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
+      PORT: 4000
     ports:
-      - "${RP_DEMO_PORT:-7020}:3002"
+      - "${RP_WIDGET_PORT:-4000}:4000"
 
 # RP Next.js Demo - Full Next.js application
 # Shows server-side API integration patterns
   rp-nextjs-demo:
+    container_name: rp-nextjs-example-1
     build:
       context: ../examples/rp-web-nextjs
       dockerfile: Dockerfile
@@ -418,10 +421,10 @@ services:
         condition: service_started
     environment:
       VERIFY_API_URL: "http://verify-api:7010"
-      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_xxx}"
+      VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
       NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
     ports:
-      - "${RP_DEMO_PORT:-7020}:3000"
+      - "${RP_NEXTJS_PORT:-7020}:3000"
 
 volumes:
   wallet-api-db:

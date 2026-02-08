@@ -212,10 +212,18 @@ test.describe('Verification Flow - Success', () => {
           body: JSON.stringify({
             status: 'verified',
             result: {
-              claims: {
-                ageOver18: true,
-                ageOver21: true,
-              },
+              credentials: [
+                {
+                  format: 'dc+sd-jwt',
+                  vct: 'urn:eu.europa.ec.eudi.pid.1',
+                  doctype: null,
+                  issuer: 'https://issuer.example.com',
+                  disclosedClaims: {
+                    'age_over_18': 'true',
+                    'age_over_21': 'true',
+                  },
+                }
+              ],
             },
           }),
         });
@@ -237,10 +245,11 @@ test.describe('Verification Flow - Success', () => {
     // Check success message
     await expect(page.locator('text=Your age has been verified')).toBeVisible();
 
-    // Check verification details are shown
-    await expect(page.locator('text=Verification Details')).toBeVisible();
-    await expect(page.locator('text=Age over 21: Yes')).toBeVisible();
-    await expect(page.locator('text=Age over 18: Yes')).toBeVisible();
+    // Check credential details are shown
+    await expect(page.locator('text=Shared Credentials:')).toBeVisible();
+    await expect(page.locator('text=Disclosed Claims:')).toBeVisible();
+    await expect(page.locator('text=age_over_18')).toBeVisible();
+    await expect(page.locator('text=age_over_21')).toBeVisible();
 
     // Complete purchase button should be visible
     await expect(page.locator('button:has-text("Complete Purchase")')).toBeVisible();

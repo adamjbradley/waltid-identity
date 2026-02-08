@@ -217,7 +217,7 @@ class PollingTimeoutException(
  *
  * @param config Configuration for the client
  */
-class VerifyClient(private val config: VerifyConfig) : Closeable {
+open class VerifyClient(private val config: VerifyConfig) : Closeable {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -251,7 +251,7 @@ class VerifyClient(private val config: VerifyConfig) : Closeable {
      * ))
      * ```
      */
-    suspend fun verifyIdentity(request: VerificationRequest): VerificationResponse {
+    open suspend fun verifyIdentity(request: VerificationRequest): VerificationResponse {
         val response = client.post("$baseUrl/v1/verify/identity") {
             header("Authorization", "Bearer ${config.apiKey}")
             contentType(ContentType.Application.Json)
@@ -285,7 +285,7 @@ class VerifyClient(private val config: VerifyConfig) : Closeable {
      * }
      * ```
      */
-    suspend fun getSession(sessionId: String): SessionStatus {
+    open suspend fun getSession(sessionId: String): SessionStatus {
         val response = client.get("$baseUrl/v1/sessions/$sessionId") {
             header("Authorization", "Bearer ${config.apiKey}")
         }

@@ -70,15 +70,6 @@
     reverse_proxy http://verify-portal:3001
 }
 
-# RP Demo - Relying Party integration examples (port 7020)
-# Routes to either rp-widget-demo or rp-nextjs-demo depending on which profile is active
-# Widget demo runs on port 3002, Next.js demo runs on port 3000
-# Caddy will try both and use whichever is running
-:{$RP_DEMO_PORT:7020} {
-    # Try widget demo first (Express on 3002), fall back to Next.js (3000)
-    reverse_proxy http://rp-widget-demo:3002 http://rp-nextjs-demo:3000 {
-        lb_policy first
-        fail_duration 1s
-    }
-}
+# RP Demo containers expose ports directly (4000 and 7020)
+# External routing (e.g., rp.theaustraliahack.com) is handled outside this Caddyfile
 

@@ -8,6 +8,11 @@ let package = Package(
         .library(name: "WaltIDVerifySDK", targets: ["WaltIDVerifySDK"])
     ],
     targets: [
-        .target(name: "WaltIDVerifySDK", path: "Sources")
+        .target(name: "WaltIDVerifySDK", path: "Sources"),
+        .testTarget(
+            name: "WaltIDVerifySDKTests",
+            dependencies: ["WaltIDVerifySDK"],
+            path: "Tests/WaltIDVerifySDKTests"
+        )
     ]
 )
