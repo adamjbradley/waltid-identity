@@ -15,8 +15,32 @@ object VerifyOrganizations : UUIDTable("verify_organizations") {
     val name = varchar("name", 255)
     val billingEmail = varchar("billing_email", 255)
     val plan = varchar("plan", 50).default("free")
+    val widgetAllowedOrigins = text("widget_allowed_origins").nullable()  // JSON array of allowed origins for widget integration
     val createdAt = timestamp("created_at")
     val updatedAt = timestamp("updated_at")
+}
+
+/**
+ * Portal users table for the Merchant Self-Service Portal.
+ * Each user belongs to one organization and can manage API keys, widgets, and view analytics.
+ */
+object VerifyUsers : UUIDTable("verify_users") {
+    val email = varchar("email", 255)
+    val passwordHash = varchar("password_hash", 255)
+    val organizationId = reference(
+        "organization_id",
+        VerifyOrganizations,
+        onDelete = ReferenceOption.CASCADE
+    )
+    val role = varchar("role", 20).default("viewer")  // "admin" or "viewer"
+    val emailVerifiedAt = timestamp("email_verified_at").nullable()
+    val createdAt = timestamp("created_at")
+    val lastLoginAt = timestamp("last_login_at").nullable()
+
+    init {
+        uniqueIndex(email)
+        index(isUnique = false, organizationId)
+    }
 }
 
 /**
@@ -149,5 +173,35 @@ object VerifySessions : UUIDTable("verify_sessions") {
         index(isUnique = false, organizationId)
         index(isUnique = false, status)
         index(isUnique = true, externalSessionId)
+    }
+}
+
+/**
+ * Widget tokens for frontend SDK integration.
+ * Short-lived tokens that merchants generate server-side and pass to their frontend.
+ * The frontend widget uses these tokens to authenticate with the Verify API
+ * without exposing the API key.
+ *
+ * Tokens are stored as SHA-256 hashes (same pattern as API keys).
+ */
+object VerifyWidgetTokens : UUIDTable("verify_widget_tokens") {
+    val organizationId = reference(
+        "organization_id",
+        VerifyOrganizations,
+        onDelete = ReferenceOption.CASCADE
+    )
+    val tokenHash = varchar("token_hash", 64)  // SHA-256 hash
+    val tokenPrefix = varchar("token_prefix", 20)  // e.g., "wgt_abc123" for identification
+    val allowedTemplates = text("allowed_templates").nullable()  // JSON array of template IDs/names, null = all
+    val allowedOrigins = text("allowed_origins").nullable()  // JSON array of allowed origins (CORS), null = any
+    val expiresAt = timestamp("expires_at")
+    val maxUses = integer("max_uses").nullable()  // null = unlimited
+    val useCount = integer("use_count").default(0)
+    val createdAt = timestamp("created_at")
+
+    init {
+        index(isUnique = false, organizationId)
+        index(isUnique = true, tokenHash)
+        index(isUnique = true, tokenPrefix)
     }
 }

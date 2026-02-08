@@ -64,11 +64,13 @@ fun Application.configureDatabase() {
     transaction {
         SchemaUtils.createMissingTablesAndColumns(
             VerifyOrganizations,
+            VerifyUsers,
             VerifyApiKeys,
             VerifyWebhooks,
             VerifyTemplates,
             VerifyOrchestrations,
-            VerifySessions
+            VerifySessions,
+            VerifyWidgetTokens
         )
     }
 
