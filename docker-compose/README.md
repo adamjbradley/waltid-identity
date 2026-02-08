@@ -220,6 +220,7 @@ $ docker-compose down -v
 - Issuer API: [http://localhost:7002](http://localhost:7002)
 - Verifier API: [http://localhost:7003](http://localhost:7003)
 - Verifier API2: [http://localhost:7004](http://localhost:7004)
+- Verify API: [http://localhost:7010](http://localhost:7010) (requires `--profile verify-api`)
 - Valkey (Redis-compatible): `localhost:6379` (requires `--profile valkey` or `--profile all`)
 - Hashicorp vault: [http://localhost:8200](http://localhost:8200)
 - Open Policy Agent: [http://localhost:8181](http://localhost:8181)
@@ -230,6 +231,80 @@ $ docker-compose down -v
 - Dev Web Wallet: [http://localhost:7104](http://localhost:7104)
 - Web Portal: [http://localhost:7102](http://localhost:7102)
 - Credential Repo: [http://localhost:7103](http://localhost:7103)
+- Verify Portal: [http://localhost:7011](http://localhost:7011) (requires `--profile verify-api`)
+- RP Demo: [http://localhost:7020](http://localhost:7020) (requires `--profile rp-widget-demo` or `--profile rp-nextjs-demo`)
+
+---
+
+## Verify API Profile
+
+The Verify API is a feature-flagged service for simplified credential verification with SDK support.
+
+### Starting Verify API Services
+
+```bash
+# Start verify-api with its dependencies (valkey, verifier-api2)
+docker compose --profile verify-api up
+
+# Start with the verify portal
+docker compose --profile verify-api up verify-api verify-portal
+
+# Also start an RP demo (choose one)
+docker compose --profile verify-api --profile rp-widget-demo up
+# OR
+docker compose --profile verify-api --profile rp-nextjs-demo up
+```
+
+### RP Demo Options
+
+Two RP (Relying Party) demos are available to demonstrate Verify API integration:
+
+| Demo | Profile | Description |
+|------|---------|-------------|
+| Widget Demo | `rp-widget-demo` | Minimal Express server using the JavaScript Widget SDK |
+| Next.js Demo | `rp-nextjs-demo` | Full Next.js app with server-side API integration |
+
+**IMPORTANT:** Only run ONE demo at a time as they share the same port (7020) and Caddy route.
+
+#### Widget Demo (Frontend SDK)
+
+The widget demo shows frontend-only integration using the Widget SDK. It's the simplest way to add verification to any website.
+
+```bash
+docker compose --profile verify-api --profile rp-widget-demo up
+```
+
+Then open [http://localhost:7020](http://localhost:7020) to see the demo.
+
+#### Next.js Demo (Server-Side API)
+
+The Next.js demo shows full server-side API integration with session management.
+
+```bash
+docker compose --profile verify-api --profile rp-nextjs-demo up
+```
+
+Then open [http://localhost:7020](http://localhost:7020) to see the demo.
+
+### Verify Portal
+
+The Verify Portal provides an admin UI for managing verification templates, API keys, and usage analytics.
+
+```bash
+docker compose --profile verify-api up verify-portal
+```
+
+Then open [http://localhost:7011](http://localhost:7011) to access the portal.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VERIFY_API_ENABLED` | `true` | Enable/disable Verify API |
+| `VERIFY_API_PORT` | `7010` | Verify API port |
+| `VERIFY_PORTAL_PORT` | `7011` | Verify Portal port |
+| `RP_DEMO_PORT` | `7020` | RP Demo port |
+| `VERIFY_API_KEY` | `vfy_test_xxx` | API key for RP demos |
 
 ## Configurations
 
