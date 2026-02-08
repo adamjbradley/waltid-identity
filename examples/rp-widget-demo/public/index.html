@@ -3,20 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VintageVino - Premium Wine Shop</title>
+    <title>Majestic - Wine, Champagne, Spirits & Beer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #7c2d12;
-            --primary-dark: #5c211d;
-            --secondary: #fef3c7;
-            --accent: #d97706;
-            --text: #1f2937;
-            --text-light: #6b7280;
-            --background: #fefce8;
+            --header-bg: #1a1a1a;
+            --primary: #3d8b37;
+            --primary-hover: #2e6a29;
             --white: #ffffff;
-            --border: #e5e7eb;
-            --success: #059669;
+            --off-white: #f5f5f5;
+            --text: #333333;
+            --text-secondary: #666666;
+            --text-light: #999999;
+            --border: #e0e0e0;
+            --border-light: #eeeeee;
+            --sale-red: #cc0000;
             --error: #dc2626;
+            --success: #3d8b37;
+            --mix-six-bg: #f0f7ef;
+            --banner-green: #3d8b37;
         }
 
         * {
@@ -26,18 +33,49 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--background);
+            font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--white);
             color: var(--text);
-            line-height: 1.6;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Header */
-        header {
-            background: var(--primary);
+        /* ===== TOP BAR ===== */
+        .top-bar {
+            background: var(--header-bg);
             color: var(--white);
-            padding: 20px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 12px;
+            padding: 6px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .top-bar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-bar a {
+            color: #ccc;
+            text-decoration: none;
+            font-size: 12px;
+            transition: color 0.15s;
+        }
+
+        .top-bar a:hover {
+            color: var(--white);
+        }
+
+        .top-bar-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: var(--header-bg);
+            color: var(--white);
+            padding: 16px 0;
         }
 
         .container {
@@ -46,125 +84,480 @@
             padding: 0 20px;
         }
 
+        .header-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+
         .logo {
-            font-size: 28px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 32px;
             font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .logo span {
-            color: var(--secondary);
-        }
-
-        /* Hero */
-        .hero {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            letter-spacing: 1px;
             color: var(--white);
-            padding: 60px 20px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .logo-wine {
+            display: block;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 10px;
+            font-weight: 400;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #999;
+            margin-top: -2px;
+        }
+
+        .header-search {
+            flex: 1;
+            max-width: 480px;
+            position: relative;
+        }
+
+        .header-search input {
+            width: 100%;
+            padding: 10px 44px 10px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #333;
+            color: var(--white);
+        }
+
+        .header-search input::placeholder {
+            color: #888;
+        }
+
+        .header-search input:focus {
+            outline: 2px solid var(--primary);
+            background: #3a3a3a;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            pointer-events: none;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--white);
+            text-decoration: none;
+            font-size: 11px;
+            gap: 4px;
+            transition: color 0.15s;
+            cursor: pointer;
+        }
+
+        .header-action:hover {
+            color: var(--primary);
+        }
+
+        .header-action svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .store-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary);
+            color: var(--white);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+
+        .store-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ===== NAVIGATION ===== */
+        nav {
+            background: var(--header-bg);
+            border-top: 1px solid #333;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            list-style: none;
+        }
+
+        .nav-links a {
+            display: block;
+            padding: 12px 18px;
+            color: var(--white);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-links a.sale {
+            color: var(--sale-red);
+        }
+
+        /* ===== DELIVERY BANNER ===== */
+        .delivery-banner {
+            background: var(--off-white);
+            padding: 8px 0;
             text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .delivery-banner strong {
+            color: var(--text);
+        }
+
+        /* ===== HERO BANNER ===== */
+        .hero {
+            background: linear-gradient(135deg, #2d1b0e 0%, #1a1a1a 50%, #0d2b1a 100%);
+            color: var(--white);
+            padding: 56px 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 30% 50%, rgba(61,139,55,0.15) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 50%, rgba(139,55,55,0.1) 0%, transparent 60%);
+        }
+
+        .hero .container {
+            position: relative;
+        }
+
+        .hero-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--primary);
+            margin-bottom: 16px;
         }
 
         .hero h1 {
-            font-size: 36px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 42px;
+            font-weight: 700;
             margin-bottom: 16px;
+            line-height: 1.15;
         }
 
         .hero p {
-            font-size: 18px;
-            opacity: 0.9;
-            max-width: 600px;
-            margin: 0 auto;
+            font-size: 17px;
+            color: rgba(255,255,255,0.75);
+            max-width: 560px;
+            margin: 0 auto 28px;
+            font-weight: 300;
         }
 
-        /* Demo Sections */
+        .hero-cta {
+            display: inline-block;
+            background: var(--primary);
+            color: var(--white);
+            padding: 14px 36px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-decoration: none;
+            transition: background 0.15s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hero-cta:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ===== SECTION STYLING ===== */
         .demo-section {
-            padding: 60px 20px;
+            padding: 56px 20px;
+        }
+
+        .section-bg-gray {
+            background: var(--off-white);
+        }
+
+        .section-bg-white {
+            background: var(--white);
         }
 
         .demo-section h2 {
+            font-family: 'Playfair Display', Georgia, serif;
             font-size: 28px;
-            margin-bottom: 8px;
-            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--text);
         }
 
         .demo-section .subtitle {
-            color: var(--text-light);
+            color: var(--text-secondary);
             margin-bottom: 32px;
+            font-size: 15px;
         }
 
-        /* Product Card */
+        /* ===== PRODUCT GRID ===== */
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
             margin-bottom: 40px;
         }
 
+        @media (max-width: 860px) {
+            .product-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+            .product-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ===== PRODUCT CARD ===== */
         .product-card {
             background: var(--white);
-            border-radius: 16px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: box-shadow 0.2s;
+            position: relative;
         }
 
         .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
         }
 
         .product-image {
-            height: 200px;
-            background: linear-gradient(135deg, #450a0a 0%, #7c2d12 100%);
+            height: 220px;
+            background: var(--off-white);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--secondary);
-            font-size: 64px;
+            position: relative;
+        }
+
+        .product-image .wine-icon {
+            font-size: 80px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+        }
+
+        .save-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--sale-red);
+            color: var(--white);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 2px;
         }
 
         .product-info {
-            padding: 24px;
+            padding: 20px;
         }
 
         .product-info h3 {
-            font-size: 20px;
-            margin-bottom: 8px;
-        }
-
-        .product-info .description {
-            color: var(--text-light);
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-
-        .product-info .price {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 16px;
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-block;
-            padding: 14px 28px;
-            border: none;
-            border-radius: 8px;
+            font-family: 'Source Sans 3', sans-serif;
             font-size: 16px;
             font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text);
+            line-height: 1.3;
+        }
+
+        .product-meta {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+
+        .product-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .stars {
+            color: #f5a623;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .rating-count {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .pricing {
+            margin-bottom: 16px;
+        }
+
+        .price-mix-six {
+            background: var(--mix-six-bg);
+            padding: 8px 12px;
+            border-radius: 3px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .price-mix-six .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--primary);
+            letter-spacing: 0.3px;
+        }
+
+        .price-mix-six .amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .price-single {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 4px 0;
+        }
+
+        .price-single .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .price-single .amount {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .price-single .was {
+            font-size: 13px;
+            color: var(--text-light);
+            text-decoration: line-through;
+        }
+
+        /* ===== ADD BUTTON ROW ===== */
+        .add-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .qty-select {
+            width: 56px;
+            padding: 0 4px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--white);
+            text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
+        }
+
+        .qty-select:focus {
+            outline: 2px solid var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-add {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 20px;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-family: inherit;
+        }
+
+        .btn-add:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-add:disabled {
+            background: var(--border);
+            cursor: not-allowed;
+        }
+
+        /* ===== GENERIC BUTTONS ===== */
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
             text-decoration: none;
+            font-family: inherit;
         }
 
         .btn-primary {
             background: var(--primary);
             color: var(--white);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .btn-primary:hover {
-            background: var(--primary-dark);
+            background: var(--primary-hover);
         }
 
         .btn-primary:disabled {
@@ -179,74 +572,117 @@
         }
 
         .btn-secondary:hover {
-            background: var(--secondary);
+            background: var(--mix-six-bg);
         }
 
-        .btn-full {
-            width: 100%;
+        /* ===== FEATURES ROW ===== */
+        .features-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin: 48px 0;
         }
 
-        /* Tabs */
+        @media (max-width: 700px) {
+            .features-row { grid-template-columns: 1fr; }
+        }
+
+        .feature-card {
+            text-align: center;
+            padding: 32px 20px;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            background: var(--mix-six-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .feature-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===== INLINE DEMO ===== */
+        .demo-box {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .demo-box h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .demo-box .description {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        /* ===== TABS ===== */
         .tabs {
             display: flex;
-            gap: 8px;
+            gap: 0;
             margin-bottom: 24px;
             border-bottom: 2px solid var(--border);
-            padding-bottom: 8px;
         }
 
         .tab {
             padding: 12px 24px;
             background: none;
             border: none;
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--text-light);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
             cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.15s;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .tab:hover {
             color: var(--primary);
-            background: var(--secondary);
         }
 
         .tab.active {
             color: var(--primary);
-            background: var(--secondary);
-            font-weight: 600;
+            border-bottom-color: var(--primary);
         }
 
-        /* Demo Boxes */
-        .demo-box {
-            background: var(--white);
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 24px;
-        }
-
-        .demo-box h3 {
-            font-size: 20px;
-            margin-bottom: 8px;
-        }
-
-        .demo-box .description {
-            color: var(--text-light);
-            margin-bottom: 24px;
-        }
-
-        /* Inline Container */
+        /* ===== INLINE CONTAINER ===== */
         #inline-verification-container {
             min-height: 400px;
             border: 2px dashed var(--border);
-            border-radius: 12px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--text-light);
             font-size: 14px;
+            margin-top: 16px;
         }
 
         #inline-verification-container:not(:empty) {
@@ -254,10 +690,10 @@
             min-height: auto;
         }
 
-        /* Theme Customization */
+        /* ===== THEME OPTIONS ===== */
         .theme-options {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
@@ -269,105 +705,92 @@
         }
 
         .theme-option label {
-            font-weight: 500;
-            min-width: 120px;
+            font-weight: 600;
+            font-size: 13px;
+            min-width: 110px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
         }
 
         .theme-option input[type="color"] {
-            width: 50px;
-            height: 36px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
+            width: 44px;
+            height: 32px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
             cursor: pointer;
+            padding: 2px;
         }
 
         .theme-option input[type="text"] {
             flex: 1;
             padding: 8px 12px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
             font-size: 14px;
+            font-family: inherit;
         }
 
-        /* Status Messages */
+        .theme-option input[type="text"]:focus,
+        .theme-option input[type="color"]:focus {
+            outline: 2px solid var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* ===== CODE BLOCK ===== */
+        .code-block {
+            background: #1a1a1a;
+            color: #d4d4d4;
+            padding: 20px 24px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 16px;
+            line-height: 1.7;
+        }
+
+        .code-block .comment { color: #6a9955; }
+        .code-block .keyword { color: #569cd6; }
+        .code-block .string  { color: #ce9178; }
+        .code-block .function { color: #dcdcaa; }
+
+        /* ===== STATUS BADGES ===== */
         .status-badge {
             display: inline-block;
-            padding: 6px 16px;
-            border-radius: 999px;
-            font-size: 14px;
-            font-weight: 500;
+            padding: 4px 14px;
+            border-radius: 2px;
+            font-size: 13px;
+            font-weight: 600;
         }
 
         .status-badge.success {
-            background: #d1fae5;
+            background: var(--mix-six-bg);
             color: var(--success);
         }
 
         .status-badge.error {
-            background: #fee2e2;
+            background: #fef2f2;
             color: var(--error);
         }
 
         .status-badge.pending {
-            background: #fef3c7;
-            color: var(--accent);
+            background: #fffbeb;
+            color: #b45309;
         }
 
-        /* Code Block */
-        .code-block {
-            background: #1f2937;
-            color: #e5e7eb;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 13px;
-            overflow-x: auto;
-            margin-top: 16px;
-        }
-
-        .code-block .comment {
-            color: #6b7280;
-        }
-
-        .code-block .keyword {
-            color: #a78bfa;
-        }
-
-        .code-block .string {
-            color: #34d399;
-        }
-
-        .code-block .function {
-            color: #60a5fa;
-        }
-
-        /* Footer */
-        footer {
-            background: var(--primary);
-            color: var(--white);
-            padding: 40px 20px;
-            text-align: center;
-        }
-
-        footer p {
-            opacity: 0.8;
-        }
-
-        footer a {
-            color: var(--secondary);
-        }
-
-        /* Results Display */
+        /* ===== RESULT DISPLAY ===== */
         .result-display {
             margin-top: 24px;
             padding: 20px;
-            background: #f8fafc;
-            border-radius: 8px;
+            background: var(--off-white);
+            border-radius: 4px;
             border-left: 4px solid var(--primary);
         }
 
         .result-display h4 {
             margin-bottom: 12px;
+            font-weight: 600;
         }
 
         .result-display pre {
@@ -376,100 +799,891 @@
             border-radius: 4px;
             overflow-x: auto;
             font-size: 12px;
+            border: 1px solid var(--border);
         }
 
-        /* Loading */
+        /* ===== NEWSLETTER SECTION ===== */
+        .newsletter-section {
+            background: var(--off-white);
+            padding: 48px 20px;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .newsletter-section h2 {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .newsletter-section p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .newsletter-form {
+            display: flex;
+            max-width: 460px;
+            margin: 0 auto;
+            gap: 0;
+        }
+
+        .newsletter-form input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-right: none;
+            border-radius: 4px 0 0 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .newsletter-form input:focus {
+            outline: 2px solid var(--primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .newsletter-form button {
+            padding: 12px 28px;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 0 4px 4px 0;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s;
+        }
+
+        .newsletter-form button:hover {
+            background: var(--primary-hover);
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            background: var(--header-bg);
+            color: #ccc;
+            padding: 48px 20px 24px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 700px) {
+            .footer-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .footer-col h4 {
+            color: var(--white);
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col li {
+            margin-bottom: 8px;
+        }
+
+        .footer-col a {
+            color: #999;
+            text-decoration: none;
+            font-size: 13px;
+            transition: color 0.15s;
+        }
+
+        .footer-col a:hover {
+            color: var(--white);
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .footer-social a {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ccc;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .footer-social a:hover {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #333;
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .footer-bottom p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .footer-bottom a {
+            color: #999;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .footer-badges {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .footer-badge {
+            background: #333;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #ccc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== LOADING ===== */
         .loading {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: var(--text-light);
+            color: var(--white);
         }
 
         .spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid var(--border);
+            width: 18px;
+            height: 18px;
+            border: 2px solid #444;
             border-top-color: var(--primary);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* Hidden class */
+        /* ===== MOBILE HAMBURGER ===== */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .mobile-menu-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* ===== RESPONSIVE: TABLET (max 860px) ===== */
+        @media (max-width: 860px) {
+            .header-search {
+                max-width: 280px;
+            }
+
+            .store-btn {
+                display: none;
+            }
+
+            .nav-links {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                justify-content: flex-start;
+                padding-bottom: 2px;
+            }
+
+            .nav-links::-webkit-scrollbar {
+                display: none;
+            }
+
+            .nav-links a {
+                white-space: nowrap;
+                padding: 10px 14px;
+                font-size: 12px;
+            }
+
+            .features-row {
+                gap: 16px;
+                margin: 32px 0;
+            }
+
+            .feature-card {
+                padding: 24px 16px;
+            }
+
+            .demo-section {
+                padding: 40px 16px;
+            }
+
+            .demo-box {
+                padding: 24px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        /* ===== RESPONSIVE: MOBILE (max 640px) ===== */
+        @media (max-width: 640px) {
+            /* Top bar */
+            .top-bar {
+                display: none;
+            }
+
+            /* Header */
+            header {
+                padding: 12px 0;
+            }
+
+            .header-main {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .logo-wine {
+                font-size: 8px;
+                letter-spacing: 2px;
+            }
+
+            .header-search {
+                order: 3;
+                max-width: none;
+                flex-basis: 100%;
+            }
+
+            .header-search input {
+                padding: 10px 40px 10px 14px;
+                font-size: 16px; /* prevents iOS zoom */
+            }
+
+            .header-actions {
+                gap: 16px;
+                margin-left: auto;
+            }
+
+            .store-btn {
+                display: none;
+            }
+
+            .header-action {
+                font-size: 10px;
+            }
+
+            .header-action svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            /* Mobile menu button */
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            /* Nav - collapsible on mobile */
+            nav {
+                overflow: hidden;
+            }
+
+            nav.nav-closed {
+                max-height: 0;
+                border: none;
+            }
+
+            nav.nav-open {
+                max-height: 500px;
+                transition: max-height 0.3s ease;
+            }
+
+            .nav-links {
+                flex-direction: column;
+                overflow-x: visible;
+                align-items: stretch;
+            }
+
+            .nav-links a {
+                padding: 14px 20px;
+                border-bottom: 1px solid #333;
+                font-size: 13px;
+                text-align: left;
+            }
+
+            .nav-links li:last-child a {
+                border-bottom: none;
+            }
+
+            /* Delivery banner */
+            .delivery-banner {
+                font-size: 11px;
+                padding: 8px 16px;
+                line-height: 1.5;
+            }
+
+            /* Hero */
+            .hero {
+                padding: 40px 16px;
+            }
+
+            .hero-label {
+                font-size: 11px;
+                letter-spacing: 2px;
+            }
+
+            .hero h1 {
+                font-size: 28px;
+            }
+
+            .hero p {
+                font-size: 15px;
+                margin-bottom: 24px;
+            }
+
+            .hero-cta {
+                padding: 12px 28px;
+                font-size: 13px;
+                width: 100%;
+                text-align: center;
+            }
+
+            /* Sections */
+            .demo-section {
+                padding: 32px 16px;
+            }
+
+            .demo-section h2 {
+                font-size: 22px;
+            }
+
+            .demo-section .subtitle {
+                font-size: 14px;
+                margin-bottom: 24px;
+            }
+
+            /* Features */
+            .features-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                margin: 24px 0;
+            }
+
+            .feature-card {
+                padding: 20px 16px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                text-align: left;
+            }
+
+            .feature-icon {
+                margin: 0;
+                min-width: 48px;
+            }
+
+            .feature-card h3 {
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+
+            .feature-card p {
+                font-size: 13px;
+            }
+
+            /* Product grid */
+            .product-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .product-image {
+                height: 180px;
+            }
+
+            .product-info {
+                padding: 16px;
+            }
+
+            .product-info h3 {
+                font-size: 15px;
+            }
+
+            /* Demo box */
+            .demo-box {
+                padding: 20px 16px;
+                margin-bottom: 16px;
+            }
+
+            .demo-box h3 {
+                font-size: 16px;
+            }
+
+            /* Tabs */
+            .tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                gap: 0;
+            }
+
+            .tabs::-webkit-scrollbar {
+                display: none;
+            }
+
+            .tab {
+                padding: 10px 14px;
+                font-size: 12px;
+                white-space: nowrap;
+                letter-spacing: 0.3px;
+            }
+
+            /* Inline container */
+            #inline-verification-container {
+                min-height: 300px;
+            }
+
+            /* Theme options */
+            .theme-options {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .theme-option {
+                gap: 8px;
+            }
+
+            .theme-option label {
+                min-width: 90px;
+                font-size: 12px;
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+
+            .btn-secondary {
+                margin-left: 0 !important;
+                margin-top: 8px;
+            }
+
+            /* Code blocks */
+            .code-block {
+                padding: 16px;
+                font-size: 11px;
+                line-height: 1.6;
+                border-radius: 4px;
+            }
+
+            /* Newsletter */
+            .newsletter-section {
+                padding: 36px 16px;
+            }
+
+            .newsletter-section h2 {
+                font-size: 20px;
+            }
+
+            .newsletter-form {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .newsletter-form input {
+                border-right: 1px solid var(--border);
+                border-radius: 4px;
+                font-size: 16px; /* prevents iOS zoom */
+            }
+
+            .newsletter-form button {
+                border-radius: 4px;
+                padding: 14px;
+            }
+
+            /* Footer */
+            footer {
+                padding: 36px 16px 20px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+                margin-bottom: 28px;
+            }
+
+            .footer-col h4 {
+                font-size: 12px;
+                margin-bottom: 12px;
+            }
+
+            .footer-col a {
+                font-size: 12px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+            }
+
+            .footer-bottom p {
+                font-size: 11px;
+            }
+
+            .footer-bottom a {
+                font-size: 11px;
+            }
+
+            .footer-social {
+                margin-bottom: 20px;
+            }
+
+            /* Result display */
+            .result-display {
+                padding: 16px;
+            }
+
+            .result-display pre {
+                font-size: 11px;
+            }
+
+            /* SDK loading toast */
+            #sdk-loading {
+                bottom: 12px !important;
+                right: 12px !important;
+                left: 12px !important;
+                border-radius: 4px !important;
+                text-align: center;
+            }
+        }
+
+        /* ===== RESPONSIVE: SMALL MOBILE (max 380px) ===== */
+        @media (max-width: 380px) {
+            .container {
+                padding: 0 12px;
+            }
+
+            .logo {
+                font-size: 22px;
+            }
+
+            .header-actions {
+                gap: 12px;
+            }
+
+            .header-action svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            .hero h1 {
+                font-size: 24px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .demo-section h2 {
+                font-size: 20px;
+            }
+
+            .price-mix-six .amount {
+                font-size: 18px;
+            }
+
+            .product-info {
+                padding: 14px;
+            }
+
+            .demo-box {
+                padding: 16px 12px;
+            }
+
+            .code-block {
+                padding: 12px;
+                font-size: 10px;
+            }
+
+            .tab {
+                padding: 10px 10px;
+                font-size: 11px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .hidden {
             display: none !important;
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header>
+    <!-- Top Bar -->
+    <div class="top-bar">
         <div class="container">
-            <div class="logo">Vintage<span>Vino</span></div>
-        </div>
-    </header>
-
-    <!-- Hero -->
-    <div class="hero">
-        <div class="container">
-            <h1>Premium Wines Delivered to Your Door</h1>
-            <p>Experience the finest selection of wines from around the world. Age verification required for purchases.</p>
+            <div class="top-bar-links">
+                <a href="#">Store Finder</a>
+                <a href="#">Delivery Information</a>
+                <a href="#">Help</a>
+            </div>
+            <div class="top-bar-links">
+                <a href="#">Order Tracking</a>
+                <a href="#">Gift Vouchers</a>
+            </div>
         </div>
     </div>
 
-    <!-- Product Demo Section -->
-    <section class="demo-section">
+    <!-- Header -->
+    <header>
         <div class="container">
-            <h2>Featured Wine Selection</h2>
-            <p class="subtitle">Click "Add to Cart" to see the age verification modal in action</p>
+            <div class="header-main">
+                <div>
+                    <a class="logo" href="#">MAJESTIC</a>
+                    <span class="logo-wine">Wine &amp; Spirits</span>
+                </div>
+
+                <div class="header-search">
+                    <input type="text" placeholder="Search wines, spirits, beers...">
+                    <span class="search-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                </div>
+
+                <div class="header-actions">
+                    <a class="store-btn" href="#">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                        Shop Your Local Store
+                    </a>
+                    <a class="header-action" href="#">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        Sign In
+                    </a>
+                    <a class="header-action" href="#">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                        Basket
+                    </a>
+                    <button class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Toggle menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav id="main-nav">
+        <div class="container">
+            <ul class="nav-links">
+                <li><a href="#" class="sale">Latest Offers</a></li>
+                <li><a href="#">Wine</a></li>
+                <li><a href="#">Champagne &amp; Sparkling</a></li>
+                <li><a href="#">Spirits</a></li>
+                <li><a href="#">Beer &amp; Cider</a></li>
+                <li><a href="#">Mixed Cases</a></li>
+                <li><a href="#">Gifts</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Delivery Banner -->
+    <div class="delivery-banner">
+        <strong>Free delivery</strong> on orders over &pound;150 | Next day delivery available | <strong>Click &amp; Collect</strong> in 1 hour
+    </div>
+
+    <!-- Hero Banner -->
+    <div class="hero">
+        <div class="container">
+            <div class="hero-label">Discover Something New</div>
+            <h1>Wines, Beers &amp; Spirits<br>You'll Love</h1>
+            <p>Over 1,100 wines expertly chosen by our buyers. Taste in store, delivered to your door.</p>
+            <a href="#products" class="hero-cta">Shop Now</a>
+        </div>
+    </div>
+
+    <!-- Features Row -->
+    <section class="demo-section section-bg-white">
+        <div class="container">
+            <div class="features-row">
+                <div class="feature-card">
+                    <div class="feature-icon">&#127863;</div>
+                    <h3>Quality &amp; Range</h3>
+                    <p>Over 1,100 wines expertly selected from the world's best vineyards and winemakers.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128218;</div>
+                    <h3>Expertise</h3>
+                    <p>Our trained advisors are on hand in every store to help you find exactly the right bottle.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128666;</div>
+                    <h3>Services</h3>
+                    <p>Free delivery on orders over &pound;150, next day delivery, and Click &amp; Collect in 1 hour.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product Demo Section -->
+    <section id="products" class="demo-section section-bg-gray">
+        <div class="container">
+            <h2>Featured Selection</h2>
+            <p class="subtitle">Click "Add" to see the age verification modal in action</p>
 
             <div class="product-grid">
                 <!-- Product 1 -->
                 <div class="product-card">
                     <div class="product-image">
-                        <span>&#127863;</span>
+                        <span class="wine-icon">&#127863;</span>
+                        <span class="save-badge">Save 25%</span>
                     </div>
                     <div class="product-info">
-                        <h3>Chateau Margaux 2015</h3>
-                        <p class="description">A prestigious Bordeaux with notes of blackcurrant, violet, and subtle oak. Perfect for special occasions.</p>
-                        <div class="price">$299.00</div>
-                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(18, 'modal')">
-                            Add to Cart (18+)
-                        </button>
+                        <h3>Ch&acirc;teau Margaux 2015</h3>
+                        <p class="product-meta">Bordeaux, France &middot; Red &middot; 75cl</p>
+                        <div class="product-rating">
+                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+                            <span class="rating-count">(142)</span>
+                        </div>
+                        <div class="pricing">
+                            <div class="price-mix-six">
+                                <span class="label">Mix Six</span>
+                                <span class="amount">&pound;224.25</span>
+                            </div>
+                            <div class="price-single">
+                                <span class="label">Per bottle</span>
+                                <span class="amount">&pound;249.00</span>
+                                <span class="was">&pound;299.00</span>
+                            </div>
+                        </div>
+                        <div class="add-row">
+                            <select class="qty-select" aria-label="Quantity">
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>6</option>
+                                <option>12</option>
+                            </select>
+                            <button class="btn-add" onclick="showAgeVerification(18, 'modal')">
+                                ADD
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Product 2 -->
                 <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #064e3b 0%, #059669 100%);">
-                        <span>&#127867;</span>
+                    <div class="product-image">
+                        <span class="wine-icon">&#127867;</span>
+                        <span class="save-badge">Save 15%</span>
                     </div>
                     <div class="product-info">
-                        <h3>Aged Irish Whiskey</h3>
-                        <p class="description">18-year aged single malt with smooth vanilla and honey undertones. Triple distilled perfection.</p>
-                        <div class="price">$189.00</div>
-                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(21, 'modal')">
-                            Add to Cart (21+)
-                        </button>
+                        <h3>Redbreast 18 Year Old Single Pot Still</h3>
+                        <p class="product-meta">Irish Whiskey &middot; 70cl &middot; 46% ABV</p>
+                        <div class="product-rating">
+                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                            <span class="rating-count">(87)</span>
+                        </div>
+                        <div class="pricing">
+                            <div class="price-mix-six">
+                                <span class="label">Mix Six</span>
+                                <span class="amount">&pound;160.65</span>
+                            </div>
+                            <div class="price-single">
+                                <span class="label">Per bottle</span>
+                                <span class="amount">&pound;169.00</span>
+                                <span class="was">&pound;189.00</span>
+                            </div>
+                        </div>
+                        <div class="add-row">
+                            <select class="qty-select" aria-label="Quantity">
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>6</option>
+                                <option>12</option>
+                            </select>
+                            <button class="btn-add" onclick="showAgeVerification(21, 'modal')">
+                                ADD
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Product 3 -->
                 <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);">
-                        <span>&#127870;</span>
+                    <div class="product-image">
+                        <span class="wine-icon">&#127870;</span>
                     </div>
                     <div class="product-info">
-                        <h3>Sparkling Rose</h3>
-                        <p class="description">Delicate bubbles with hints of strawberry and cream. A perfect celebration starter.</p>
-                        <div class="price">$45.00</div>
-                        <button class="btn btn-primary btn-full" onclick="showAgeVerification(18, 'modal')">
-                            Add to Cart (18+)
-                        </button>
+                        <h3>Louis Roederer Collection Brut NV</h3>
+                        <p class="product-meta">Champagne, France &middot; Sparkling &middot; 75cl</p>
+                        <div class="product-rating">
+                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+                            <span class="rating-count">(203)</span>
+                        </div>
+                        <div class="pricing">
+                            <div class="price-mix-six">
+                                <span class="label">Mix Six</span>
+                                <span class="amount">&pound;38.25</span>
+                            </div>
+                            <div class="price-single">
+                                <span class="label">Per bottle</span>
+                                <span class="amount">&pound;42.99</span>
+                            </div>
+                        </div>
+                        <div class="add-row">
+                            <select class="qty-select" aria-label="Quantity">
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>6</option>
+                                <option>12</option>
+                            </select>
+                            <button class="btn-add" onclick="showAgeVerification(18, 'modal')">
+                                ADD
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -483,7 +1697,7 @@
     </section>
 
     <!-- Inline Demo Section -->
-    <section class="demo-section" style="background: var(--white);">
+    <section class="demo-section section-bg-white">
         <div class="container">
             <h2>Inline Verification Mode</h2>
             <p class="subtitle">Embed the verification widget directly in your page</p>
@@ -513,7 +1727,7 @@
                 <div id="tab-custom" class="tab-content hidden">
                     <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
                         <input type="text" id="custom-template" placeholder="Enter template name..."
-                               style="flex: 1; padding: 12px; border: 2px solid var(--border); border-radius: 8px;">
+                               style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 4px; font-family: inherit;">
                         <button class="btn btn-primary" onclick="startInlineVerification(document.getElementById('custom-template').value)">
                             Start Verification
                         </button>
@@ -535,31 +1749,31 @@
     </section>
 
     <!-- Theme Customization Section -->
-    <section class="demo-section">
+    <section class="demo-section section-bg-gray">
         <div class="container">
-            <h2>Theme Customization</h2>
-            <p class="subtitle">Customize the widget appearance to match your brand</p>
+            <h2>Theme Customisation</h2>
+            <p class="subtitle">Customise the widget appearance to match your brand</p>
 
             <div class="demo-box">
                 <h3>Widget Theme Options</h3>
-                <p class="description">Adjust the colors and styling of the verification widget</p>
+                <p class="description">Adjust the colours and styling of the verification widget</p>
 
                 <div class="theme-options">
                     <div class="theme-option">
-                        <label>Primary Color:</label>
-                        <input type="color" id="theme-primary" value="#7c2d12" onchange="updateTheme()">
+                        <label>Primary Colour:</label>
+                        <input type="color" id="theme-primary" value="#3d8b37" onchange="updateTheme()">
                     </div>
                     <div class="theme-option">
                         <label>Background:</label>
                         <input type="color" id="theme-background" value="#ffffff" onchange="updateTheme()">
                     </div>
                     <div class="theme-option">
-                        <label>Text Color:</label>
-                        <input type="color" id="theme-text" value="#1f2937" onchange="updateTheme()">
+                        <label>Text Colour:</label>
+                        <input type="color" id="theme-text" value="#333333" onchange="updateTheme()">
                     </div>
                     <div class="theme-option">
                         <label>Border Radius:</label>
-                        <input type="text" id="theme-radius" value="12px" onchange="updateTheme()">
+                        <input type="text" id="theme-radius" value="4px" onchange="updateTheme()">
                     </div>
                 </div>
 
@@ -575,10 +1789,10 @@
                     <span class="function">WaltVerify</span>.<span class="function">init</span>({<br>
                     &nbsp;&nbsp;clientToken: <span class="string">'ct_xxx...'</span>,<br>
                     &nbsp;&nbsp;theme: {<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;primaryColor: <span class="string" id="code-primary">'#7c2d12'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;primaryColor: <span class="string" id="code-primary">'#3d8b37'</span>,<br>
                     &nbsp;&nbsp;&nbsp;&nbsp;backgroundColor: <span class="string" id="code-background">'#ffffff'</span>,<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;textColor: <span class="string" id="code-text">'#1f2937'</span>,<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;borderRadius: <span class="string" id="code-radius">'12px'</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;textColor: <span class="string" id="code-text">'#333333'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;borderRadius: <span class="string" id="code-radius">'4px'</span><br>
                     &nbsp;&nbsp;}<br>
                     });
                 </div>
@@ -587,7 +1801,7 @@
     </section>
 
     <!-- Integration Code Section -->
-    <section class="demo-section" style="background: var(--white);">
+    <section class="demo-section section-bg-white">
         <div class="container">
             <h2>Quick Integration Guide</h2>
             <p class="subtitle">Add age verification to your site in minutes</p>
@@ -610,7 +1824,7 @@
             </div>
 
             <div class="demo-box">
-                <h3>Step 3: Initialize and Verify</h3>
+                <h3>Step 3: Initialise and Verify</h3>
                 <div class="code-block">
                     <span class="comment">// Initialize the SDK</span><br>
                     <span class="function">WaltVerify</span>.<span class="function">init</span>({ clientToken: clientToken });<br>
@@ -637,16 +1851,78 @@
         </div>
     </section>
 
+    <!-- Newsletter Section -->
+    <div class="newsletter-section">
+        <h2>Stay in the Know</h2>
+        <p>Get the latest offers, wine recommendations, and expert advice straight to your inbox.</p>
+        <div class="newsletter-form">
+            <input type="email" placeholder="Enter your email address">
+            <button type="button">Sign Up</button>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>WaltVerify Widget SDK Demo | <a href="https://walt.id" target="_blank">walt.id</a></p>
-            <p style="margin-top: 8px; font-size: 14px;">This is a demonstration page. No actual purchases are processed.</p>
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>Services</h4>
+                    <ul>
+                        <li><a href="#">Delivery Information</a></li>
+                        <li><a href="#">Click &amp; Collect</a></li>
+                        <li><a href="#">Store Finder</a></li>
+                        <li><a href="#">Wine Plan</a></li>
+                        <li><a href="#">Gift Vouchers</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Here to Help</h4>
+                    <ul>
+                        <li><a href="#">Contact Us</a></li>
+                        <li><a href="#">FAQs</a></li>
+                        <li><a href="#">Returns Policy</a></li>
+                        <li><a href="#">Order Tracking</a></li>
+                        <li><a href="#">Accessibility</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>About Us</h4>
+                    <ul>
+                        <li><a href="#">Our Story</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Press Office</a></li>
+                        <li><a href="#">Corporate</a></li>
+                        <li><a href="https://walt.id" target="_blank">Powered by walt.id</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Follow Us</h4>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook">f</a>
+                        <a href="#" aria-label="Twitter">X</a>
+                        <a href="#" aria-label="Instagram">&#9744;</a>
+                        <a href="#" aria-label="YouTube">&#9654;</a>
+                    </div>
+                    <div class="footer-badges">
+                        <span class="footer-badge">IWC Award</span>
+                        <span class="footer-badge">IWSC Merit</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2026 Majestic Wine Demo. This is a demonstration page &mdash; no actual purchases are processed. | <a href="https://walt.id" target="_blank">WaltVerify Widget SDK</a></p>
+                <div>
+                    <a href="#" style="margin-right: 16px;">Privacy Policy</a>
+                    <a href="#" style="margin-right: 16px;">Cookie Policy</a>
+                    <a href="#">Terms &amp; Conditions</a>
+                </div>
+            </div>
         </div>
     </footer>
 
     <!-- SDK Loading State -->
-    <div id="sdk-loading" style="position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 9999;">
+    <div id="sdk-loading" style="position: fixed; bottom: 20px; right: 20px; background: #1a1a1a; color: white; padding: 12px 20px; border-radius: 4px; font-size: 13px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
         <div class="loading">
             <div class="spinner"></div>
             <span>Loading SDK...</span>
@@ -662,10 +1938,10 @@
         let clientToken = null;
         let sdkReady = false;
         let currentTheme = {
-            primaryColor: '#7c2d12',
+            primaryColor: '#3d8b37',
             backgroundColor: '#ffffff',
-            textColor: '#1f2937',
-            borderRadius: '12px'
+            textColor: '#333333',
+            borderRadius: '4px'
         };
 
         // Fetch config from server
@@ -862,10 +2138,10 @@
 
         // Reset theme to defaults
         function resetTheme() {
-            document.getElementById('theme-primary').value = '#2563eb';
+            document.getElementById('theme-primary').value = '#3d8b37';
             document.getElementById('theme-background').value = '#ffffff';
-            document.getElementById('theme-text').value = '#1f2937';
-            document.getElementById('theme-radius').value = '12px';
+            document.getElementById('theme-text').value = '#333333';
+            document.getElementById('theme-radius').value = '4px';
             updateTheme();
         }
 
@@ -874,8 +2150,35 @@
             showAgeVerification(18, 'modal');
         }
 
+        // Mobile nav toggle
+        function toggleMobileNav() {
+            const nav = document.getElementById('main-nav');
+            if (nav.classList.contains('nav-open')) {
+                nav.classList.remove('nav-open');
+                nav.classList.add('nav-closed');
+            } else {
+                nav.classList.remove('nav-closed');
+                nav.classList.add('nav-open');
+            }
+        }
+
+        // Set mobile nav initial state on resize
+        function handleResize() {
+            const nav = document.getElementById('main-nav');
+            if (window.innerWidth > 640) {
+                nav.classList.remove('nav-closed', 'nav-open');
+            } else if (!nav.classList.contains('nav-open')) {
+                nav.classList.add('nav-closed');
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', initializeSDK);
+        document.addEventListener('DOMContentLoaded', function() {
+            handleResize();
+            initializeSDK();
+        });
     </script>
 </body>
 </html>

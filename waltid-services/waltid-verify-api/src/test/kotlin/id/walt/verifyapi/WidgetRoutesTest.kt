@@ -91,6 +91,7 @@ class WidgetRoutesTest {
                         sessionId = "vs_test123",
                         qrCodeUrl = "http://localhost:7010/v1/qr/vs_test123.png",
                         qrCodeData = "openid4vp://authorize?request_uri=...",
+                        qrCodeImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
                         deepLink = "eudi-openid4vp://authorize?request_uri=...",
                         expiresAt = System.currentTimeMillis() + 300000
                     )
@@ -294,8 +295,23 @@ class WidgetRoutesTest {
             assertContains(body, "session_id")
             assertContains(body, "qr_code_url")
             assertContains(body, "qr_code_data")
+            assertContains(body, "qr_code_image")
             assertContains(body, "deep_link")
             assertContains(body, "expires_at")
+        }
+
+        @Test
+        fun `POST verify returns base64 PNG QR code image`() = testApplication {
+            application { testModule() }
+
+            val response = client.post("/widget/v1/verify") {
+                contentType(ContentType.Application.Json)
+                header(HttpHeaders.Authorization, "Bearer ct_test123.signature")
+                setBody("""{"template":"age_check"}""")
+            }
+
+            val body = response.bodyAsText()
+            assertContains(body, "data:image/png;base64,")
         }
 
         @Test

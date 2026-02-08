@@ -80,7 +80,7 @@ describe('Widget Demo Server', () => {
         .expect(200);
 
       // Check for key demo content
-      expect(response.text).toContain('VintageVino');
+      expect(response.text).toContain('MAJESTIC');
       expect(response.text).toContain('Age Verification');
     });
   });
