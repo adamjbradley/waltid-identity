@@ -82,7 +82,7 @@ class MdocIntegrationTest : AbstractIntegrationTest() {
         @BeforeAll
         fun setup() = runBlocking {
             issuerKey = JWKKey.importJWK(
-                Json.encodeToString(MdocDocs.mdlBaseIssuanceExample.issuerKey["jwk"]!!)
+                Json.encodeToString(MdocDocs.mdlBaseIssuanceExample.issuerKey!!["jwk"]!!)
             ).getOrThrow()
 
             issuerOneKey = ECKey.parse(issuerKey.getPublicKey().exportJWK()).let {
@@ -565,7 +565,7 @@ class MdocIntegrationTest : AbstractIntegrationTest() {
         assertTrue {
             mDLNamespaceDataJson.keys.containsAll(mDLRequiredFields)
         }
-        val issuanceRequestKey = KeyManager.resolveSerializedKey(mDLIssuanceRequest.issuerKey)
+        val issuanceRequestKey = KeyManager.resolveSerializedKey(mDLIssuanceRequest.issuerKey!!)
         assertTrue {
             issuanceRequestKey.hasPrivateKey
         }

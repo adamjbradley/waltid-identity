@@ -1,0 +1,44 @@
+{
+  "name": "@waltid/verify-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for walt.id Verify API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:unit": "jest --testPathIgnorePatterns='integration'",
+    "test:integration": "RUN_INTEGRATION_TESTS=true jest",
+    "test:coverage": "jest --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "verifiable-credentials",
+    "identity",
+    "verification",
+    "openid4vp",
+    "waltid"
+  ],
+  "author": "walt.id",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/walt-id/waltid-identity.git",
+    "directory": "waltid-verify-sdk-js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: Verify API
+  description: Multi-tenant SaaS Verification Gateway for digital wallet credentials
+  version: 1.0.0
+  contact:
+    name: Verify API Support
+
+servers:
+  - url: http://localhost:7010
+    description: Local development
+  - url: https://verify.example.com
+    description: Production
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "API key with 'Bearer ' prefix (e.g., 'Bearer vfy_live_xxx')"
+
+  schemas:
+    IdentityVerificationRequest:
+      type: object
+      required: [template]
+      properties:
+        template:
+          type: string
+          example: "age_check"
+        response_mode:
+          type: string
+          enum: [answers, raw_credentials]
+          default: answers
+        redirect_uri:
+          type: string
+          format: uri
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    VerificationResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          example: "vs_abc123def456"
+        qr_code_url:
+          type: string
+          format: uri
+        qr_code_data:
+          type: string
+        deep_link:
+          type: string
+        expires_at:
+          type: integer
+          format: int64
+
+    SessionStatus:
+      type: object
+      properties:
+        session_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, verified, failed, expired]
+        result:
+          type: object
+        metadata:
+          type: object
+
+    Template:
+      type: object
+      required: [name, claims_request]
+      properties:
+        id:
+          type: string
+          example: "tpl_abc123"
+        name:
+          type: string
+          example: "age_check"
+        description:
+          type: string
+        claims_request:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Webhook:
+      type: object
+      required: [url, events]
+      properties:
+        id:
+          type: string
+          example: "wh_abc123"
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [session.verified, session.failed, session.expired]
+        secret:
+          type: string
+          description: Shared secret for HMAC signature verification
+        enabled:
+          type: boolean
+          default: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+paths:
+  /v1/verify/identity:
+    post:
+      summary: Start identity verification
+      description: |
+        Initiates a new identity verification session. Returns a QR code URL
+        and deep link that can be presented to the user for wallet scanning.
+      tags: [Verification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentityVerificationRequest'
+            examples:
+              age_check:
+                summary: Age verification
+                value:
+                  template: "age_check"
+                  response_mode: "answers"
+              full_identity:
+                summary: Full identity verification
+                value:
+                  template: "full_identity"
+                  response_mode: "raw_credentials"
+                  redirect_uri: "https://example.com/callback"
+      responses:
+        '201':
+          description: Verification session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing API key
+        '404':
+          description: Template not found
+
+  /v1/sessions/{session_id}:
+    get:
+      summary: Get session status
+      description: |
+        Retrieves the current status of a verification session, including
+        any verified claims if the session is complete.
+      tags: [Sessions]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "vs_abc123def456"
+      responses:
+        '200':
+          description: Session status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionStatus'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Session not found
+
+  /v1/templates:
+    get:
+      summary: List templates
+      description: Returns all verification templates for the authenticated tenant.
+      tags: [Templates]
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Create template
+      description: Creates a new verification template.
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Template'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '400':
+          description: Invalid template configuration
+        '401':
+          description: Unauthorized
+
+  /v1/templates/{template_id}:
+    get:
+      summary: Get template
+      description: Retrieves a specific verification template.
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '404':
+          description: Template not found
+
+    put:
+      summary: Update template
+      description: Updates an existing verification template.
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Template'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '404':
+          description: Template not found
+
+    delete:
+      summary: Delete template
+      description: Deletes a verification template.
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Template deleted
+        '404':
+          description: Template not found
+
+  /v1/webhooks:
+    get:
+      summary: List webhooks
+      description: Returns all webhook subscriptions for the authenticated tenant.
+      tags: [Webhooks]
+      responses:
+        '200':
+          description: List of webhooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Webhook'
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Create webhook
+      description: |
+        Creates a new webhook subscription. Webhooks receive POST requests
+        with event payloads signed using HMAC-SHA256.
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+            example:
+              url: "https://example.com/webhooks/verify"
+              events: ["session.verified", "session.failed"]
+      responses:
+        '201':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '400':
+          description: Invalid webhook configuration
+        '401':
+          description: Unauthorized
+
+  /v1/webhooks/{webhook_id}:
+    get:
+      summary: Get webhook
+      description: Retrieves a specific webhook subscription.
+      tags: [Webhooks]
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '404':
+          description: Webhook not found
+
+    put:
+      summary: Update webhook
+      description: Updates an existing webhook subscription.
+      tags: [Webhooks]
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '200':
+          description: Webhook updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '404':
+          description: Webhook not found
+
+    delete:
+      summary: Delete webhook
+      description: Deletes a webhook subscription.
+      tags: [Webhooks]
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Webhook deleted
+        '404':
+          description: Webhook not found
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the service.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+
+  /version:
+    get:
+      summary: Version info
+      description: Returns version and status information about the service.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: "verify-api"
+                  version:
+                    type: string
+                    example: "1.0.0-SNAPSHOT"
+                  status:
+                    type: string
+                    example: "enabled"
+
+tags:
+  - name: Verification
+    description: Start and manage verification sessions
+  - name: Sessions
+    description: Query verification session status and results
+  - name: Templates
+    description: Manage verification templates
+  - name: Webhooks
+    description: Manage webhook subscriptions
+  - name: System
+    description: Health and status endpoints

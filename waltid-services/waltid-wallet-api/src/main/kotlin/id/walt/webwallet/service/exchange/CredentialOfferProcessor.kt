@@ -56,8 +56,9 @@ object CredentialOfferProcessor {
             )
         }
 
-        if (credentialResponse.credentialResponse.credential!!.jsonPrimitive.content.contains("~"))
-            require(credentialResponse.credentialResponse.credential!!.jsonPrimitive.content.last() == '~') {
+        val credential = credentialResponse.credentialResponse.credential
+        if (credential != null && credential.jsonPrimitive.content.contains("~"))
+            require(credential.jsonPrimitive.content.last() == '~') {
                 "SD-JWT Credential must end with '~'"
             }
 

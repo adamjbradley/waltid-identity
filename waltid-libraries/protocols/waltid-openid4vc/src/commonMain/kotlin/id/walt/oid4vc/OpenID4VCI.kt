@@ -283,7 +283,49 @@ object OpenID4VCI {
             throw IllegalArgumentException("Failed to send credential request: ${response.status.value} - ${response.bodyAsText()}")
         }
 
-        return response.body<JsonObject>().let { CredentialResponse.fromJSON(it) }
+        return response.body<JsonObject>().let { json ->
+            val normalized = normalizeDraft13CredentialResponse(json)
+            CredentialResponse.fromJSON(normalized)
+        }
+    }
+
+    /**
+     * Normalizes a Draft 13+ credential response to the flat format expected by [CredentialResponse.fromJSON].
+     *
+     * Draft 13+ returns `{"credentials": [{"credential": "eyJ..."}], ...}` whereas older drafts
+     * return `{"credential": "eyJ...", ...}`. This function promotes the first credential from the
+     * `credentials` array to a top-level `credential` field when the flat field is absent.
+     *
+     * Also maps `transaction_id` → `acceptance_token` for Draft 13+ deferred issuance.
+     */
+    internal fun normalizeDraft13CredentialResponse(json: JsonObject): JsonObject {
+        val hasCredentials = "credentials" in json
+        val hasCredential = "credential" in json
+        val hasTransactionId = "transaction_id" in json && "acceptance_token" !in json
+
+        if (!hasCredentials && !hasTransactionId) return json
+
+        return buildJsonObject {
+            // Copy all existing fields
+            json.forEach { (key, value) -> put(key, value) }
+
+            // Promote first credential from credentials array to top-level credential field
+            if (hasCredentials && !hasCredential) {
+                json["credentials"]?.jsonArray?.firstOrNull()?.let { first ->
+                    val credentialValue = when (first) {
+                        is JsonPrimitive -> first
+                        is JsonObject -> first["credential"] ?: first
+                        else -> first
+                    }
+                    put("credential", credentialValue)
+                }
+            }
+
+            // Map transaction_id → acceptance_token for Draft 13+ deferred issuance
+            if (hasTransactionId) {
+                json["transaction_id"]?.let { put("acceptance_token", it) }
+            }
+        }
     }
 
     suspend fun sendBatchCredentialRequest(
