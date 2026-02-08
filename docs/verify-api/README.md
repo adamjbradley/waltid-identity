@@ -15,6 +15,7 @@ The Verify API is a multi-tenant SaaS gateway that simplifies digital identity v
 | Guide | Description |
 |-------|-------------|
 | [Quick Start](./quickstart.md) | Get verified in 5 minutes |
+| [Sandbox Credentials](./sandbox-credentials.md) | Pre-configured demo credentials for testing |
 | [SDK Integration](./sdk-integration.md) | JavaScript, iOS, and Android SDK guides |
 | [Webhook Integration](./webhook-integration.md) | Async notification flow with signature verification |
 | [API Reference](./api-reference.md) | Direct REST API usage for custom integrations |
@@ -106,13 +107,24 @@ Returns the full credential data for advanced use cases:
 | `kyc_full` | Full KYC with address | All PID claims |
 | `payment_authorization` | Payment binding | PWA claims |
 
+## Sandbox Credentials
+
+For development and testing, use the pre-configured sandbox credentials that work immediately:
+
+| Environment | API Key |
+|-------------|---------|
+| Test | `vfy_test_sandbox_demo_key_12345678` |
+| Live | `vfy_live_sandbox_demo_key_12345678` |
+
+See [Sandbox Credentials](./sandbox-credentials.md) for details.
+
 ## Quick Example
 
 ```typescript
 import { VerifyClient } from '@waltid/verify-sdk';
 
 const client = new VerifyClient({
-  apiKey: 'vfy_live_xxx'
+  apiKey: 'vfy_test_sandbox_demo_key_12345678'  // Sandbox demo key
 });
 
 // Start verification

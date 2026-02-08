@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_xxx';
+// Default sandbox credentials - work immediately without any setup
+// See: docs/verify-api/sandbox-credentials.md
+const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_sandbox_demo_key_12345678';
 const VERIFY_API_URL = process.env.VERIFY_API_URL || 'http://localhost:7010';
 
 interface CredentialInfo {

@@ -140,7 +140,9 @@ enum Configuration {
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VERIFY_API_URL` | Verify API base URL | `http://localhost:7010` |
-| `VERIFY_API_KEY` | API key for authentication | `vfy_demo_key` |
+| `VERIFY_API_KEY` | API key for authentication | `vfy_test_sandbox_demo_key_12345678` |
+
+The default sandbox credentials work immediately without any setup. See [Sandbox Credentials](../../docs/verify-api/sandbox-credentials.md) for details.
 
 ## Security Considerations
 

@@ -50,7 +50,9 @@ Environment variables:
 |----------|---------|-------------|
 | `PORT` | `3002` | Demo server port |
 | `VERIFY_API_URL` | `http://localhost:7010` | Verify API base URL |
-| `VERIFY_API_KEY` | `vfy_test_xxx` | Your API key |
+| `VERIFY_API_KEY` | `vfy_test_sandbox_demo_key_12345678` | Sandbox demo key (works immediately) |
+
+The default sandbox credentials work immediately without any setup. See [Sandbox Credentials](../../docs/verify-api/sandbox-credentials.md) for details.
 
 ## How It Works
 

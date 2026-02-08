@@ -21,8 +21,10 @@ android {
         }
 
         // Configure Verify API settings via BuildConfig
+        // Default sandbox credentials - work immediately without any setup
+        // See: docs/verify-api/sandbox-credentials.md
         buildConfigField("String", "VERIFY_API_URL", "\"http://10.0.2.2:7010\"")
-        buildConfigField("String", "VERIFY_API_KEY", "\"vfy_test_key\"")
+        buildConfigField("String", "VERIFY_API_KEY", "\"vfy_test_sandbox_demo_key_12345678\"")
     }
 
     buildTypes {

@@ -31,9 +31,10 @@ Or add it via Xcode:
 import WaltIDVerifySDK
 
 // Initialize the client
+// Use sandbox credentials for development - works immediately without setup
 let config = VerifyConfig(
-    apiKey: "your-api-key",
-    baseURL: URL(string: "https://verify.example.com")!
+    apiKey: "vfy_test_sandbox_demo_key_12345678",  // Sandbox demo key
+    baseURL: URL(string: "http://localhost:7010")!
 )
 let client = VerifyClient(config: config)
 
@@ -322,6 +323,19 @@ do {
     print("Unexpected error: \(error)")
 }
 ```
+
+## Sandbox Credentials
+
+For development and testing, use the pre-configured sandbox credentials:
+
+| Environment | API Key |
+|-------------|---------|
+| Test | `vfy_test_sandbox_demo_key_12345678` |
+| Live | `vfy_live_sandbox_demo_key_12345678` |
+
+These credentials are automatically available when running the Verify API locally and provide access to all templates.
+
+See [Sandbox Credentials Documentation](../docs/verify-api/sandbox-credentials.md) for more details.
 
 ## License
 

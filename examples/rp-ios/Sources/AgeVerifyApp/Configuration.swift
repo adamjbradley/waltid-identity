@@ -22,8 +22,9 @@ enum Configuration {
         if let key = ProcessInfo.processInfo.environment["VERIFY_API_KEY"] {
             return key
         }
-        // Demo key for development - replace in production
-        return "vfy_demo_key"
+        // Sandbox demo key - works immediately without any setup
+        // See: docs/verify-api/sandbox-credentials.md
+        return "vfy_test_sandbox_demo_key_12345678"
     }()
 
     /// Verification template to use

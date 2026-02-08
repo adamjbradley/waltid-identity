@@ -4,8 +4,19 @@ This guide gets you from zero to a working identity verification in under 5 minu
 
 ## Prerequisites
 
-- API Key (test or live)
 - Node.js 18+ (for JavaScript) or Xcode 15+ (for iOS) or Android Studio (for Android)
+- Verify API running locally (or access to a deployed instance)
+
+## Sandbox Credentials
+
+For development and testing, use the pre-configured sandbox credentials that work immediately without any setup:
+
+| Environment | API Key |
+|-------------|---------|
+| Test | `vfy_test_sandbox_demo_key_12345678` |
+| Live | `vfy_live_sandbox_demo_key_12345678` |
+
+These are automatically created when the Verify API starts. See [Sandbox Credentials](./sandbox-credentials.md) for details.
 
 ## Step 1: Install the SDK
 
@@ -39,7 +50,7 @@ dependencies {
 import { VerifyClient } from '@waltid/verify-sdk';
 
 const client = new VerifyClient({
-  apiKey: 'vfy_test_your_key_here'
+  apiKey: 'vfy_test_sandbox_demo_key_12345678'  // Sandbox demo key
 });
 ```
 
@@ -48,7 +59,7 @@ const client = new VerifyClient({
 import WaltIDVerifySDK
 
 let client = VerifyClient(config: VerifyConfig(
-    apiKey: "vfy_test_your_key_here"
+    apiKey: "vfy_test_sandbox_demo_key_12345678"  // Sandbox demo key
 ))
 ```
 
@@ -57,7 +68,7 @@ let client = VerifyClient(config: VerifyConfig(
 import id.walt.verify.sdk.*
 
 val client = VerifyClient(VerifyConfig(
-    apiKey = "vfy_test_your_key_here"
+    apiKey = "vfy_test_sandbox_demo_key_12345678"  // Sandbox demo key
 ))
 ```
 

@@ -16,8 +16,10 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 // Configuration from environment
+// Default sandbox credentials - work immediately without any setup
+// See: docs/verify-api/sandbox-credentials.md
 const VERIFY_API_URL = process.env.VERIFY_API_URL || 'http://localhost:7010';
-const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_xxx';
+const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_sandbox_demo_key_12345678';
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));

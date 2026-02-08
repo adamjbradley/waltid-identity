@@ -78,6 +78,9 @@ fun Application.configureDatabase() {
     // Seed system templates
     seedSystemTemplates()
 
+    // Seed sandbox organization for demo/testing
+    seedSandboxOrganization()
+
     logger.info { "Database configured successfully" }
 }
 
@@ -175,4 +178,88 @@ private fun seedSystemTemplates() {
             logger.info { "System templates already exist (count: $existingCount), skipping seed" }
         }
     }
+}
+
+/**
+ * Seeds the database with a sandbox organization and API keys for demo/testing.
+ *
+ * Sandbox credentials:
+ * - Organization: "Sandbox Demo"
+ * - Test Key: vfy_test_sandbox_demo_key_12345678
+ * - Live Key: vfy_live_sandbox_demo_key_12345678
+ *
+ * These credentials are for demo/testing purposes only and should not be used in production.
+ */
+private fun seedSandboxOrganization() {
+    transaction {
+        // Check if sandbox organization already exists
+        val existingOrg = VerifyOrganizations.selectAll()
+            .where { VerifyOrganizations.name eq "Sandbox Demo" }
+            .singleOrNull()
+
+        if (existingOrg != null) {
+            logger.info { "Sandbox organization already exists, skipping seed" }
+            return@transaction
+        }
+
+        logger.info { "Seeding sandbox organization and API keys..." }
+        val now = Instant.now()
+
+        // Create sandbox organization
+        val orgId = java.util.UUID.randomUUID()
+        VerifyOrganizations.insert {
+            it[id] = orgId
+            it[name] = "Sandbox Demo"
+            it[displayName] = "Sandbox Demo Organization"
+            it[webhookUrl] = null
+            it[webhookSecret] = null
+            it[settings] = """{"environment":"sandbox","description":"Demo organization for testing the Verify API. These credentials work out of the box for development and integration testing."}"""
+            it[createdAt] = now
+            it[updatedAt] = now
+        }
+
+        // Create sandbox test API key
+        VerifyApiKeys.insert {
+            it[id] = java.util.UUID.randomUUID()
+            it[organizationId] = orgId
+            it[keyHash] = hashApiKey("vfy_test_sandbox_demo_key_12345678")
+            it[keyPrefix] = "vfy_test_sandbox"
+            it[name] = "Sandbox Test Key"
+            it[environment] = "test"
+            it[scopes] = """["verify:read","verify:write","sessions:read","sessions:write","templates:read","widget:read","widget:write"]"""
+            it[rateLimit] = 1000  // Generous rate limit for testing
+            it[expiresAt] = null  // Never expires for sandbox
+            it[lastUsedAt] = null
+            it[createdAt] = now
+            it[updatedAt] = now
+        }
+
+        // Create sandbox live API key (for production-like testing)
+        VerifyApiKeys.insert {
+            it[id] = java.util.UUID.randomUUID()
+            it[organizationId] = orgId
+            it[keyHash] = hashApiKey("vfy_live_sandbox_demo_key_12345678")
+            it[keyPrefix] = "vfy_live_sandbox"
+            it[name] = "Sandbox Live Key"
+            it[environment] = "live"
+            it[scopes] = """["verify:read","verify:write","sessions:read","sessions:write","templates:read","widget:read","widget:write"]"""
+            it[rateLimit] = 1000
+            it[expiresAt] = null
+            it[lastUsedAt] = null
+            it[createdAt] = now
+            it[updatedAt] = now
+        }
+
+        logger.info { "Seeded sandbox organization with test and live API keys" }
+    }
+}
+
+/**
+ * Hash an API key for storage.
+ * Uses SHA-256 for consistent hashing.
+ */
+private fun hashApiKey(apiKey: String): String {
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+    val hashBytes = digest.digest(apiKey.toByteArray())
+    return hashBytes.joinToString("") { "%02x".format(it) }
 }

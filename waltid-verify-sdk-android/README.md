@@ -35,9 +35,10 @@ import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
     // Initialize the client
+    // Use sandbox credentials for development - works immediately without setup
     val client = VerifyClient(VerifyConfig(
-        apiKey = "your-api-key",
-        baseUrl = "https://verify.yourdomain.com"
+        apiKey = "vfy_test_sandbox_demo_key_12345678",  // Sandbox demo key
+        baseUrl = "http://10.0.2.2:7010"  // Android emulator localhost
     ))
 
     // Start verification
@@ -310,6 +311,19 @@ status.result?.credentials?.forEach { credential ->
     }
 }
 ```
+
+## Sandbox Credentials
+
+For development and testing, use the pre-configured sandbox credentials:
+
+| Environment | API Key |
+|-------------|---------|
+| Test | `vfy_test_sandbox_demo_key_12345678` |
+| Live | `vfy_live_sandbox_demo_key_12345678` |
+
+These credentials are automatically available when running the Verify API locally and provide access to all templates.
+
+See [Sandbox Credentials Documentation](../docs/verify-api/sandbox-credentials.md) for more details.
 
 ## License
 

@@ -40,15 +40,18 @@ open -a "Android Studio" .
 
 ### 2. Configure API Settings
 
-Edit `app/build.gradle.kts` to set your Verify API configuration:
+The example comes pre-configured with sandbox credentials that work immediately. Edit `app/build.gradle.kts` to customize:
 
 ```kotlin
 defaultConfig {
     // For emulator, use 10.0.2.2 (localhost from emulator)
     buildConfigField("String", "VERIFY_API_URL", "\"http://10.0.2.2:7010\"")
-    buildConfigField("String", "VERIFY_API_KEY", "\"your-api-key-here\"")
+    // Sandbox demo key - works without any setup
+    buildConfigField("String", "VERIFY_API_KEY", "\"vfy_test_sandbox_demo_key_12345678\"")
 }
 ```
+
+See [Sandbox Credentials](../../docs/verify-api/sandbox-credentials.md) for details.
 
 For a physical device, use your machine's local network IP:
 ```kotlin
