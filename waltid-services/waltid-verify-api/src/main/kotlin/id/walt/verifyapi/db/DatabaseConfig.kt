@@ -70,7 +70,8 @@ fun Application.configureDatabase() {
             VerifyTemplates,
             VerifyOrchestrations,
             VerifySessions,
-            VerifyWidgetTokens
+            VerifyWidgetTokens,
+            VerifyUsageEvents
         )
     }
 

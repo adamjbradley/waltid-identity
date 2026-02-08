@@ -6,7 +6,9 @@ import id.walt.commons.featureflag.CommonsFeatureCatalog
 import id.walt.commons.featureflag.FeatureManager
 import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
+import id.walt.verifyapi.portal.portalAuthRoutes
 import id.walt.verifyapi.routes.orchestrationRoutes
+import id.walt.verifyapi.routes.portalUsageRoutes
 import id.walt.verifyapi.routes.sessionRoutes
 import id.walt.verifyapi.routes.templateRoutes
 import id.walt.verifyapi.routes.verifyRoutes
@@ -173,6 +175,8 @@ fun Application.configureRouting() {
                 |  /v1/webhooks - Manage webhook subscriptions
                 |  /v1/orchestrations - Multi-step verification flows
                 |  /v1/widget/tokens - Generate client tokens for widget SDK (POST)
+                |  /portal/auth/* - Portal authentication (signup, login, refresh)
+                |  /portal/usage - Usage analytics (Portal JWT auth required)
                 |  /docs - API documentation (Swagger UI)
                 """.trimMargin(),
                 ContentType.Text.Plain
@@ -205,5 +209,11 @@ fun Application.configureRouting() {
 
         // Widget token routes (client token generation for widget SDK)
         widgetTokenRoutes()
+
+        // Portal authentication routes (signup, login, refresh, password reset)
+        portalAuthRoutes()
+
+        // Portal usage analytics routes
+        portalUsageRoutes()
     }
 }

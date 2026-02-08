@@ -205,3 +205,35 @@ object VerifyWidgetTokens : UUIDTable("verify_widget_tokens") {
         index(isUnique = true, tokenPrefix)
     }
 }
+
+/**
+ * Usage events table to track all verification requests for analytics.
+ * Each verification request (session creation) generates one event.
+ * This enables per-organization usage tracking and billing.
+ */
+object VerifyUsageEvents : UUIDTable("verify_usage_events") {
+    val organizationId = reference(
+        "organization_id",
+        VerifyOrganizations,
+        onDelete = ReferenceOption.CASCADE
+    )
+    val sessionId = reference(
+        "session_id",
+        VerifySessions,
+        onDelete = ReferenceOption.SET_NULL
+    ).nullable()  // nullable in case session is deleted
+    val templateName = varchar("template_name", 100)
+    val environment = varchar("environment", 10)  // "live" or "test"
+    val status = varchar("status", 20)  // "pending", "verified", "failed", "expired"
+    val createdAt = timestamp("created_at")
+    val completedAt = timestamp("completed_at").nullable()
+
+    init {
+        index(isUnique = false, organizationId)
+        index(isUnique = false, createdAt)
+        index(isUnique = false, status)
+        index(isUnique = false, templateName)
+        // Composite index for common analytics queries
+        index(isUnique = false, organizationId, createdAt)
+    }
+}
