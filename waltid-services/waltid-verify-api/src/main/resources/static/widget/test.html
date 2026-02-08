@@ -154,9 +154,27 @@
         </div>
     </div>
 
+    <!-- Theme Selection -->
+    <div class="card">
+        <h2>2. Theme Selection</h2>
+        <p style="color: #6b7280; margin-bottom: 16px;">Choose a theme preset or use legacy inline styles.</p>
+        <div class="form-group">
+            <label for="themeSelect">Theme</label>
+            <select id="themeSelect" onchange="changeTheme()">
+                <option value="legacy">Legacy (Inline Styles)</option>
+                <option value="light">Tailwind Light</option>
+                <option value="dark">Tailwind Dark</option>
+                <option value="minimal">Tailwind Minimal</option>
+                <option value="enterprise">Tailwind Enterprise</option>
+                <option value="cssVariables">CSS Variables</option>
+            </select>
+        </div>
+        <div id="theme-status" style="font-size: 12px; color: #6b7280; margin-top: 8px;"></div>
+    </div>
+
     <!-- QR Code Test -->
     <div class="card">
-        <h2>2. QR Code Generation Test</h2>
+        <h2>3. QR Code Generation Test</h2>
         <p style="color: #6b7280; margin-bottom: 16px;">Test the built-in QR code generator with sample data.</p>
         <button onclick="testQRCode()">Generate Test QR Codes</button>
         <div id="qr-test-output" class="qr-test-container" style="margin-top: 16px;"></div>
@@ -164,7 +182,7 @@
 
     <!-- Age Verification -->
     <div class="card">
-        <h2>3. Age Verification (Modal)</h2>
+        <h2>4. Age Verification (Modal)</h2>
         <div class="form-group">
             <label for="minAge">Minimum Age</label>
             <select id="minAge">
@@ -178,7 +196,7 @@
 
     <!-- Template Verification -->
     <div class="card">
-        <h2>4. Template Verification</h2>
+        <h2>5. Template Verification</h2>
         <div class="form-group">
             <label for="template">Template Name</label>
             <input type="text" id="template" placeholder="e.g., kyc_basic, age_over_18" value="kyc_basic">
@@ -201,8 +219,9 @@
         <div id="log"></div>
     </div>
 
-    <!-- Load SDK -->
+    <!-- Load SDK and Themes -->
     <script src="sdk.js"></script>
+    <script src="themes.js"></script>
     <script>
         // Override console.log to capture output
         const logEl = document.getElementById('log');
@@ -240,6 +259,37 @@
 
         function clearLog() {
             logEl.textContent = '';
+        }
+
+        var currentTheme = 'legacy';
+
+        function changeTheme() {
+            var themeSelect = document.getElementById('themeSelect');
+            var themeStatus = document.getElementById('theme-status');
+            currentTheme = themeSelect.value;
+
+            if (currentTheme === 'legacy') {
+                WaltVerify.setTheme(null);
+                themeStatus.textContent = 'Using legacy inline styles';
+                console.log('Theme changed to: legacy (inline styles)');
+            } else if (currentTheme === 'cssVariables') {
+                // Inject CSS variable styles first
+                if (typeof WaltVerifyThemes !== 'undefined') {
+                    WaltVerifyThemes.injectCSSVariableStyles();
+                    WaltVerify.setTheme(WaltVerifyThemes.cssVariables);
+                    themeStatus.textContent = 'Using CSS variables theme (styles injected)';
+                    console.log('Theme changed to: CSS Variables');
+                }
+            } else {
+                if (typeof WaltVerifyThemes !== 'undefined' && WaltVerifyThemes.presets[currentTheme]) {
+                    WaltVerify.setTheme(WaltVerifyThemes.presets[currentTheme]);
+                    themeStatus.textContent = 'Using Tailwind ' + currentTheme + ' theme';
+                    console.log('Theme changed to:', currentTheme);
+                } else {
+                    themeStatus.textContent = 'Theme not found: ' + currentTheme;
+                    console.error('Theme preset not found:', currentTheme);
+                }
+            }
         }
 
         function updateInitStatus() {
@@ -379,6 +429,10 @@
         updateInitStatus();
         console.log('WaltVerify SDK Test Page loaded');
         console.log('SDK Version:', WaltVerify.version);
+        if (typeof WaltVerifyThemes !== 'undefined') {
+            console.log('Themes Version:', WaltVerifyThemes.version);
+            console.log('Available theme presets:', Object.keys(WaltVerifyThemes.presets));
+        }
     </script>
 </body>
 </html>

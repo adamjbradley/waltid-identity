@@ -711,6 +711,7 @@
     var config = {
         clientToken: null,
         apiBase: null,
+        // Legacy theme colors (for backward compatibility)
         theme: {
             primaryColor: '#2563eb',
             backgroundColor: '#ffffff',
@@ -718,8 +719,39 @@
             borderRadius: '12px',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
         },
+        // Class-based theme (Tailwind or custom CSS classes)
+        classTheme: null,
         pollInterval: 2000,
         timeout: 300000
+    };
+
+    // Default class-based theme (used when classTheme is set)
+    var DEFAULT_CLASS_THEME = {
+        overlay: 'fixed inset-0 bg-black/50 flex items-center justify-center z-[999999]',
+        modal: 'bg-white rounded-xl shadow-2xl max-w-md w-[90%] max-h-[90vh] overflow-auto relative',
+        header: 'px-6 py-5 border-b border-gray-200 flex items-center justify-between',
+        content: 'p-6 text-center',
+        footer: 'px-6 py-4 border-t border-gray-200 text-center',
+        title: 'text-lg font-semibold text-gray-900 m-0',
+        subtitle: 'text-base text-gray-900 mb-6 leading-relaxed',
+        footerText: 'text-xs text-gray-400',
+        statusText: 'text-sm text-gray-500 mb-2',
+        qrContainer: 'bg-white p-4 rounded-lg inline-block mb-5 shadow-sm border border-gray-100',
+        primaryButton: 'w-full inline-block bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg text-base font-medium cursor-pointer border-0 transition-colors duration-200',
+        secondaryButton: 'bg-transparent border-0 text-gray-500 text-sm cursor-pointer mt-3 hover:text-gray-700',
+        closeButton: 'bg-transparent border-0 cursor-pointer p-2 text-gray-400 text-2xl leading-none hover:text-gray-600',
+        deepLinkButton: 'w-full inline-block bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg text-base font-medium no-underline cursor-pointer border-0 transition-colors duration-200 box-border',
+        divider: 'flex items-center my-5 text-gray-400',
+        dividerLine: 'flex-1 h-px bg-gray-200',
+        dividerText: 'px-3 text-sm',
+        pendingStatus: 'text-sm text-gray-500',
+        successStatus: 'text-sm text-green-600 font-medium',
+        errorStatus: 'text-sm text-red-600 font-medium',
+        successIcon: 'w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-5',
+        errorIcon: 'w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-5',
+        spinner: 'w-6 h-6 border-3 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4',
+        inlineContainer: 'bg-white rounded-xl border border-gray-200 p-6 text-center',
+        resultSummary: 'mt-4 p-3 bg-gray-50 rounded-lg text-left text-sm'
     };
 
     var initialized = false;
@@ -781,6 +813,36 @@
         }
         // Default to current origin
         return window.location.origin;
+    }
+
+    /**
+     * Check if class-based theming is enabled.
+     * @returns {boolean}
+     */
+    function useClassTheme() {
+        return config.classTheme !== null;
+    }
+
+    /**
+     * Get the current class theme with defaults.
+     * @returns {Object}
+     */
+    function getClassTheme() {
+        if (!config.classTheme) return DEFAULT_CLASS_THEME;
+        return mergeDeep(DEFAULT_CLASS_THEME, config.classTheme);
+    }
+
+    /**
+     * Apply classes to an element (for class-based theming).
+     * @param {HTMLElement} element
+     * @param {string} classes - Space-separated class names
+     */
+    function applyClasses(element, classes) {
+        if (!classes) return;
+        var classList = classes.split(' ').filter(function(c) { return c.trim(); });
+        for (var i = 0; i < classList.length; i++) {
+            element.classList.add(classList[i]);
+        }
     }
 
 
@@ -1057,12 +1119,17 @@
 
     function createModal(options) {
         var theme = config.theme;
+        var classTheme = useClassTheme() ? getClassTheme() : null;
         injectGlobalStyles();
 
         // Create overlay
         var overlay = document.createElement('div');
         overlay.className = 'waltverify-overlay';
-        applyStyles(overlay, STYLES.overlay(theme));
+        if (classTheme) {
+            applyClasses(overlay, classTheme.overlay);
+        } else {
+            applyStyles(overlay, STYLES.overlay(theme));
+        }
 
         // Close on overlay click (outside modal)
         overlay.addEventListener('click', function(e) {
@@ -1074,18 +1141,34 @@
         // Create modal
         var modal = document.createElement('div');
         modal.className = 'waltverify-modal waltverify-modal-enter';
-        applyStyles(modal, STYLES.modal(theme));
+        if (classTheme) {
+            applyClasses(modal, classTheme.modal);
+        } else {
+            applyStyles(modal, STYLES.modal(theme));
+        }
 
         // Header
         var header = document.createElement('div');
-        applyStyles(header, STYLES.header(theme));
+        if (classTheme) {
+            applyClasses(header, classTheme.header);
+        } else {
+            applyStyles(header, STYLES.header(theme));
+        }
 
         var title = document.createElement('h2');
-        applyStyles(title, STYLES.title(theme));
+        if (classTheme) {
+            applyClasses(title, classTheme.title);
+        } else {
+            applyStyles(title, STYLES.title(theme));
+        }
         title.textContent = options.title || 'Identity Verification';
 
         var closeBtn = document.createElement('button');
-        applyStyles(closeBtn, STYLES.closeButton(theme));
+        if (classTheme) {
+            applyClasses(closeBtn, classTheme.closeButton);
+        } else {
+            applyStyles(closeBtn, STYLES.closeButton(theme));
+        }
         closeBtn.innerHTML = '&times;';
         closeBtn.setAttribute('aria-label', 'Close');
         closeBtn.addEventListener('click', function() {
@@ -1099,15 +1182,27 @@
         // Content area
         var content = document.createElement('div');
         content.className = 'waltverify-content';
-        applyStyles(content, STYLES.content(theme));
+        if (classTheme) {
+            applyClasses(content, classTheme.content);
+        } else {
+            applyStyles(content, STYLES.content(theme));
+        }
         modal.appendChild(content);
 
         // Footer
         var footer = document.createElement('div');
-        applyStyles(footer, STYLES.footer(theme));
+        if (classTheme) {
+            applyClasses(footer, classTheme.footer);
+        } else {
+            applyStyles(footer, STYLES.footer(theme));
+        }
         var footerText = document.createElement('span');
-        applyStyles(footerText, STYLES.footerText());
-        footerText.innerHTML = 'Powered by <a href="https://walt.id" target="_blank" rel="noopener" style="color: #6b7280; text-decoration: none;">walt.id</a>';
+        if (classTheme) {
+            applyClasses(footerText, classTheme.footerText);
+        } else {
+            applyStyles(footerText, STYLES.footerText());
+        }
+        footerText.innerHTML = 'Powered by <a href="https://walt.id" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">walt.id</a>';
         footer.appendChild(footerText);
         modal.appendChild(footer);
 
@@ -1125,17 +1220,26 @@
 
     function renderQRContent(container, session, options) {
         var theme = config.theme;
+        var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
         // Instruction text
         var instruction = document.createElement('p');
-        applyStyles(instruction, STYLES.instructionText(theme));
+        if (classTheme) {
+            applyClasses(instruction, classTheme.subtitle);
+        } else {
+            applyStyles(instruction, STYLES.instructionText(theme));
+        }
         instruction.textContent = options.instruction || 'Scan the QR code with your wallet app to verify your identity';
         container.appendChild(instruction);
 
         // QR code container
         var qrWrapper = document.createElement('div');
-        applyStyles(qrWrapper, STYLES.qrContainer(theme));
+        if (classTheme) {
+            applyClasses(qrWrapper, classTheme.qrContainer);
+        } else {
+            applyStyles(qrWrapper, STYLES.qrContainer(theme));
+        }
 
         // Generate QR code
         var qrSvg = QRCode.toSVG(session.qr_code_data, {
@@ -1155,14 +1259,30 @@
 
         // Divider
         var divider = document.createElement('div');
-        applyStyles(divider, STYLES.divider(theme));
+        if (classTheme) {
+            applyClasses(divider, classTheme.divider);
+        } else {
+            applyStyles(divider, STYLES.divider(theme));
+        }
         var line1 = document.createElement('div');
-        applyStyles(line1, STYLES.dividerLine());
+        if (classTheme) {
+            applyClasses(line1, classTheme.dividerLine);
+        } else {
+            applyStyles(line1, STYLES.dividerLine());
+        }
         var dividerText = document.createElement('span');
-        applyStyles(dividerText, STYLES.dividerText());
+        if (classTheme) {
+            applyClasses(dividerText, classTheme.dividerText);
+        } else {
+            applyStyles(dividerText, STYLES.dividerText());
+        }
         dividerText.textContent = 'or';
         var line2 = document.createElement('div');
-        applyStyles(line2, STYLES.dividerLine());
+        if (classTheme) {
+            applyClasses(line2, classTheme.dividerLine);
+        } else {
+            applyStyles(line2, STYLES.dividerLine());
+        }
         divider.appendChild(line1);
         divider.appendChild(dividerText);
         divider.appendChild(line2);
@@ -1170,7 +1290,11 @@
 
         // Deep link button
         var deepLinkBtn = document.createElement('a');
-        applyStyles(deepLinkBtn, STYLES.deepLinkButton(theme));
+        if (classTheme) {
+            applyClasses(deepLinkBtn, classTheme.deepLinkButton);
+        } else {
+            applyStyles(deepLinkBtn, STYLES.deepLinkButton(theme));
+        }
         deepLinkBtn.href = session.deep_link;
         deepLinkBtn.textContent = 'Open Wallet App';
         container.appendChild(deepLinkBtn);
@@ -1180,11 +1304,19 @@
         statusContainer.style.marginTop = '20px';
 
         var spinner = document.createElement('div');
-        applyStyles(spinner, STYLES.spinner());
+        if (classTheme) {
+            applyClasses(spinner, classTheme.spinner);
+        } else {
+            applyStyles(spinner, STYLES.spinner());
+        }
         statusContainer.appendChild(spinner);
 
         var statusText = document.createElement('p');
-        applyStyles(statusText, STYLES.statusText(theme));
+        if (classTheme) {
+            applyClasses(statusText, classTheme.pendingStatus);
+        } else {
+            applyStyles(statusText, STYLES.statusText(theme));
+        }
         statusText.textContent = 'Waiting for verification...';
         statusText.className = 'waltverify-status-text';
         statusContainer.appendChild(statusText);
@@ -1194,36 +1326,54 @@
 
     function renderSuccessContent(container, result, options) {
         var theme = config.theme;
+        var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
         // Success icon
         var iconWrapper = document.createElement('div');
-        applyStyles(iconWrapper, STYLES.successIcon());
+        if (classTheme) {
+            applyClasses(iconWrapper, classTheme.successIcon);
+        } else {
+            applyStyles(iconWrapper, STYLES.successIcon());
+        }
         iconWrapper.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>';
         container.appendChild(iconWrapper);
 
         // Success message
         var message = document.createElement('h3');
-        message.style.fontSize = '20px';
-        message.style.fontWeight = '600';
-        message.style.color = theme.textColor;
-        message.style.marginBottom = '8px';
+        if (classTheme) {
+            applyClasses(message, classTheme.title);
+            message.classList.add('mb-2');
+        } else {
+            message.style.fontSize = '20px';
+            message.style.fontWeight = '600';
+            message.style.color = theme.textColor;
+            message.style.marginBottom = '8px';
+        }
         message.textContent = options.successTitle || 'Verification Successful';
         container.appendChild(message);
 
         var subtext = document.createElement('p');
-        applyStyles(subtext, STYLES.statusText(theme));
+        if (classTheme) {
+            applyClasses(subtext, classTheme.successStatus);
+        } else {
+            applyStyles(subtext, STYLES.statusText(theme));
+        }
         subtext.textContent = options.successMessage || 'Your identity has been verified.';
         container.appendChild(subtext);
 
         // Show result summary if available
         if (result.result && result.result.answers) {
             var summaryDiv = document.createElement('div');
-            summaryDiv.style.marginTop = '16px';
-            summaryDiv.style.padding = '12px';
-            summaryDiv.style.backgroundColor = '#f3f4f6';
-            summaryDiv.style.borderRadius = '8px';
-            summaryDiv.style.textAlign = 'left';
+            if (classTheme) {
+                applyClasses(summaryDiv, classTheme.resultSummary);
+            } else {
+                summaryDiv.style.marginTop = '16px';
+                summaryDiv.style.padding = '12px';
+                summaryDiv.style.backgroundColor = '#f3f4f6';
+                summaryDiv.style.borderRadius = '8px';
+                summaryDiv.style.textAlign = 'left';
+            }
 
             Object.keys(result.result.answers).forEach(function(key) {
                 var item = document.createElement('div');
@@ -1233,7 +1383,7 @@
                 label.style.color = '#6b7280';
                 label.textContent = key + ': ';
                 var value = document.createElement('span');
-                value.style.color = theme.textColor;
+                value.style.color = classTheme ? 'inherit' : theme.textColor;
                 value.style.fontWeight = '500';
                 value.textContent = result.result.answers[key];
                 item.appendChild(label);
@@ -1246,8 +1396,13 @@
 
         // Close button
         var closeBtn = document.createElement('button');
-        applyStyles(closeBtn, STYLES.deepLinkButton(theme));
-        closeBtn.style.marginTop = '20px';
+        if (classTheme) {
+            applyClasses(closeBtn, classTheme.primaryButton);
+            closeBtn.classList.add('mt-5');
+        } else {
+            applyStyles(closeBtn, STYLES.deepLinkButton(theme));
+            closeBtn.style.marginTop = '20px';
+        }
         closeBtn.textContent = 'Done';
         closeBtn.addEventListener('click', function() {
             closeModal();
@@ -1257,32 +1412,51 @@
 
     function renderErrorContent(container, error, options) {
         var theme = config.theme;
+        var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
         // Error icon
         var iconWrapper = document.createElement('div');
-        applyStyles(iconWrapper, STYLES.errorIcon());
+        if (classTheme) {
+            applyClasses(iconWrapper, classTheme.errorIcon);
+        } else {
+            applyStyles(iconWrapper, STYLES.errorIcon());
+        }
         iconWrapper.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
         container.appendChild(iconWrapper);
 
         // Error message
         var message = document.createElement('h3');
-        message.style.fontSize = '20px';
-        message.style.fontWeight = '600';
-        message.style.color = theme.textColor;
-        message.style.marginBottom = '8px';
+        if (classTheme) {
+            applyClasses(message, classTheme.title);
+            message.classList.add('mb-2');
+        } else {
+            message.style.fontSize = '20px';
+            message.style.fontWeight = '600';
+            message.style.color = theme.textColor;
+            message.style.marginBottom = '8px';
+        }
         message.textContent = options.errorTitle || 'Verification Failed';
         container.appendChild(message);
 
         var subtext = document.createElement('p');
-        applyStyles(subtext, STYLES.statusText(theme));
+        if (classTheme) {
+            applyClasses(subtext, classTheme.errorStatus);
+        } else {
+            applyStyles(subtext, STYLES.statusText(theme));
+        }
         subtext.textContent = error.message || options.errorMessage || 'We could not verify your identity.';
         container.appendChild(subtext);
 
         // Retry button
         var retryBtn = document.createElement('button');
-        applyStyles(retryBtn, STYLES.deepLinkButton(theme));
-        retryBtn.style.marginTop = '20px';
+        if (classTheme) {
+            applyClasses(retryBtn, classTheme.primaryButton);
+            retryBtn.classList.add('mt-5');
+        } else {
+            applyStyles(retryBtn, STYLES.deepLinkButton(theme));
+            retryBtn.style.marginTop = '20px';
+        }
         retryBtn.textContent = 'Try Again';
         retryBtn.addEventListener('click', function() {
             if (options.onRetry) {
@@ -1295,12 +1469,16 @@
 
         // Cancel link
         var cancelBtn = document.createElement('button');
-        cancelBtn.style.background = 'none';
-        cancelBtn.style.border = 'none';
-        cancelBtn.style.color = '#6b7280';
-        cancelBtn.style.fontSize = '14px';
-        cancelBtn.style.cursor = 'pointer';
-        cancelBtn.style.marginTop = '12px';
+        if (classTheme) {
+            applyClasses(cancelBtn, classTheme.secondaryButton);
+        } else {
+            cancelBtn.style.background = 'none';
+            cancelBtn.style.border = 'none';
+            cancelBtn.style.color = '#6b7280';
+            cancelBtn.style.fontSize = '14px';
+            cancelBtn.style.cursor = 'pointer';
+            cancelBtn.style.marginTop = '12px';
+        }
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', function() {
             closeModal(options.onCancel);
@@ -1429,12 +1607,37 @@
          * @param {Object} options - Configuration options
          * @param {string} options.clientToken - Client token (ct_xxx) from your backend
          * @param {string} [options.apiBase] - API base URL (auto-detected if not provided)
-         * @param {Object} [options.theme] - Theme customization
+         * @param {Object} [options.theme] - Theme customization (legacy inline styles)
          * @param {string} [options.theme.primaryColor] - Primary button color
          * @param {string} [options.theme.backgroundColor] - Modal background color
          * @param {string} [options.theme.textColor] - Text color
          * @param {string} [options.theme.borderRadius] - Border radius for modal/buttons
          * @param {string} [options.theme.fontFamily] - Font family
+         * @param {Object} [options.classTheme] - Class-based theme (Tailwind/CSS)
+         * @param {string} [options.classTheme.overlay] - Modal overlay classes
+         * @param {string} [options.classTheme.modal] - Modal container classes
+         * @param {string} [options.classTheme.header] - Modal header classes
+         * @param {string} [options.classTheme.title] - Title text classes
+         * @param {string} [options.classTheme.subtitle] - Subtitle text classes
+         * @param {string} [options.classTheme.content] - Content area classes
+         * @param {string} [options.classTheme.footer] - Footer container classes
+         * @param {string} [options.classTheme.footerText] - Footer text classes
+         * @param {string} [options.classTheme.qrContainer] - QR code container classes
+         * @param {string} [options.classTheme.primaryButton] - Primary button classes
+         * @param {string} [options.classTheme.secondaryButton] - Secondary button classes
+         * @param {string} [options.classTheme.closeButton] - Close button classes
+         * @param {string} [options.classTheme.deepLinkButton] - Deep link button classes
+         * @param {string} [options.classTheme.divider] - Divider container classes
+         * @param {string} [options.classTheme.dividerLine] - Divider line classes
+         * @param {string} [options.classTheme.dividerText] - Divider text classes
+         * @param {string} [options.classTheme.pendingStatus] - Pending status classes
+         * @param {string} [options.classTheme.successStatus] - Success status classes
+         * @param {string} [options.classTheme.errorStatus] - Error status classes
+         * @param {string} [options.classTheme.successIcon] - Success icon wrapper classes
+         * @param {string} [options.classTheme.errorIcon] - Error icon wrapper classes
+         * @param {string} [options.classTheme.spinner] - Loading spinner classes
+         * @param {string} [options.classTheme.inlineContainer] - Inline mode container classes
+         * @param {string} [options.classTheme.resultSummary] - Result summary classes
          */
         init: function(options) {
             if (!options || !options.clientToken) {
@@ -1448,8 +1651,14 @@
             config.clientToken = options.clientToken;
             config.apiBase = options.apiBase || detectApiBase();
 
+            // Legacy inline style theme
             if (options.theme) {
                 config.theme = mergeDeep(config.theme, options.theme);
+            }
+
+            // Class-based theme (takes precedence over inline styles)
+            if (options.classTheme) {
+                config.classTheme = options.classTheme;
             }
 
             if (options.pollInterval) {
@@ -1461,7 +1670,10 @@
             }
 
             initialized = true;
-            log('info', 'WaltVerify initialized', { apiBase: config.apiBase });
+            log('info', 'WaltVerify initialized', {
+                apiBase: config.apiBase,
+                themeMode: config.classTheme ? 'class-based' : 'inline-styles'
+            });
         },
 
         /**
@@ -1563,7 +1775,12 @@
                             throw new Error('WaltVerify.verify: container not found for inline mode');
                         }
 
-                        applyStyles(container, STYLES.inlineContainer(config.theme));
+                        var classTheme = useClassTheme() ? getClassTheme() : null;
+                        if (classTheme) {
+                            applyClasses(container, classTheme.inlineContainer);
+                        } else {
+                            applyStyles(container, STYLES.inlineContainer(config.theme));
+                        }
                         renderQRContent(container, session, options);
                     } else {
                         // Modal mode (default)
@@ -1648,6 +1865,44 @@
          */
         generateQR: function(data, options) {
             return QRCode.toSVG(data, options);
+        },
+
+        /**
+         * Set or update the class-based theme.
+         * Can be called after init() to change themes dynamically.
+         *
+         * @param {Object} theme - Class-based theme object
+         */
+        setTheme: function(theme) {
+            if (theme) {
+                config.classTheme = theme;
+                log('info', 'Theme updated', { mode: 'class-based' });
+            } else {
+                config.classTheme = null;
+                log('info', 'Theme updated', { mode: 'inline-styles' });
+            }
+        },
+
+        /**
+         * Get the current theme configuration.
+         *
+         * @returns {Object} Current theme (classTheme if set, otherwise legacy theme)
+         */
+        getTheme: function() {
+            if (config.classTheme) {
+                return getClassTheme();
+            }
+            return config.theme;
+        },
+
+        /**
+         * Get the default class-based theme.
+         * Use this as a base for creating custom themes.
+         *
+         * @returns {Object} Default class-based theme
+         */
+        getDefaultTheme: function() {
+            return Object.assign({}, DEFAULT_CLASS_THEME);
         },
 
         /**
