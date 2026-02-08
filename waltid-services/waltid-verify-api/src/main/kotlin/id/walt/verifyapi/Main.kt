@@ -11,6 +11,7 @@ import id.walt.verifyapi.routes.sessionRoutes
 import id.walt.verifyapi.routes.templateRoutes
 import id.walt.verifyapi.routes.verifyRoutes
 import id.walt.verifyapi.routes.webhookRoutes
+import id.walt.verifyapi.routes.widgetTokenRoutes
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.smiley4.ktorswaggerui.swaggerUI
 import io.ktor.http.*
@@ -171,6 +172,7 @@ fun Application.configureRouting() {
                 |  /v1/templates - List/create verification templates
                 |  /v1/webhooks - Manage webhook subscriptions
                 |  /v1/orchestrations - Multi-step verification flows
+                |  /v1/widget/tokens - Generate client tokens for widget SDK (POST)
                 |  /docs - API documentation (Swagger UI)
                 """.trimMargin(),
                 ContentType.Text.Plain
@@ -200,5 +202,8 @@ fun Application.configureRouting() {
 
         // Orchestration routes (multi-step verification flows)
         orchestrationRoutes()
+
+        // Widget token routes (client token generation for widget SDK)
+        widgetTokenRoutes()
     }
 }
