@@ -73,6 +73,7 @@ dependencies {
 
     // Test
     testImplementation(identityLibs.bundles.waltid.ktortesting)
+    testImplementation("io.mockk:mockk:1.14.2")
 
     testImplementation(project(":waltid-services:waltid-service-commons-test"))
     testImplementation(project(":waltid-libraries:protocols:waltid-openid4vp-wallet"))
@@ -81,6 +82,11 @@ dependencies {
     api(project(":waltid-libraries:credentials:waltid-dcql"))
     api(project(":waltid-libraries:credentials:waltid-digital-credentials"))
     api(project(":waltid-libraries:credentials:waltid-verification-policies2"))
+
+    // Trust lists
+    api(project(":waltid-libraries:credentials:waltid-trust"))
+    implementation(project(":waltid-libraries:credentials:waltid-etsi-tsl"))
+    implementation(project(":waltid-libraries:protocols:waltid-openid-federation"))
     api(project(":waltid-libraries:credentials:waltid-vical"))
     api(project(":waltid-libraries:protocols:waltid-openid4vp"))
     api(project(":waltid-libraries:protocols:waltid-openid4vp-verifier"))

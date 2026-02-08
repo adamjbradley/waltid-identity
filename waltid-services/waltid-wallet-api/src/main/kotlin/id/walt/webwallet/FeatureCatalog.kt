@@ -1,5 +1,6 @@
 package id.walt.webwallet
 
+import id.walt.commons.config.TrustListConfig
 import id.walt.commons.config.list.DevModeConfig
 import id.walt.commons.featureflag.BaseFeature
 import id.walt.commons.featureflag.OptionalFeature
@@ -62,6 +63,13 @@ object FeatureCatalog : ServiceFeatureCatalog {
         default = false,
     )
 
+    val trustListFeature = OptionalFeature(
+        "trust-lists",
+        "EUDI Trust List validation",
+        TrustListConfig::class,
+        default = System.getenv("TRUST_LISTS_ENABLED")?.toBoolean() ?: false
+    )
+
     val stopwatchFeature = OptionalFeature(
         name = "stopwatch",
         description = "Enables the stopwatch for certain requests - at the moment the stopwatch is only used in integration-tests",
@@ -89,5 +97,6 @@ object FeatureCatalog : ServiceFeatureCatalog {
         didWebRegistry,
         x5cAuthFeature,
         externalSignatureEndpointsFeature,
+        trustListFeature,
     )
 }

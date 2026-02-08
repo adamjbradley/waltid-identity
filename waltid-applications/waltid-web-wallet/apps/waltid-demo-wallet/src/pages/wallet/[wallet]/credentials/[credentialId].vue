@@ -64,11 +64,18 @@
           <div class="text-gray-500 w-sm">Name</div>
           <div class="text-gray-500 font-bold w-2xl">{{ issuerName }}</div>
         </div>
-        <div class="flex mt-2 mb-8" v-if="issuerDid">
+        <div class="flex mt-2" v-if="issuerDid">
           <div class="text-gray-500 w-sm">DID</div>
           <div class="text-gray-500 font-bold w-2xl overflow-scroll">
             {{ issuerDid }}
           </div>
+        </div>
+        <div v-if="issuerDid" class="mb-8">
+          <TrustBadge
+            :wallet-id="walletId"
+            :issuer-did="issuerDid"
+            :credential-type="jwtJson?.type?.[jwtJson?.type?.length - 1] || jwtJson?.vct || jwtJson?.docType"
+          />
         </div>
         <hr v-if="disclosures" class="w-full border-gray-200 mb-2 mt-8" />
         <div v-if="disclosures" class="text-gray-500 font-bold mt-4 mb-8">
@@ -147,6 +154,7 @@
 
 <script lang="ts" setup>
 import VerifiableCredentialCard from "@waltid-web-wallet/components/credentials/VerifiableCredentialCard.vue";
+import TrustBadge from "@waltid-web-wallet/components/credentials/TrustBadge.vue";
 import {useCredential, type WalletCredential} from "@waltid-web-wallet/composables/credential.ts";
 import LoadingIndicator from "@waltid-web-wallet/components/loading/LoadingIndicator.vue";
 import {useCurrentWallet} from "@waltid-web-wallet/composables/accountWallet.ts";

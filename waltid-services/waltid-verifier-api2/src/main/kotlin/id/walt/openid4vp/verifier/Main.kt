@@ -4,10 +4,12 @@ import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
 import id.walt.commons.ServiceMain
 import id.walt.commons.config.ConfigManager
+import id.walt.commons.featureflag.FeatureManager.whenFeature
 import id.walt.commons.web.WebService
 import id.walt.did.dids.DidService
 import id.walt.did.dids.resolver.LocalResolver
 import id.walt.openid4vp.verifier.config.ClientMetadataHopliteDecoder
+import id.walt.openid4vp.verifier.trust.trustAdminRoutes
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.callid.*
@@ -32,6 +34,10 @@ suspend fun main(args: Array<String>) {
                     registerResolver(LocalResolver())
                     updateResolversForMethods()
                 }
+                // Wire trust service provider for EtsiTrustedIssuerPolicy
+                id.walt.policies2.vc.policies.EtsiTrustedIssuerPolicy.trustServiceProvider = {
+                    id.walt.commons.trust.TrustListServiceFactory.getServiceOrNull()
+                }
             },
             run = WebService(Application::verifierModule).run()
         )
@@ -48,7 +54,7 @@ fun Application.verifierModule(withPlugins: Boolean = true) {
         configurePlugins()
     }
     verifierApi();
-    //{ entraVerifierApi() } whenFeature FeatureCatalog.entra
+    { trustAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.trustListFeature
 }
 
 fun Application.configureHTTP() {

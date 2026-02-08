@@ -1,5 +1,6 @@
 package id.walt.openid4vp.verifier
 
+import id.walt.commons.config.TrustListConfig
 import id.walt.commons.config.list.DevModeConfig
 import id.walt.commons.featureflag.BaseFeature
 import id.walt.commons.featureflag.OptionalFeature
@@ -12,6 +13,13 @@ object OSSVerifier2FeatureCatalog : ServiceFeatureCatalog {
 
     val devModeFeature = OptionalFeature("dev-mode", "Development mode", DevModeConfig::class, default = false)
 
+    val trustListFeature = OptionalFeature(
+        "trust-lists",
+        "EUDI Trust List validation",
+        TrustListConfig::class,
+        default = System.getenv("TRUST_LISTS_ENABLED")?.toBoolean() ?: false
+    )
+
     override val baseFeatures = listOf(verifierService)
-    override val optionalFeatures: List<OptionalFeature> = listOf(devModeFeature)
+    override val optionalFeatures: List<OptionalFeature> = listOf(devModeFeature, trustListFeature)
 }

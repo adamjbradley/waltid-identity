@@ -36,7 +36,8 @@ import id.walt.webwallet.service.exchange.IssuanceServiceExternalSignatures
 import id.walt.webwallet.service.issuers.IssuersService
 import id.walt.webwallet.service.notifications.NotificationService
 import id.walt.webwallet.service.settings.SettingsService
-import id.walt.webwallet.service.trust.DefaultTrustValidationService
+import id.walt.commons.trust.TrustListServiceFactory
+import id.walt.webwallet.service.trust.EnhancedTrustValidationService
 import id.walt.webwallet.usecase.claim.ExplicitClaimStrategy
 import id.walt.webwallet.usecase.claim.ExternalSignatureClaimStrategy
 import id.walt.webwallet.usecase.claim.SilentClaimStrategy
@@ -86,6 +87,9 @@ object WalletServiceManager {
     private val trustConfig by lazy {
         { ConfigManager.getConfig<TrustConfig>() } whenFeature FeatureCatalog.silentExchange
     }
+    private val trustListService by lazy {
+        { TrustListServiceFactory.getServiceOrNull() } whenFeature FeatureCatalog.trustListFeature
+    }
     private val credentialService = CredentialsService()
     private val credentialTypeSeeker = DefaultCredentialTypeSeeker()
     private val eventService = EventService()
@@ -126,8 +130,8 @@ object WalletServiceManager {
     val eventUseCase by lazy { EventLogUseCase(eventService) }
     val eventFilterUseCase by lazy { EventFilterUseCase(eventService, issuerNameResolutionUseCase, verifierNameResolutionUseCase) }
     val oidcConfig by lazy { ConfigManager.getConfig<OidcConfiguration>() }
-    val issuerTrustValidationService by lazy { DefaultTrustValidationService(httpClient, trustConfig?.issuersRecord) }
-    val verifierTrustValidationService by lazy { DefaultTrustValidationService(httpClient, trustConfig?.verifiersRecord) }
+    val issuerTrustValidationService by lazy { EnhancedTrustValidationService(httpClient, trustConfig?.issuersRecord, trustListService) }
+    val verifierTrustValidationService by lazy { EnhancedTrustValidationService(httpClient, trustConfig?.verifiersRecord, trustListService) }
     val notificationUseCase by lazy { NotificationUseCase(NotificationService, notificationDataFormatter) }
     val notificationFilterUseCase by lazy { NotificationFilterUseCase(NotificationService, credentialService, notificationDataFormatter) }
     val matchPresentationDefinitionCredentialsUseCase = MatchPresentationDefinitionCredentialsUseCase(

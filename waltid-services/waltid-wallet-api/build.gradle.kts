@@ -73,6 +73,7 @@ dependencies {
 
 
     // walt.id
+    implementation(project(":waltid-libraries:credentials:waltid-trust"))
     implementation(project(":waltid-libraries:protocols:waltid-openid4vc"))
     implementation(project(":waltid-libraries:sdjwt:waltid-sdjwt"))
     implementation(project(":waltid-libraries:credentials:waltid-mdoc-credentials"))
@@ -147,6 +148,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("io.ktor:ktor-server-test-host:${Versions.KTOR_VERSION}")
+    testImplementation("io.ktor:ktor-client-mock:${Versions.KTOR_VERSION}")
     testImplementation("io.mockk:mockk:1.13.16")
     testImplementation("io.klogging:klogging-jvm:0.11.6")
 }
