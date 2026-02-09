@@ -942,16 +942,17 @@
                 display: 'inline-block',
                 backgroundColor: t.primaryColor,
                 color: '#ffffff',
-                padding: '12px 24px',
+                padding: '12px 32px',
                 borderRadius: '8px',
                 textDecoration: 'none',
-                fontSize: '16px',
+                fontSize: '15px',
                 fontWeight: '500',
                 marginBottom: '16px',
                 border: 'none',
                 cursor: 'pointer',
-                width: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                maxWidth: '320px',
+                width: '100%'
             };
         },
         divider: function(t) {
@@ -959,7 +960,9 @@
                 display: 'flex',
                 alignItems: 'center',
                 margin: '20px 0',
-                color: '#9ca3af'
+                color: '#9ca3af',
+                width: '100%',
+                maxWidth: '320px'
             };
         },
         dividerLine: function() {
@@ -977,26 +980,28 @@
         },
         successIcon: function() {
             return {
-                width: '64px',
-                height: '64px',
+                width: '56px',
+                height: '56px',
                 backgroundColor: '#10b981',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 20px'
+                margin: '0 auto 16px',
+                flexShrink: '0'
             };
         },
         errorIcon: function() {
             return {
-                width: '64px',
-                height: '64px',
+                width: '56px',
+                height: '56px',
                 backgroundColor: '#ef4444',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 20px'
+                margin: '0 auto 16px',
+                flexShrink: '0'
             };
         },
         spinner: function() {
@@ -1017,7 +1022,10 @@
                 border: '1px solid #e5e7eb',
                 padding: '24px',
                 textAlign: 'center',
-                fontFamily: t.fontFamily
+                fontFamily: t.fontFamily,
+                maxWidth: '480px',
+                margin: '0 auto',
+                boxSizing: 'border-box'
             };
         },
         footer: function(t) {
@@ -1224,6 +1232,13 @@
         var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
+        // Force vertical centered layout regardless of parent styles
+        if (!classTheme) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+        }
+
         // Instruction text
         var instruction = document.createElement('p');
         if (classTheme) {
@@ -1323,6 +1338,13 @@
         var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
+        // Force vertical centered layout regardless of parent styles
+        if (!classTheme) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+        }
+
         // Success icon
         var iconWrapper = document.createElement('div');
         if (classTheme) {
@@ -1330,7 +1352,7 @@
         } else {
             applyStyles(iconWrapper, STYLES.successIcon());
         }
-        iconWrapper.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        iconWrapper.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
         container.appendChild(iconWrapper);
 
         // Success message
@@ -1342,7 +1364,8 @@
             message.style.fontSize = '20px';
             message.style.fontWeight = '600';
             message.style.color = theme.textColor;
-            message.style.marginBottom = '8px';
+            message.style.marginBottom = '4px';
+            message.style.marginTop = '0';
         }
         message.textContent = options.successTitle || 'Verification Successful';
         container.appendChild(message);
@@ -1352,6 +1375,7 @@
             applyClasses(subtext, classTheme.successStatus);
         } else {
             applyStyles(subtext, STYLES.statusText(theme));
+            subtext.style.marginTop = '0';
         }
         subtext.textContent = options.successMessage || 'Your identity has been verified.';
         container.appendChild(subtext);
@@ -1363,10 +1387,13 @@
                 applyClasses(summaryDiv, classTheme.resultSummary);
             } else {
                 summaryDiv.style.marginTop = '16px';
-                summaryDiv.style.padding = '12px';
+                summaryDiv.style.padding = '12px 16px';
                 summaryDiv.style.backgroundColor = '#f3f4f6';
                 summaryDiv.style.borderRadius = '8px';
                 summaryDiv.style.textAlign = 'left';
+                summaryDiv.style.width = '100%';
+                summaryDiv.style.maxWidth = '320px';
+                summaryDiv.style.boxSizing = 'border-box';
             }
 
             Object.keys(result.result.answers).forEach(function(key) {
@@ -1394,7 +1421,15 @@
             applyClasses(closeBtn, classTheme.primaryButton);
             closeBtn.classList.add('mt-5');
         } else {
-            applyStyles(closeBtn, STYLES.deepLinkButton(theme));
+            closeBtn.style.display = 'inline-block';
+            closeBtn.style.backgroundColor = theme.primaryColor;
+            closeBtn.style.color = '#ffffff';
+            closeBtn.style.padding = '10px 32px';
+            closeBtn.style.borderRadius = '8px';
+            closeBtn.style.fontSize = '15px';
+            closeBtn.style.fontWeight = '500';
+            closeBtn.style.border = 'none';
+            closeBtn.style.cursor = 'pointer';
             closeBtn.style.marginTop = '20px';
         }
         closeBtn.textContent = 'Done';
@@ -1409,6 +1444,13 @@
         var classTheme = useClassTheme() ? getClassTheme() : null;
         container.innerHTML = '';
 
+        // Force vertical centered layout regardless of parent styles
+        if (!classTheme) {
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+        }
+
         // Error icon
         var iconWrapper = document.createElement('div');
         if (classTheme) {
@@ -1416,7 +1458,7 @@
         } else {
             applyStyles(iconWrapper, STYLES.errorIcon());
         }
-        iconWrapper.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        iconWrapper.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
         container.appendChild(iconWrapper);
 
         // Error message
@@ -1428,7 +1470,8 @@
             message.style.fontSize = '20px';
             message.style.fontWeight = '600';
             message.style.color = theme.textColor;
-            message.style.marginBottom = '8px';
+            message.style.marginBottom = '4px';
+            message.style.marginTop = '0';
         }
         message.textContent = options.errorTitle || 'Verification Failed';
         container.appendChild(message);
@@ -1438,6 +1481,7 @@
             applyClasses(subtext, classTheme.errorStatus);
         } else {
             applyStyles(subtext, STYLES.statusText(theme));
+            subtext.style.marginTop = '0';
         }
         subtext.textContent = error.message || options.errorMessage || 'We could not verify your identity.';
         container.appendChild(subtext);
@@ -1448,7 +1492,15 @@
             applyClasses(retryBtn, classTheme.primaryButton);
             retryBtn.classList.add('mt-5');
         } else {
-            applyStyles(retryBtn, STYLES.deepLinkButton(theme));
+            retryBtn.style.display = 'inline-block';
+            retryBtn.style.backgroundColor = theme.primaryColor;
+            retryBtn.style.color = '#ffffff';
+            retryBtn.style.padding = '10px 32px';
+            retryBtn.style.borderRadius = '8px';
+            retryBtn.style.fontSize = '15px';
+            retryBtn.style.fontWeight = '500';
+            retryBtn.style.border = 'none';
+            retryBtn.style.cursor = 'pointer';
             retryBtn.style.marginTop = '20px';
         }
         retryBtn.textContent = 'Try Again';

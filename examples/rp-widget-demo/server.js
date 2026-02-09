@@ -48,41 +48,10 @@ const config = {
 function createApp() {
   const app = express();
 
-  // Proxy verifier-api2 requests through the RP domain.
-  // The EUDI wallet uses the RP's domain for VP token responses and cert fetches.
+  // Proxy verification-session requests to verifier-api2.
+  // The EUDI wallet POSTs VP tokens to response_uri which uses the RP's domain.
   // Uses raw http.request to stream bytes without encoding/compression issues.
   const http = require('http');
-
-  // Proxy /.well-known/rp-certificates to verifier-api2 so the custom wallet
-  // app can dynamically fetch trusted RP certificates from the RP domain.
-  app.get('/.well-known/rp-certificates', (req, res) => {
-    const target = new URL(`${VERIFIER_API2_URL}/.well-known/rp-certificates`);
-    console.log(`[Proxy] ${req.method} ${req.originalUrl} -> ${target.href}`);
-
-    const proxyReq = http.request({
-      hostname: target.hostname,
-      port: target.port,
-      path: target.pathname + target.search,
-      method: 'GET',
-      headers: {
-        accept: req.headers.accept || 'application/x-pem-file',
-      },
-    }, (proxyRes) => {
-      console.log(`[Proxy] Response: ${proxyRes.statusCode}`);
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
-      proxyRes.pipe(res);
-    });
-
-    proxyReq.on('error', (err) => {
-      console.error(`[Proxy] Error: ${err.message}`);
-      res.status(502).json({ error: 'Proxy error', message: err.message });
-    });
-
-    proxyReq.end();
-  });
-
-  // Proxy verification-session requests to verifier-api2
-  // The EUDI wallet POSTs VP tokens to response_uri which uses the RP's domain.
   app.all('/verification-session/*', (req, res) => {
     const target = new URL(`${VERIFIER_API2_URL}${req.originalUrl}`);
     console.log(`[Proxy] ${req.method} ${req.originalUrl} -> ${target.href}`);
