@@ -2,6 +2,7 @@ package id.walt.commons.trust
 
 import id.walt.commons.config.TrustListConfig
 import id.walt.credentials.formats.DigitalCredential
+import id.walt.etsi.tsl.EtsiTrustListProvider
 import id.walt.etsi.tsl.EtsiTrustListService
 import id.walt.etsi.tsl.config.TslConfig
 import id.walt.trust.*
@@ -14,19 +15,21 @@ import io.ktor.client.engine.okhttp.*
 private val log = noCoLogger("CompositeTrustService")
 
 class CompositeTrustService(
-    private val config: TrustListConfig
+    private val config: TrustListConfig,
+    etsiServiceProvider: EtsiTrustListProvider? = null
 ) : TrustService {
 
-    private val httpClient = HttpClient(OkHttp)
-
-    private val etsiService by lazy {
-        val tslConfig = TslConfig(
-            lotlUrl = config.etsi.lotlUrl,
-            cacheTtlHours = config.etsi.cacheTtlHours,
-            memberStates = config.etsi.memberStates,
-            validateSignatures = config.etsi.validateSignatures
-        )
-        EtsiTrustListService(tslConfig, httpClient)
+    private val etsiService: EtsiTrustListProvider by lazy {
+        etsiServiceProvider ?: run {
+            val httpClient = HttpClient(OkHttp)
+            val tslConfig = TslConfig(
+                lotlUrl = config.etsi.lotlUrl,
+                cacheTtlHours = config.etsi.cacheTtlHours,
+                memberStates = config.etsi.memberStates,
+                validateSignatures = config.etsi.validateSignatures
+            )
+            EtsiTrustListService(tslConfig, httpClient)
+        }
     }
 
     private val enabledSources = mutableMapOf(
