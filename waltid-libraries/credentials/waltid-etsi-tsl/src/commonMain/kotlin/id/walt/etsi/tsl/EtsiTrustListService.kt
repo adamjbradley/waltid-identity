@@ -21,6 +21,7 @@ class EtsiTrustListService(
     private var _cachedLotl: TrustServiceList? = null
     private var _cachedMemberStateTls: Map<String, TrustServiceList> = emptyMap()
     private var healthy = false
+    private val customTslUrls: MutableMap<String, String> = config.additionalTslUrls.toMutableMap()
 
     override suspend fun fetchLotl(): TrustServiceList {
         return fetcher.fetchLotl()
@@ -71,6 +72,21 @@ class EtsiTrustListService(
                 }
             }
 
+            // Fetch additional/custom TSLs
+            for ((country, url) in customTslUrls) {
+                try {
+                    val tsl = fetchMemberStateTl(url)
+                    memberStateTls[country] = tsl
+                    val providersWithCountry = tsl.trustServiceProviders.map {
+                        it.copy(country = country)
+                    }
+                    allProviders.addAll(providersWithCountry)
+                    log.info { "Loaded ${providersWithCountry.size} providers from custom TSL: $country ($url)" }
+                } catch (e: Exception) {
+                    log.warn { "Failed to fetch custom TSL for $country ($url): ${e.message}" }
+                }
+            }
+
             mutex.withLock {
                 cachedProviders = allProviders
                 _cachedLotl = lotl
@@ -92,4 +108,32 @@ class EtsiTrustListService(
     override fun getCachedMemberStateTls(): Map<String, TrustServiceList> = _cachedMemberStateTls
 
     override fun getCachedMemberStateTl(country: String): TrustServiceList? = _cachedMemberStateTls[country]
+
+    override suspend fun addCustomTsl(country: String, url: String): TrustServiceList {
+        log.info { "Adding custom TSL for $country from $url" }
+        val tsl = fetchMemberStateTl(url)
+        val providersWithCountry = tsl.trustServiceProviders.map { it.copy(country = country) }
+
+        mutex.withLock {
+            customTslUrls[country] = url
+            _cachedMemberStateTls = _cachedMemberStateTls + (country to tsl)
+            cachedProviders = (cachedProviders ?: emptyList())
+                .filter { it.country != country } + providersWithCountry
+        }
+
+        log.info { "Custom TSL for $country loaded: ${providersWithCountry.size} providers" }
+        return tsl
+    }
+
+    override fun removeCustomTsl(country: String): Boolean {
+        val removed = customTslUrls.remove(country) != null
+        if (removed) {
+            _cachedMemberStateTls = _cachedMemberStateTls - country
+            cachedProviders = cachedProviders?.filter { it.country != country }
+            log.info { "Removed custom TSL for $country" }
+        }
+        return removed
+    }
+
+    override fun getCustomTslUrls(): Map<String, String> = customTslUrls.toMap()
 }

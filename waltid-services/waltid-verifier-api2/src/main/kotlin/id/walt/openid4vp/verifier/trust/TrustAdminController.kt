@@ -193,6 +193,78 @@ fun Application.trustAdminRoutes() {
                     }
                 ))
             }
+
+            // -- Custom TSL Import endpoints --
+
+            get("/custom-tsls") {
+                val service = TrustListServiceFactory.getServiceOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Trust lists feature is not enabled")
+                    )
+
+                val customUrls = service.getCustomTslUrls()
+                val memberStateTls = service.getMemberStateTls()
+
+                val entries = customUrls.map { (country, url) ->
+                    val tsl = memberStateTls[country]
+                    CustomTslEntry(
+                        country = country,
+                        url = url,
+                        providerCount = tsl?.trustServiceProviders?.size ?: 0,
+                        serviceCount = tsl?.trustServiceProviders?.sumOf { it.trustServices.size } ?: 0,
+                        loaded = tsl != null
+                    )
+                }
+
+                call.respond(CustomTslListResponse(customTsls = entries))
+            }
+
+            post("/custom-tsls") {
+                val service = TrustListServiceFactory.getServiceOrNull()
+                    ?: return@post call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Trust lists feature is not enabled")
+                    )
+
+                val body = call.receive<CustomTslImportRequest>()
+                val country = body.country.uppercase()
+
+                try {
+                    val tsl = service.addCustomTsl(country, body.url)
+                    call.respond(HttpStatusCode.Created, CustomTslImportResponse(
+                        country = country,
+                        url = body.url,
+                        schemeTerritory = tsl.schemeTerritory,
+                        schemeOperatorName = tsl.schemeOperatorName,
+                        providerCount = tsl.trustServiceProviders.size,
+                        serviceCount = tsl.trustServiceProviders.sumOf { it.trustServices.size }
+                    ))
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("error" to "Failed to import TSL: ${e.message}")
+                    )
+                }
+            }
+
+            delete("/custom-tsls/{country}") {
+                val service = TrustListServiceFactory.getServiceOrNull()
+                    ?: return@delete call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Trust lists feature is not enabled")
+                    )
+
+                val country = call.parameters["country"]?.uppercase()
+                    ?: return@delete call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Country code required"))
+
+                val removed = service.removeCustomTsl(country)
+                if (removed) {
+                    call.respond(HttpStatusCode.OK, mapOf("removed" to country))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "No custom TSL found for country: $country"))
+                }
+            }
         }
     }
 }
@@ -258,6 +330,36 @@ data class SearchResponse(
     val serviceType: String? = null,
     val total: Int,
     val providers: List<ProviderDetail>
+)
+
+@Serializable
+data class CustomTslImportRequest(
+    val country: String,
+    val url: String
+)
+
+@Serializable
+data class CustomTslEntry(
+    val country: String,
+    val url: String,
+    val providerCount: Int,
+    val serviceCount: Int,
+    val loaded: Boolean
+)
+
+@Serializable
+data class CustomTslListResponse(
+    val customTsls: List<CustomTslEntry>
+)
+
+@Serializable
+data class CustomTslImportResponse(
+    val country: String,
+    val url: String,
+    val schemeTerritory: String,
+    val schemeOperatorName: String,
+    val providerCount: Int,
+    val serviceCount: Int
 )
 
 // -- Helpers --

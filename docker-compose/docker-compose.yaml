@@ -312,6 +312,7 @@ services:
 
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./issuer-api/tsl.xml:/etc/caddy/tsl/tsl.xml:ro
 # ==================================================
 # VERIFY API - NEW FEATURE-FLAGGED SERVICE
 # ==================================================

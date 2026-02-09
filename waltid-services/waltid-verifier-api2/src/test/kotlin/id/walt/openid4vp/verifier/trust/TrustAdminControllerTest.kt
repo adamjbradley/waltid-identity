@@ -478,4 +478,180 @@ class TrustAdminControllerTest {
         assertTrue(body.contains("\"total\":0"), "Should have zero results")
         assertTrue(body.contains("\"country\":\"DE\""), "Should echo back country filter")
     }
+
+    // -- GET /admin/trust/custom-tsls --
+
+    @Test
+    fun `test GET custom-tsls returns 503 when feature disabled`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns null
+
+        val response = client.get("/admin/trust/custom-tsls")
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
+    @Test
+    fun `test GET custom-tsls returns empty list when no custom TSLs`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        every { mockTrustService.getCustomTslUrls() } returns emptyMap()
+        every { mockTrustService.getMemberStateTls() } returns emptyMap()
+
+        val response = client.get("/admin/trust/custom-tsls")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"customTsls\":[]"), "Should return empty custom TSLs list")
+    }
+
+    @Test
+    fun `test GET custom-tsls returns loaded custom TSLs`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        val auTsl = TrustServiceList(
+            schemeTerritory = "AU",
+            schemeOperatorName = "Australia Hack Authority",
+            trustServiceProviders = listOf(
+                TrustServiceProvider(
+                    name = "Issuer",
+                    trustServices = listOf(
+                        TrustServiceEntry(serviceType = "CA/QC", serviceName = "Cert1", currentStatus = TrustServiceEntry.STATUS_GRANTED)
+                    )
+                )
+            )
+        )
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        every { mockTrustService.getCustomTslUrls() } returns mapOf("AU" to "https://issuer.example.com/tsl.xml")
+        every { mockTrustService.getMemberStateTls() } returns mapOf("AU" to auTsl)
+
+        val response = client.get("/admin/trust/custom-tsls")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"country\":\"AU\""), "Should contain AU country")
+        assertTrue(body.contains("\"providerCount\":1"), "Should have 1 provider")
+        assertTrue(body.contains("\"serviceCount\":1"), "Should have 1 service")
+        assertTrue(body.contains("\"loaded\":true"), "Should be loaded")
+    }
+
+    // -- POST /admin/trust/custom-tsls --
+
+    @Test
+    fun `test POST custom-tsls returns 503 when feature disabled`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns null
+
+        val response = client.post("/admin/trust/custom-tsls") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"country": "AU", "url": "https://example.com/tsl.xml"}""")
+        }
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
+    @Test
+    fun `test POST custom-tsls imports and returns metadata`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        val importedTsl = TrustServiceList(
+            schemeTerritory = "AU",
+            schemeOperatorName = "Australia Hack Authority",
+            trustServiceProviders = listOf(
+                TrustServiceProvider(
+                    name = "Issuer",
+                    trustServices = listOf(
+                        TrustServiceEntry(serviceType = "CA/QC", serviceName = "Cert1", currentStatus = TrustServiceEntry.STATUS_GRANTED),
+                        TrustServiceEntry(serviceType = "TSA", serviceName = "Timestamp1", currentStatus = TrustServiceEntry.STATUS_GRANTED)
+                    )
+                )
+            )
+        )
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        coEvery { mockTrustService.addCustomTsl("AU", "https://example.com/tsl.xml") } returns importedTsl
+
+        val response = client.post("/admin/trust/custom-tsls") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"country": "au", "url": "https://example.com/tsl.xml"}""")
+        }
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"country\":\"AU\""), "Should uppercase the country code")
+        assertTrue(body.contains("Australia Hack Authority"), "Should contain operator name")
+        assertTrue(body.contains("\"providerCount\":1"), "Should have 1 provider")
+        assertTrue(body.contains("\"serviceCount\":2"), "Should have 2 services")
+    }
+
+    @Test
+    fun `test POST custom-tsls returns 400 on import failure`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        coEvery { mockTrustService.addCustomTsl("XX", any()) } throws RuntimeException("Invalid XML")
+
+        val response = client.post("/admin/trust/custom-tsls") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"country": "XX", "url": "https://invalid.example.com/bad.xml"}""")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("Invalid XML"), "Should contain error message")
+    }
+
+    // -- DELETE /admin/trust/custom-tsls/{country} --
+
+    @Test
+    fun `test DELETE custom-tsls returns 503 when feature disabled`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns null
+
+        val response = client.delete("/admin/trust/custom-tsls/AU")
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
+    @Test
+    fun `test DELETE custom-tsls removes and returns OK`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        every { mockTrustService.removeCustomTsl("AU") } returns true
+
+        val response = client.delete("/admin/trust/custom-tsls/AU")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("AU"), "Should confirm removed country")
+    }
+
+    @Test
+    fun `test DELETE custom-tsls returns 404 for unknown country`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { trustAdminRoutes() }
+
+        every { TrustListServiceFactory.getServiceOrNull() } returns mockTrustService
+        every { mockTrustService.removeCustomTsl("XX") } returns false
+
+        val response = client.delete("/admin/trust/custom-tsls/XX")
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("XX"), "Should mention the country code")
+    }
 }

@@ -10,6 +10,12 @@
 
 # Issuer API
 :{$ISSUER_API_PORT} {
+    # Serve custom TSL XML for trust list import
+    handle /tsl.xml {
+        root * /etc/caddy/tsl
+        file_server
+    }
+
     # Rewrite RFC 8414 style well-known URLs to our path structure
     # EUDI wallet requests: /.well-known/openid-credential-issuer/draft13
     # Our server expects: /draft13/.well-known/openid-credential-issuer
