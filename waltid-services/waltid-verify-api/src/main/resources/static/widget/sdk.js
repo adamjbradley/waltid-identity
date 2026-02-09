@@ -756,6 +756,7 @@
 
     var initialized = false;
     var activeModal = null;
+    var activeContainer = null;
     var activeSession = null;
     var pollTimer = null;
 
@@ -1500,8 +1501,8 @@
                 stopPolling();
                 var error = new Error('Verification timeout');
                 error.code = 'TIMEOUT';
-                if (activeModal) {
-                    renderErrorContent(activeModal.content, error, options);
+                if (activeContainer) {
+                    renderErrorContent(activeContainer, error, options);
                 }
                 if (options.onFailure) {
                     options.onFailure(error);
@@ -1514,8 +1515,8 @@
 
                 if (status.status === 'verified') {
                     stopPolling();
-                    if (activeModal) {
-                        renderSuccessContent(activeModal.content, status, options);
+                    if (activeContainer) {
+                        renderSuccessContent(activeContainer, status, options);
                     }
                     if (options.onSuccess) {
                         options.onSuccess({
@@ -1529,8 +1530,8 @@
                     stopPolling();
                     var error = new Error('Verification failed');
                     error.code = 'VERIFICATION_FAILED';
-                    if (activeModal) {
-                        renderErrorContent(activeModal.content, error, options);
+                    if (activeContainer) {
+                        renderErrorContent(activeContainer, error, options);
                     }
                     if (options.onFailure) {
                         options.onFailure(error);
@@ -1539,8 +1540,8 @@
                     stopPolling();
                     var error = new Error('Session expired');
                     error.code = 'SESSION_EXPIRED';
-                    if (activeModal) {
-                        renderErrorContent(activeModal.content, error, options);
+                    if (activeContainer) {
+                        renderErrorContent(activeContainer, error, options);
                     }
                     if (options.onFailure) {
                         options.onFailure(error);
@@ -1578,6 +1579,7 @@
 
     function closeModal(callback) {
         stopPolling();
+        activeContainer = null;
         if (activeModal) {
             document.body.removeChild(activeModal.overlay);
             activeModal = null;
@@ -1774,6 +1776,7 @@
                         } else {
                             applyStyles(container, STYLES.inlineContainer(config.theme));
                         }
+                        activeContainer = container;
                         renderQRContent(container, session, options);
                     } else {
                         // Modal mode (default)
@@ -1786,6 +1789,7 @@
                             }
                         });
 
+                        activeContainer = activeModal.content;
                         document.body.appendChild(activeModal.overlay);
                         renderQRContent(activeModal.content, session, options);
                     }
