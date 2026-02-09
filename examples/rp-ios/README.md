@@ -178,7 +178,7 @@ The default sandbox credentials work immediately without any setup. See [Sandbox
 
 ```swift
 // In Configuration.swift
-static let verificationTemplate = "kyc_basic"  // or "identity_full"
+static let verificationTemplate = "kyc_basic"  // or "full_kyc"
 ```
 
 ### Custom Styling

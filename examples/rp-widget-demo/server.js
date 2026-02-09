@@ -48,9 +48,8 @@ const config = {
 function createApp() {
   const app = express();
 
-  // Proxy verification-session requests to verifier-api2
+  // Proxy verification-session requests to verifier-api2.
   // The EUDI wallet POSTs VP tokens to response_uri which uses the RP's domain.
-  // This proxy forwards those requests to verifier-api2 which owns the session.
   // Uses raw http.request to stream bytes without encoding/compression issues.
   const http = require('http');
   app.all('/verification-session/*', (req, res) => {

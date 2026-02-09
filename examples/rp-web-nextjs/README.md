@@ -166,7 +166,7 @@ The example uses `age_check` template. You can use other templates:
 body: JSON.stringify({ template: 'kyc_basic' })
 
 // Or for identity verification
-body: JSON.stringify({ template: 'identity_full' })
+body: JSON.stringify({ template: 'full_kyc' })
 ```
 
 ### Styling

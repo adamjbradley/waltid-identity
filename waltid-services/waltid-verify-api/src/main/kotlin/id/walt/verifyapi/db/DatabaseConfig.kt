@@ -6,6 +6,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.*
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
@@ -88,125 +89,126 @@ fun Application.configureDatabase() {
 /**
  * Seeds the database with system-level verification templates.
  * These templates are available to all organizations (organizationId = null).
+ * Uses per-template upsert so new templates are added to existing databases
+ * without duplicating ones that already exist.
  */
 private fun seedSystemTemplates() {
+    data class SystemTemplate(
+        val name: String,
+        val displayName: String,
+        val description: String,
+        val templateType: String,
+        val dcqlQuery: String,
+        val claimMappings: String,
+        val validCredentialTypes: String,
+    )
+
+    val templates = listOf(
+        SystemTemplate(
+            name = "age_check",
+            displayName = "Age Verification",
+            description = "Verify user is over 18 years old",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            claimMappings = """{"age_over_18":"is_adult"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "age_over_18",
+            displayName = "Age 18+ Verification",
+            description = "Verify user is 18 years or older",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            claimMappings = """{"age_over_18":"is_adult"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "age_over_21",
+            displayName = "Age 21+ Verification",
+            description = "Verify user is 21 years or older",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]}]}""",
+            claimMappings = """{"age_over_21":"is_adult"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "kyc_basic",
+            displayName = "Basic KYC",
+            description = "Basic identity verification with name and date of birth",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]}]}""",
+            claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "full_kyc",
+            displayName = "Full KYC",
+            description = "Complete identity verification with name, birth date, and nationality",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["nationality"]}]}]}""",
+            claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth","nationality":"nationality"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "transaction_binding",
+            displayName = "Payment Authorization",
+            description = "Verify payment wallet attestation for transaction binding",
+            templateType = "payment",
+            dcqlQuery = """{"credentials":[{"id":"pwa","format":"dc+sd-jwt","meta":{"vct_values":["PaymentWalletAttestation"]},"claims":[{"path":["funding_source"]},{"path":["funding_source","type"]},{"path":["funding_source","panLastFour"]}]}]}""",
+            claimMappings = """{"funding_source.type":"payment_method","funding_source.panLastFour":"card_last_four"}""",
+            validCredentialTypes = """["PaymentWalletAttestation"]""",
+        ),
+        SystemTemplate(
+            name = "basic_identity",
+            displayName = "Basic Identity",
+            description = "Verify basic identity with name only",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]}]}""",
+            claimMappings = """{"family_name":"last_name","given_name":"first_name"}""",
+            validCredentialTypes = """["urn:eudi:pid:1"]""",
+        ),
+        SystemTemplate(
+            name = "mdl_verification",
+            displayName = "Driving License",
+            description = "Verify mobile driving license (mDL)",
+            templateType = "identity",
+            dcqlQuery = """{"credentials":[{"id":"mdl","format":"mso_mdoc","meta":{"doctype_value":"org.iso.18013.5.1.mDL"},"claims":[{"path":["org.iso.18013.5.1","family_name"]},{"path":["org.iso.18013.5.1","given_name"]},{"path":["org.iso.18013.5.1","birth_date"]},{"path":["org.iso.18013.5.1","document_number"]}]}]}""",
+            claimMappings = """{"org.iso.18013.5.1.family_name":"last_name","org.iso.18013.5.1.given_name":"first_name","org.iso.18013.5.1.birth_date":"date_of_birth","org.iso.18013.5.1.document_number":"license_number"}""",
+            validCredentialTypes = """["org.iso.18013.5.1.mDL"]""",
+        ),
+    )
+
     transaction {
-        val existingCount = VerifyTemplates.selectAll()
-            .where { VerifyTemplates.organizationId eq null }
-            .count()
+        val now = Instant.now()
+        var seeded = 0
 
-        if (existingCount == 0L) {
-            logger.info { "Seeding system templates..." }
-            val now = Instant.now()
+        for (tmpl in templates) {
+            val exists = VerifyTemplates.selectAll()
+                .where { (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name) }
+                .count() > 0
 
-            // Age Check template - simple age verification
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "age_check"
-                it[displayName] = "Age Verification"
-                it[description] = "Verify user is over 18 years old"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"age_over_18":"is_adult"}"""
-                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
+            if (!exists) {
+                VerifyTemplates.insert {
+                    it[organizationId] = null
+                    it[name] = tmpl.name
+                    it[displayName] = tmpl.displayName
+                    it[description] = tmpl.description
+                    it[templateType] = tmpl.templateType
+                    it[dcqlQuery] = tmpl.dcqlQuery
+                    it[responseMode] = "answers"
+                    it[claimMappings] = tmpl.claimMappings
+                    it[validCredentialTypes] = tmpl.validCredentialTypes
+                    it[createdAt] = now
+                    it[updatedAt] = now
+                }
+                seeded++
             }
+        }
 
-            // Age Over 18 template - used by Widget SDK verifyAge({minAge: 18})
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "age_over_18"
-                it[displayName] = "Age 18+ Verification"
-                it[description] = "Verify user is 18 years or older"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"age_over_18":"is_adult"}"""
-                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            // Age Over 21 template - used by Widget SDK verifyAge({minAge: 21})
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "age_over_21"
-                it[displayName] = "Age 21+ Verification"
-                it[description] = "Verify user is 21 years or older"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"age_over_21":"is_adult"}"""
-                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            // Full KYC template - complete identity verification
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "full_kyc"
-                it[displayName] = "Full KYC"
-                it[description] = "Complete identity verification with name, birth date, and nationality"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["nationality"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth","nationality":"nationality"}"""
-                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            // Transaction Binding template - for payment wallet attestation
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "transaction_binding"
-                it[displayName] = "Payment Authorization"
-                it[description] = "Verify payment wallet attestation for transaction binding"
-                it[templateType] = "payment"
-                it[dcqlQuery] = """{"credentials":[{"id":"pwa","format":"dc+sd-jwt","meta":{"vct_values":["PaymentWalletAttestation"]},"claims":[{"path":["funding_source"]},{"path":["funding_source","type"]},{"path":["funding_source","panLastFour"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"funding_source.type":"payment_method","funding_source.panLastFour":"card_last_four"}"""
-                it[validCredentialTypes] = """["PaymentWalletAttestation"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            // Basic Identity template - minimal identity verification
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "basic_identity"
-                it[displayName] = "Basic Identity"
-                it[description] = "Verify basic identity with name only"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"family_name":"last_name","given_name":"first_name"}"""
-                it[validCredentialTypes] = """["urn:eudi:pid:1"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            // mDL template - mobile driving license verification
-            VerifyTemplates.insert {
-                it[organizationId] = null
-                it[name] = "mdl_verification"
-                it[displayName] = "Driving License"
-                it[description] = "Verify mobile driving license (mDL)"
-                it[templateType] = "identity"
-                it[dcqlQuery] = """{"credentials":[{"id":"mdl","format":"mso_mdoc","meta":{"doctype_value":"org.iso.18013.5.1.mDL"},"claims":[{"path":["org.iso.18013.5.1","family_name"]},{"path":["org.iso.18013.5.1","given_name"]},{"path":["org.iso.18013.5.1","birth_date"]},{"path":["org.iso.18013.5.1","document_number"]}]}]}"""
-                it[responseMode] = "answers"
-                it[claimMappings] = """{"org.iso.18013.5.1.family_name":"last_name","org.iso.18013.5.1.given_name":"first_name","org.iso.18013.5.1.birth_date":"date_of_birth","org.iso.18013.5.1.document_number":"license_number"}"""
-                it[validCredentialTypes] = """["org.iso.18013.5.1.mDL"]"""
-                it[createdAt] = now
-                it[updatedAt] = now
-            }
-
-            logger.info { "Seeded 7 system templates" }
+        if (seeded > 0) {
+            logger.info { "Seeded $seeded new system templates (${templates.size} total defined)" }
         } else {
-            logger.info { "System templates already exist (count: $existingCount), skipping seed" }
+            logger.info { "All ${templates.size} system templates already exist, nothing to seed" }
         }
     }
 }
