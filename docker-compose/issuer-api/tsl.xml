@@ -37,6 +37,9 @@
                             <DigitalId>
                                 <X509SubjectName>CN=issuer.theaustraliahack.com</X509SubjectName>
                             </DigitalId>
+                            <DigitalId>
+                                <X509Certificate>MIIByDCCAW+gAwIBAgIUU9b7c6Hrgh9jGITbgWMQ1VD+OpcwCgYIKoZIzj0EAwIwJjEkMCIGA1UEAwwbaXNzdWVyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwNDIxNDM1N1oXDTI3MDIwNDIxNDM1N1owJjEkMCIGA1UEAwwbaXNzdWVyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJreXfHW1QeGbJ6V0PXUQQnjwP4j4RDrFzdaS8KJWe/c41raZgTMp6L6T5T455wdYJZ3KidFQ+U2WQjCMnqcIh6N7MHkwHQYDVR0OBBYEFALSLxp0FtehO5lns00Bcb9wqauIMB8GA1UdIwQYMBaAFALSLxp0FtehO5lns00Bcb9wqauIMA8GA1UdEwEB/wQFMAMBAf8wJgYDVR0RBB8wHYIbaXNzdWVyLnRoZWF1c3RyYWxpYWhhY2suY29tMAoGCCqGSM49BAMCA0cAMEQCIC7abZDMx55PzZamSRnOZX9IhfcIM17RxyCkCwANZJMbAiB7aWqLqRfFSPs5Db2UO7xLD6MxzfPiJzqQMiEx4JjeWw==</X509Certificate>
+                            </DigitalId>
                         </ServiceDigitalIdentity>
                         <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
                         <StatusStartingTime>2026-01-01T00:00:00Z</StatusStartingTime>
@@ -64,6 +67,9 @@
                         <ServiceDigitalIdentity>
                             <DigitalId>
                                 <X509SubjectName>CN=verifier2.theaustraliahack.com</X509SubjectName>
+                            </DigitalId>
+                            <DigitalId>
+                                <X509Certificate>MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDFyAM7YJe++0QGyKIwCgYIKoZIzj0EAwIwKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB4XDTI2MDIwMzAzNTIwM1oXDTI3MDIwMzAzNTIwM1owKTEnMCUGA1UEAwwedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Z2eGpdQVfWkAQQmNv8oT+lMwbhsFxWTZmhAYFHR5wa29fr30LbWoYQyrvOqOkSGrLaQ9PwoiedvGUtnN5Jd2qNMMEowKQYDVR0RBCIwIIIedmVyaWZpZXIyLnRoZWF1c3RyYWxpYWhhY2suY29tMB0GA1UdDgQWBBRt0uKz8aKVlUxKF9j6vhAsGl3nHDAKBggqhkjOPQQDAgNHADBEAiAQ+AlF3Q4dput8QTizDyKo99R/sv3CC7BzqEjOxxsnzQIgF+rnBf0HghobWkjSVNwP8j/ekasfjp+1HDJclcNaUvs=</X509Certificate>
                             </DigitalId>
                         </ServiceDigitalIdentity>
                         <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
