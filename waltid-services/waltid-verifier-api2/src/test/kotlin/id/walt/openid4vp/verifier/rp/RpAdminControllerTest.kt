@@ -38,8 +38,13 @@ class RpAdminControllerTest {
         legalName: String = "Test RP",
         country: String = "AU",
         domain: String = "test.example.com",
-        contactEmail: String = "admin@example.com"
-    ) = """{"legalName":"$legalName","country":"$country","domain":"$domain","contactEmail":"$contactEmail"}"""
+        contactEmail: String = "admin@example.com",
+        contactAddress: String = "123 Test St",
+        privacyPolicyUrl: String = "https://example.com/privacy",
+        dataRetentionPeriod: String = "12 months",
+        lawfulBasis: String = "CONSENT",
+        dpaAcknowledged: Boolean = true
+    ) = """{"legalName":"$legalName","country":"$country","domain":"$domain","contactEmail":"$contactEmail","contactAddress":"$contactAddress","privacyPolicyUrl":"$privacyPolicyUrl","dataRetentionPeriod":"$dataRetentionPeriod","lawfulBasis":"$lawfulBasis","dpaAcknowledged":$dpaAcknowledged}"""
 
     // ===== Feature Disabled Tests (503) =====
 
@@ -347,7 +352,7 @@ class RpAdminControllerTest {
 
         val response = client.post("/admin/rp") {
             contentType(ContentType.Application.Json)
-            setBody("""{"legalName":"","country":"AU","domain":"test.example.com","contactEmail":"a@b.com"}""")
+            setBody(createRpJson(legalName = ""))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertTrue(response.bodyAsText().contains("legalName"))
@@ -361,7 +366,7 @@ class RpAdminControllerTest {
 
         val response = client.post("/admin/rp") {
             contentType(ContentType.Application.Json)
-            setBody("""{"legalName":"Test","country":"AU","domain":"","contactEmail":"a@b.com"}""")
+            setBody(createRpJson(legalName = "Test", domain = ""))
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertTrue(response.bodyAsText().contains("domain"))
