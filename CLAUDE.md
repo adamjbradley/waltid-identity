@@ -277,6 +277,82 @@ curl http://localhost:7002/.well-known/openid-credential-issuer | jq '.credentia
 | `PWA_ENABLED` | `false` | Enable PWA feature (must be explicitly set to `true`) |
 | `PWA_PSP_ADAPTER` | `mock` | PSP adapter implementation |
 
+## EUDI Trust Lists
+
+Validates credential issuers against official EU trust infrastructure (ETSI TS 119 612 Trust Service Lists).
+
+**IMPORTANT: Trust lists are ENABLED by default** in docker-compose. Set `TRUST_LISTS_ENABLED=false` to disable.
+
+### Quick Reference
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `TRUST_LISTS_ENABLED` | `true` | Enable trust list validation |
+| `ETSI_LOTL_URL` | `https://ec.europa.eu/tools/lotl/eu-lotl.xml` | EU LOTL endpoint |
+
+### Key Endpoints
+
+- **Admin status:** `GET http://localhost:7004/admin/trust/status`
+- **Toggle ETSI:** `PUT http://localhost:7004/admin/trust/etsi` with `{"enabled": true/false}`
+- **Refresh lists:** `POST http://localhost:7004/admin/trust/refresh`
+- **Portal UI:** `http://localhost:7102/admin/trust-config`
+
+### Verification Policy
+
+Add `etsi-trusted-issuer` to verification sessions to require issuer trust validation.
+
+### Documentation
+
+- **Full guide:** [`docs/trust-lists/README.md`](docs/trust-lists/README.md)
+
+## OpenID Federation
+
+The verifier-api2 and wallet-api support OpenID Federation as a trust source for validating issuers and verifiers via hierarchical entity statement chains.
+
+**IMPORTANT: OpenID Federation is DISABLED by default.** It requires both `TRUST_LISTS_ENABLED=true` and `OPENID_FEDERATION_ENABLED=true`, plus at least one configured trust anchor.
+
+### Default State
+
+| Location | Default | Notes |
+|----------|---------|-------|
+| `trust-lists.conf` | `enabled = false` | Base config per service |
+| `docker-compose/.env` | `OPENID_FEDERATION_ENABLED=false` | Docker environment |
+| `trust-lists.conf` | `trustAnchors = []` | No trust anchors configured |
+
+### Enable OpenID Federation
+
+```bash
+# In docker-compose/.env or .env.local
+TRUST_LISTS_ENABLED=true
+OPENID_FEDERATION_ENABLED=true
+
+# Restart services
+docker compose --profile identity up -d verifier-api2
+
+# Verify it's enabled
+curl http://localhost:7004/admin/trust/status | jq '.sources.OPENID_FEDERATION'
+```
+
+Trust anchors must also be configured in `trust-lists.conf`:
+```hocon
+openidFederation {
+    enabled = true
+    trustAnchors = ["https://trust-anchor.example.com"]
+}
+```
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `TRUST_LISTS_ENABLED` | `false` | Master switch for all trust list features |
+| `OPENID_FEDERATION_ENABLED` | `false` | Enable OpenID Federation trust source |
+| `ETSI_LOTL_URL` | EU LOTL URL | ETSI List of Trusted Lists URL |
+
+### Documentation
+
+- **Overview:** [`docs/trust-lists/openid-federation.md`](docs/trust-lists/openid-federation.md)
+
 ## Platform-Specific Builds
 
 ```bash
