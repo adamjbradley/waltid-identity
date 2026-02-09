@@ -91,7 +91,7 @@ class MDocTestSuite(
     private val coseProviderSigningKeyId = "issuer-signing-key"
 
     private val issuerKey: JWKKey = runBlocking {
-        JWKKey.importJWK(Json.encodeToString(MdocDocs.mdlBaseIssuanceExample.issuerKey["jwk"]!!)).getOrThrow()
+        JWKKey.importJWK(Json.encodeToString(MdocDocs.mdlBaseIssuanceExample.issuerKey!!["jwk"]!!)).getOrThrow()
     }
 
     private val issuerOneKey = runBlocking {
@@ -574,7 +574,7 @@ class MDocTestSuite(
         assertTrue {
             mDLNamespaceDataJson.keys.containsAll(mDLRequiredFields)
         }
-        val issuanceRequestKey = KeyManager.resolveSerializedKey(mDLIssuanceRequest.issuerKey)
+        val issuanceRequestKey = KeyManager.resolveSerializedKey(mDLIssuanceRequest.issuerKey!!)
         assertTrue {
             issuanceRequestKey.hasPrivateKey
         }
