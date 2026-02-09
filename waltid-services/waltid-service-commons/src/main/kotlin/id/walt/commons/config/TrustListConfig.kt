@@ -13,6 +13,9 @@ data class TrustListConfig(
     )
 
     data class OpenIdFederationConfig(
-        val trustAnchors: List<String> = emptyList()
+        val enabled: Boolean = false,
+        val trustAnchors: List<String> = emptyList(),
+        val maxChainDepth: Int = 5,
+        val cacheTtlSeconds: Long = 3600
     )
 }
