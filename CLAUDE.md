@@ -277,6 +277,34 @@ curl http://localhost:7002/.well-known/openid-credential-issuer | jq '.credentia
 | `PWA_ENABLED` | `false` | Enable PWA feature (must be explicitly set to `true`) |
 | `PWA_PSP_ADAPTER` | `mock` | PSP adapter implementation |
 
+## EUDI Trust Lists
+
+Validates credential issuers against official EU trust infrastructure (ETSI TS 119 612 Trust Service Lists).
+
+**IMPORTANT: Trust lists are ENABLED by default** in docker-compose. Set `TRUST_LISTS_ENABLED=false` to disable.
+
+### Quick Reference
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `TRUST_LISTS_ENABLED` | `true` | Enable trust list validation |
+| `ETSI_LOTL_URL` | `https://ec.europa.eu/tools/lotl/eu-lotl.xml` | EU LOTL endpoint |
+
+### Key Endpoints
+
+- **Admin status:** `GET http://localhost:7004/admin/trust/status`
+- **Toggle ETSI:** `PUT http://localhost:7004/admin/trust/etsi` with `{"enabled": true/false}`
+- **Refresh lists:** `POST http://localhost:7004/admin/trust/refresh`
+- **Portal UI:** `http://localhost:7102/admin/trust-config`
+
+### Verification Policy
+
+Add `etsi-trusted-issuer` to verification sessions to require issuer trust validation.
+
+### Documentation
+
+- **Full guide:** [`docs/trust-lists/README.md`](docs/trust-lists/README.md)
+
 ## Platform-Specific Builds
 
 ```bash
