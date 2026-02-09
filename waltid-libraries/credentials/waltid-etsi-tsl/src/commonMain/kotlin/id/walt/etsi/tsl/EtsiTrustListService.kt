@@ -18,6 +18,8 @@ class EtsiTrustListService(
     private val fetcher = TslFetcher(config, httpClient)
     private val mutex = Mutex()
     private var cachedProviders: List<TrustServiceProvider>? = null
+    private var _cachedLotl: TrustServiceList? = null
+    private var _cachedMemberStateTls: Map<String, TrustServiceList> = emptyMap()
     private var healthy = false
 
     override suspend fun fetchLotl(): TrustServiceList {
@@ -42,6 +44,7 @@ class EtsiTrustListService(
             log.info { "Refreshing ETSI trust lists..." }
             val lotl = fetchLotl()
             val allProviders = mutableListOf<TrustServiceProvider>()
+            val memberStateTls = mutableMapOf<String, TrustServiceList>()
 
             // Fetch member state TLs from LOTL pointers
             for (pointer in lotl.pointers) {
@@ -57,6 +60,7 @@ class EtsiTrustListService(
 
                 try {
                     val memberTl = fetchMemberStateTl(pointer.location)
+                    memberStateTls[territory] = memberTl
                     val providersWithCountry = memberTl.trustServiceProviders.map {
                         it.copy(country = territory)
                     }
@@ -69,6 +73,8 @@ class EtsiTrustListService(
 
             mutex.withLock {
                 cachedProviders = allProviders
+                _cachedLotl = lotl
+                _cachedMemberStateTls = memberStateTls
                 healthy = true
             }
 
@@ -80,4 +86,10 @@ class EtsiTrustListService(
     }
 
     override fun isHealthy(): Boolean = healthy
+
+    override fun getCachedLotl(): TrustServiceList? = _cachedLotl
+
+    override fun getCachedMemberStateTls(): Map<String, TrustServiceList> = _cachedMemberStateTls
+
+    override fun getCachedMemberStateTl(country: String): TrustServiceList? = _cachedMemberStateTls[country]
 }
