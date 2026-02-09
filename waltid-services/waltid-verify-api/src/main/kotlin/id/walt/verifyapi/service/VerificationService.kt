@@ -19,6 +19,8 @@ import kotlinx.serialization.json.longOrNull
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
+import java.time.Instant
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
@@ -80,11 +82,29 @@ object VerificationService {
         }
 
         // 3. Create session on verifier-api2 with signed JAR request
+        //    Self-healing: if "Unknown RP" error, resolve correct RP by domain and retry
         val verifierSession = try {
             Verifier2Client.createSession(template.dcqlQuery, rpId)
         } catch (e: Exception) {
-            logger.error(e) { "Failed to create verifier-api2 session" }
-            throw RuntimeException("Failed to create verification session: ${e.message}", e)
+            if (rpId != null && e.message?.contains("Unknown RP") == true) {
+                logger.warn { "RP $rpId not found in verifier-api2, attempting self-healing resolution..." }
+                val resolvedRpId = resolveAndUpdateRpId(organizationId, rpId)
+                if (resolvedRpId != null) {
+                    logger.info { "Self-healed RP ID: $rpId -> $resolvedRpId, retrying session creation" }
+                    try {
+                        Verifier2Client.createSession(template.dcqlQuery, resolvedRpId)
+                    } catch (retryEx: Exception) {
+                        logger.error(retryEx) { "Failed to create verifier-api2 session after self-healing" }
+                        throw RuntimeException("Failed to create verification session: ${retryEx.message}", retryEx)
+                    }
+                } else {
+                    logger.error(e) { "Self-healing failed: could not resolve RP for organization $organizationId" }
+                    throw RuntimeException("Failed to create verification session: ${e.message}", e)
+                }
+            } else {
+                logger.error(e) { "Failed to create verifier-api2 session" }
+                throw RuntimeException("Failed to create verification session: ${e.message}", e)
+            }
         }
 
         logger.info { "Created verifier-api2 session: ${verifierSession.sessionId}" }
@@ -287,6 +307,28 @@ object VerificationService {
             is JsonArray -> value.toString()
             else -> value.toString()
         }
+    }
+
+    /**
+     * Resolves the correct RP ID from verifier-api2 by domain and updates the organization's DB record.
+     * Used for self-healing when the stored RP ID becomes stale (e.g., after RP re-registration).
+     */
+    private suspend fun resolveAndUpdateRpId(organizationId: UUID, staleRpId: String): String? {
+        // Try to resolve by well-known RP domain
+        val rpDomain = System.getenv("RP_DOMAIN") ?: "rp.theaustraliahack.com"
+        val resolvedRpId = Verifier2Client.resolveRpIdByDomain(rpDomain) ?: return null
+
+        if (resolvedRpId == staleRpId) return null // Same ID, not a stale reference
+
+        // Update the organization's RP ID in the database
+        transaction {
+            VerifyOrganizations.update({ VerifyOrganizations.id eq organizationId }) {
+                it[rpId] = resolvedRpId
+                it[updatedAt] = Instant.now()
+            }
+        }
+        logger.info { "Updated organization $organizationId rpId: $staleRpId -> $resolvedRpId" }
+        return resolvedRpId
     }
 
     data class SessionStatus(

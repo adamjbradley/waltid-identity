@@ -146,7 +146,7 @@ object Verifier2Client {
         if (!response.status.isSuccess()) {
             val errorBody = response.bodyAsText()
             logger.error { "Failed to create verifier-api2 session: ${response.status} - $errorBody" }
-            throw RuntimeException("Failed to create verification session: ${response.status}")
+            throw RuntimeException("Failed to create verification session: ${response.status} - $errorBody")
         }
 
         val sessionResponse = response.body<VerificationSessionResponse>()
@@ -171,6 +171,53 @@ object Verifier2Client {
         }
 
         return response.body()
+    }
+
+    /**
+     * Lists all registered RPs from verifier-api2's RP Registrar.
+     * Used for self-healing when an RP ID becomes stale.
+     */
+    suspend fun listRegisteredRps(): List<JsonObject> {
+        val response = httpClient.get("$verifierApi2Url/admin/rp")
+
+        if (!response.status.isSuccess()) {
+            logger.warn { "Failed to list registered RPs: ${response.status}" }
+            return emptyList()
+        }
+
+        return try {
+            val body = response.body<JsonArray>()
+            body.filterIsInstance<JsonObject>()
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to parse RP list response" }
+            emptyList()
+        }
+    }
+
+    /**
+     * Resolves an RP ID by matching the domain in the registered RPs.
+     * Looks for active RPs whose clientId contains the given domain.
+     *
+     * @param domain The domain to search for (e.g., "rp.theaustraliahack.com")
+     * @return The RP ID if found, null otherwise
+     */
+    suspend fun resolveRpIdByDomain(domain: String): String? {
+        val rps = listRegisteredRps()
+        for (rp in rps) {
+            val status = (rp["status"] as? JsonPrimitive)?.content
+            if (status != "ACTIVE") continue
+
+            val rpClientId = (rp["clientId"] as? JsonPrimitive)?.content
+            val rpDomain = (rp["domain"] as? JsonPrimitive)?.content
+            val rpId = (rp["id"] as? JsonPrimitive)?.content
+
+            if (rpId != null && (rpDomain == domain || rpClientId?.contains(domain) == true)) {
+                logger.info { "Resolved domain '$domain' to RP ID: $rpId" }
+                return rpId
+            }
+        }
+        logger.warn { "No active RP found for domain: $domain" }
+        return null
     }
 
     // Default values from environment - these match verifier2.theaustraliahack.com configuration

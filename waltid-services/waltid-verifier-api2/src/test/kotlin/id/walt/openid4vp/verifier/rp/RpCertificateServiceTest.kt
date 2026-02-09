@@ -70,15 +70,11 @@ class RpCertificateServiceTest {
         val result = RpCertificateService.generateCertificate("Test RP", "test.example.com")
 
         val jwk = result.privateKeyJwk
-        assertEquals("jwk", jwk["type"]?.jsonPrimitive?.content)
-
-        val innerJwk = jwk["jwk"]?.jsonObject
-        assertNotNull(innerJwk, "JWK should have inner jwk object")
-        assertEquals("EC", innerJwk["kty"]?.jsonPrimitive?.content)
-        assertEquals("P-256", innerJwk["crv"]?.jsonPrimitive?.content)
-        assertNotNull(innerJwk["x"]?.jsonPrimitive?.content, "JWK should have x coordinate")
-        assertNotNull(innerJwk["y"]?.jsonPrimitive?.content, "JWK should have y coordinate")
-        assertNotNull(innerJwk["d"]?.jsonPrimitive?.content, "JWK should have d (private key)")
+        assertEquals("EC", jwk["kty"]?.jsonPrimitive?.content)
+        assertEquals("P-256", jwk["crv"]?.jsonPrimitive?.content)
+        assertNotNull(jwk["x"]?.jsonPrimitive?.content, "JWK should have x coordinate")
+        assertNotNull(jwk["y"]?.jsonPrimitive?.content, "JWK should have y coordinate")
+        assertNotNull(jwk["d"]?.jsonPrimitive?.content, "JWK should have d (private key)")
     }
 
     @Test

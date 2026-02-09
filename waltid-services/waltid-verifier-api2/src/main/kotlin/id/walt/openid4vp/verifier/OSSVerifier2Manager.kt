@@ -48,11 +48,12 @@ object OSSVerifier2Manager {
             key = setup.core.key?.key
                 ?: rp?.privateKeyJwk?.let { jwk ->
                     // Wrap bare JWK in {"type":"jwk","jwk":{...}} format expected by KeyManager
-                    val wrappedKey = buildJsonObject {
+                    // If already wrapped (has "type" key), use as-is
+                    val resolvedKey = if (jwk.containsKey("type")) jwk else buildJsonObject {
                         put("type", "jwk")
                         put("jwk", jwk)
                     }
-                    KeyManager.resolveSerializedKey(wrappedKey)
+                    KeyManager.resolveSerializedKey(resolvedKey)
                 }
                 ?: config.key?.let { KeyManager.resolveSerializedKey(it) },
             x5c = setup.core.x5c ?: rp?.x5c ?: config.x5c,
