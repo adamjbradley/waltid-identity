@@ -648,12 +648,12 @@ Check that `memberStates` in config is set to `["*"]` or includes the desired co
 
 ## Test Coverage
 
-98 unit tests across 12 test files:
+115 unit tests across 9 test files:
 
 | Module | Tests | File |
 |--------|-------|------|
 | EtsiTrustedIssuerPolicy | 6 | `waltid-verification-policies2/.../EtsiTrustedIssuerPolicyTest.kt` |
-| CompositeTrustService | 12 | `waltid-service-commons/.../CompositeTrustServiceTest.kt` |
+| CompositeTrustService | 38 | `waltid-service-commons/.../CompositeTrustServiceTest.kt` |
 | TrustListServiceFactory | 6 | `waltid-service-commons/.../TrustListServiceFactoryTest.kt` |
 | TrustAdminController | 19 | `waltid-verifier-api2/.../TrustAdminControllerTest.kt` |
 | EnhancedTrustValidationService | 6 | `waltid-wallet-api/.../EnhancedTrustValidationServiceTest.kt` |
@@ -662,7 +662,7 @@ Check that `memberStates` in config is set to `["*"]` or includes the desired co
 | EntityStatementFetcher | 10 | `waltid-openid-federation/.../EntityStatementFetcherTest.kt` |
 | TrustChainBuilder | 8 | `waltid-openid-federation/.../TrustChainBuilderTest.kt` |
 
-The TrustAdminControllerTest covers all browsing endpoints (LOTL overview, country detail, search) plus the original admin endpoints (status, toggle, refresh).
+The CompositeTrustServiceTest covers 11 validation/status tests plus 27 browsing and search tests (getLotl, getMemberStateTls, searchProviders with query/country/status/type filters and pagination). The TrustAdminControllerTest covers all admin endpoints including the 3 browsing routes (LOTL overview, country detail, search).
 
 Run all trust-related tests:
 
