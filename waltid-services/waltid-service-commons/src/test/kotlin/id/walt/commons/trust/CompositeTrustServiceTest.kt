@@ -626,4 +626,91 @@ class CompositeTrustServiceTest {
         assertTrue(fedStatus.healthy, "Federation should be healthy")
         assertEquals(1, fedStatus.entryCount, "Entry count should match configured trust anchors")
     }
+
+    // -- Custom TSL management tests --
+
+    @Nested
+    inner class CustomTslTests {
+
+        private lateinit var mockEtsi: EtsiTrustListProvider
+        private lateinit var svc: CompositeTrustService
+
+        private val customTsl = TrustServiceList(
+            schemeTerritory = "AU",
+            schemeOperatorName = "Australia Hack Authority",
+            trustServiceProviders = listOf(
+                TrustServiceProvider(
+                    name = "TheAustraliaHack Issuer",
+                    country = "AU",
+                    trustServices = listOf(
+                        TrustServiceEntry(
+                            serviceType = TrustServiceEntry.TYPE_CA_QC,
+                            serviceName = "Issuer CA/QC",
+                            currentStatus = TrustServiceEntry.STATUS_GRANTED
+                        )
+                    )
+                )
+            )
+        )
+
+        @BeforeEach
+        fun setUp() {
+            mockEtsi = mockk<EtsiTrustListProvider>()
+            coEvery { mockEtsi.addCustomTsl("AU", any()) } returns customTsl
+            every { mockEtsi.removeCustomTsl("AU") } returns true
+            every { mockEtsi.removeCustomTsl("XX") } returns false
+            every { mockEtsi.getCustomTslUrls() } returns mapOf("AU" to "https://issuer.theaustraliahack.com/tsl.xml")
+            every { mockEtsi.isHealthy() } returns true
+            coEvery { mockEtsi.getAllTrustedProviders() } returns customTsl.trustServiceProviders
+            every { mockEtsi.getCachedLotl() } returns null
+            every { mockEtsi.getCachedMemberStateTls() } returns mapOf("AU" to customTsl)
+            every { mockEtsi.getCachedMemberStateTl("AU") } returns customTsl
+
+            svc = CompositeTrustService(TrustListConfig(enabled = true), mockEtsi)
+        }
+
+        @Test
+        fun `addCustomTsl delegates to ETSI provider and returns TSL`() = runBlocking {
+            val result = svc.addCustomTsl("AU", "https://issuer.theaustraliahack.com/tsl.xml")
+
+            assertEquals("AU", result.schemeTerritory)
+            assertEquals("Australia Hack Authority", result.schemeOperatorName)
+            assertEquals(1, result.trustServiceProviders.size)
+        }
+
+        @Test
+        fun `removeCustomTsl delegates to ETSI provider`() = runBlocking {
+            assertTrue(svc.removeCustomTsl("AU"))
+            assertFalse(svc.removeCustomTsl("XX"))
+        }
+
+        @Test
+        fun `getCustomTslUrls returns URLs from ETSI provider`() = runBlocking {
+            val urls = svc.getCustomTslUrls()
+            assertEquals(1, urls.size)
+            assertEquals("https://issuer.theaustraliahack.com/tsl.xml", urls["AU"])
+        }
+
+        @Test
+        fun `custom country providers appear in getMemberStateTls`() {
+            val tls = svc.getMemberStateTls()
+            assertTrue(tls.containsKey("AU"))
+            assertEquals("Australia Hack Authority", tls["AU"]!!.schemeOperatorName)
+        }
+
+        @Test
+        fun `custom country TSL accessible via getMemberStateTl`() {
+            val tsl = svc.getMemberStateTl("AU")
+            assertNotNull(tsl)
+            assertEquals(1, tsl.trustServiceProviders.size)
+            assertEquals("TheAustraliaHack Issuer", tsl.trustServiceProviders[0].name)
+        }
+
+        @Test
+        fun `searchProviders finds custom country providers`() = runBlocking {
+            val results = svc.searchProviders(country = "AU")
+            assertEquals(1, results.size)
+            assertEquals("TheAustraliaHack Issuer", results[0].name)
+        }
+    }
 }

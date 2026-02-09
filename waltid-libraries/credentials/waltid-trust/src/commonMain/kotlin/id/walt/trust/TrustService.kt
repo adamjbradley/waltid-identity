@@ -24,4 +24,9 @@ interface TrustService {
         limit: Int = 50,
         offset: Int = 0
     ): List<TrustServiceProvider>
+
+    // Custom TSL management
+    suspend fun addCustomTsl(country: String, url: String): TrustServiceList
+    fun removeCustomTsl(country: String): Boolean
+    fun getCustomTslUrls(): Map<String, String>
 }

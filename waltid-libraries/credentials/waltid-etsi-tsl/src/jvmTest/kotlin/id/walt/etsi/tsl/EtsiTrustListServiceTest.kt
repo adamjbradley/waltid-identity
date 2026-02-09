@@ -3,11 +3,12 @@ package id.walt.etsi.tsl
 import id.walt.etsi.tsl.config.TslConfig
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.engine.mock.*
+import io.ktor.http.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class EtsiTrustListServiceTest {
 
@@ -152,6 +153,179 @@ class EtsiTrustListServiceTest {
         val service = EtsiTrustListService(config, httpClient)
 
         assertNull(service.getCachedMemberStateTl("XX"))
+
+        httpClient.close()
+    }
+
+    // -- Custom TSL tests --
+
+    companion object {
+        val SAMPLE_TSL_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#">
+                <SchemeInformation>
+                    <TSLSequenceNumber>1</TSLSequenceNumber>
+                    <SchemeOperatorName><Name xml:lang="en">Test Authority</Name></SchemeOperatorName>
+                    <SchemeTerritory>XX</SchemeTerritory>
+                    <ListIssueDateTime>2026-01-01T00:00:00Z</ListIssueDateTime>
+                </SchemeInformation>
+                <TrustServiceProviderList>
+                    <TrustServiceProvider>
+                        <TSPInformation>
+                            <TSPName><Name xml:lang="en">Test Provider</Name></TSPName>
+                        </TSPInformation>
+                        <TSPServices>
+                            <TSPService>
+                                <ServiceInformation>
+                                    <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                                    <ServiceName><Name xml:lang="en">Test Service</Name></ServiceName>
+                                    <ServiceDigitalIdentity>
+                                        <DigitalId><X509SubjectName>CN=test.example.com</X509SubjectName></DigitalId>
+                                    </ServiceDigitalIdentity>
+                                    <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+                                    <StatusStartingTime>2026-01-01T00:00:00Z</StatusStartingTime>
+                                </ServiceInformation>
+                            </TSPService>
+                        </TSPServices>
+                    </TrustServiceProvider>
+                </TrustServiceProviderList>
+            </TrustServiceStatusList>
+        """.trimIndent()
+
+        val SAMPLE_LOTL_XML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#">
+                <SchemeInformation>
+                    <TSLSequenceNumber>1</TSLSequenceNumber>
+                    <SchemeOperatorName><Name xml:lang="en">EU LOTL</Name></SchemeOperatorName>
+                    <SchemeTerritory>EU</SchemeTerritory>
+                    <ListIssueDateTime>2026-01-01T00:00:00Z</ListIssueDateTime>
+                </SchemeInformation>
+            </TrustServiceStatusList>
+        """.trimIndent()
+
+        fun mockHttpClient(customTslUrl: String): HttpClient {
+            return HttpClient(MockEngine) {
+                engine {
+                    addHandler { request ->
+                        when (request.url.toString()) {
+                            "https://lotl.example.com/lotl.xml" -> respond(
+                                content = ByteReadChannel(SAMPLE_LOTL_XML),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/xml")
+                            )
+                            customTslUrl -> respond(
+                                content = ByteReadChannel(SAMPLE_TSL_XML),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/xml")
+                            )
+                            else -> respondError(HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `test additionalTslUrls loaded during refresh`() = runTest {
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl)
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        service.refresh()
+
+        assertTrue(service.isHealthy())
+        val providers = service.getAllTrustedProviders()
+        assertEquals(1, providers.size)
+        assertEquals("XX", providers[0].country)
+        assertEquals("Test Provider", providers[0].name)
+
+        val tsl = service.getCachedMemberStateTl("XX")
+        assertNotNull(tsl)
+        assertEquals("XX", tsl.schemeTerritory)
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test addCustomTsl adds providers at runtime`() = runTest {
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        // Initial refresh with no custom TSLs
+        service.refresh()
+        assertTrue(service.isHealthy())
+        assertTrue(service.getAllTrustedProviders().isEmpty())
+
+        // Add custom TSL at runtime
+        val tsl = service.addCustomTsl("XX", customUrl)
+        assertEquals("XX", tsl.schemeTerritory)
+        assertEquals(1, tsl.trustServiceProviders.size)
+
+        // Verify providers include the custom country
+        val providers = service.getAllTrustedProviders()
+        assertEquals(1, providers.size)
+        assertEquals("XX", providers[0].country)
+
+        // Verify custom TSL URLs are tracked
+        val urls = service.getCustomTslUrls()
+        assertEquals(mapOf("XX" to customUrl), urls)
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test removeCustomTsl removes providers`() = runTest {
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl)
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        service.refresh()
+        assertEquals(1, service.getAllTrustedProviders().size)
+
+        // Remove the custom TSL
+        val removed = service.removeCustomTsl("XX")
+        assertTrue(removed)
+        assertTrue(service.getAllTrustedProviders().isEmpty())
+        assertNull(service.getCachedMemberStateTl("XX"))
+        assertTrue(service.getCustomTslUrls().isEmpty())
+
+        // Removing again returns false
+        assertFalse(service.removeCustomTsl("XX"))
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test getCustomTslUrls returns configured and runtime URLs`() = runTest {
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl)
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        val urls = service.getCustomTslUrls()
+        assertEquals(1, urls.size)
+        assertEquals(customUrl, urls["XX"])
 
         httpClient.close()
     }

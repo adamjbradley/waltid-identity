@@ -32,7 +32,8 @@ class CompositeTrustService(
                 lotlUrl = config.etsi.lotlUrl,
                 cacheTtlHours = config.etsi.cacheTtlHours,
                 memberStates = config.etsi.memberStates,
-                validateSignatures = config.etsi.validateSignatures
+                validateSignatures = config.etsi.validateSignatures,
+                additionalTslUrls = config.etsi.additionalTslUrls
             )
             EtsiTrustListService(tslConfig, httpClient)
         }
@@ -265,5 +266,17 @@ class CompositeTrustService(
             .filter { it.trustServices.isNotEmpty() || (status == null && serviceType == null) }
             .drop(offset)
             .take(limit)
+    }
+
+    override suspend fun addCustomTsl(country: String, url: String): TrustServiceList {
+        return etsiService.addCustomTsl(country, url)
+    }
+
+    override fun removeCustomTsl(country: String): Boolean {
+        return etsiService.removeCustomTsl(country)
+    }
+
+    override fun getCustomTslUrls(): Map<String, String> {
+        return etsiService.getCustomTslUrls()
     }
 }

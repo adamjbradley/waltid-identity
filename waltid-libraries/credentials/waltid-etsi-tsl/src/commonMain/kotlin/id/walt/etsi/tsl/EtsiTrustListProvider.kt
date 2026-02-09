@@ -12,4 +12,9 @@ interface EtsiTrustListProvider {
     fun getCachedLotl(): TrustServiceList?
     fun getCachedMemberStateTls(): Map<String, TrustServiceList>
     fun getCachedMemberStateTl(country: String): TrustServiceList?
+
+    // Custom TSL management
+    suspend fun addCustomTsl(country: String, url: String): TrustServiceList
+    fun removeCustomTsl(country: String): Boolean
+    fun getCustomTslUrls(): Map<String, String>
 }

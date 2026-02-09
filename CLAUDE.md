@@ -295,7 +295,25 @@ Validates credential issuers against official EU trust infrastructure (ETSI TS 1
 - **Admin status:** `GET http://localhost:7004/admin/trust/status`
 - **Toggle ETSI:** `PUT http://localhost:7004/admin/trust/etsi` with `{"enabled": true/false}`
 - **Refresh lists:** `POST http://localhost:7004/admin/trust/refresh`
+- **List custom TSLs:** `GET http://localhost:7004/admin/trust/custom-tsls`
+- **Import custom TSL:** `POST http://localhost:7004/admin/trust/custom-tsls` with `{"country":"AU","url":"..."}`
+- **Remove custom TSL:** `DELETE http://localhost:7004/admin/trust/custom-tsls/{country}`
 - **Portal UI:** `http://localhost:7102/admin/trust-config`
+
+### Custom Country TSLs
+
+Add trust lists from outside the EU LOTL via config or runtime API:
+
+```hocon
+# In trust-lists.conf
+etsi {
+    additionalTslUrls {
+        AU = "https://issuer.theaustraliahack.com/tsl.xml"
+    }
+}
+```
+
+Custom TSLs do not need to be signed — unsigned TSLs log a warning but are still loaded.
 
 ### Verification Policy
 

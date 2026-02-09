@@ -90,6 +90,24 @@ etsi {
 
 Use the two-letter country codes from the EU LOTL scheme territories.
 
+### Custom Country TSLs
+
+Add trust lists from outside the EU LOTL (e.g., for local/private deployments):
+
+```hocon
+etsi {
+    additionalTslUrls {
+        AU = "https://issuer.theaustraliahack.com/tsl.xml"
+    }
+}
+```
+
+These are fetched alongside the LOTL member states during `refresh()`. The key is a country code used to tag providers; the value is the URL of an ETSI TS 119 612 compliant TSL XML document.
+
+Custom TSLs can also be added/removed at runtime via the admin API without restart — see the [Custom TSL Import](#custom-tsl-import) endpoints below.
+
+**Note:** Custom TSL XML files do not need to be signed. If `validateSignatures = true` (default), unsigned TSLs will log a warning but still be loaded and used.
+
 ## Admin API
 
 All endpoints are on the verifier-api2 service (default port 7004).
@@ -261,6 +279,65 @@ curl "http://localhost:7004/admin/trust/search?q=cert&limit=10&offset=20"
 }
 ```
 
+### Custom TSL Import
+
+Import trust service lists from outside the EU LOTL at runtime without restarting.
+
+#### GET /admin/trust/custom-tsls
+
+List all imported custom country TSLs.
+
+**Response:**
+```json
+{
+  "customTsls": [
+    {
+      "country": "AU",
+      "url": "https://issuer.theaustraliahack.com/tsl.xml",
+      "providerCount": 2,
+      "serviceCount": 2,
+      "loaded": true
+    }
+  ]
+}
+```
+
+#### POST /admin/trust/custom-tsls
+
+Import a new custom country TSL. Fetches the TSL XML, parses it, and adds providers to the cache.
+
+```bash
+curl -X POST http://localhost:7004/admin/trust/custom-tsls \
+  -H 'Content-Type: application/json' \
+  -d '{"country": "AU", "url": "https://issuer.theaustraliahack.com/tsl.xml"}'
+```
+
+**Response (201):**
+```json
+{
+  "country": "AU",
+  "url": "https://issuer.theaustraliahack.com/tsl.xml",
+  "schemeTerritory": "AU",
+  "schemeOperatorName": "Australia Hack Authority",
+  "providerCount": 2,
+  "serviceCount": 2
+}
+```
+
+**Status 400** if the URL is unreachable or the XML is not a valid TSL.
+
+#### DELETE /admin/trust/custom-tsls/{country}
+
+Remove a custom country TSL and its cached providers.
+
+```bash
+curl -X DELETE http://localhost:7004/admin/trust/custom-tsls/AU
+```
+
+**Response (200):** `{"removed": "AU"}`
+
+**Status 404** if no custom TSL exists for the country code.
+
 ### Response DTOs
 
 | DTO | Fields |
@@ -271,6 +348,10 @@ curl "http://localhost:7004/admin/trust/search?q=cert&limit=10&offset=20"
 | `ProviderDetail` | `name`, `tradeName`, `country`, `services` |
 | `ServiceDetail` | `serviceName`, `serviceType`, `serviceTypeLabel`, `status`, `statusRaw`, `statusStartingTime`, `isQualified` |
 | `SearchResponse` | `query`, `country`, `status`, `serviceType`, `total`, `providers` |
+| `CustomTslListResponse` | `customTsls` (list of `CustomTslEntry`) |
+| `CustomTslEntry` | `country`, `url`, `providerCount`, `serviceCount`, `loaded` |
+| `CustomTslImportRequest` | `country`, `url` |
+| `CustomTslImportResponse` | `country`, `url`, `schemeTerritory`, `schemeOperatorName`, `providerCount`, `serviceCount` |
 
 ## Verification Policy
 
@@ -600,6 +681,7 @@ Derived properties: `isSelfSigned` (`issuer == subject`), `isExpired(nowEpochSec
 | JS platform | Partial | No XMLDSig validation, incomplete field extraction |
 | Signature-failed lists | Non-blocking | Failed XMLDSig logged as warning, list still used |
 | LOTL browsing API | Complete | 3 endpoints (LOTL overview, country detail, search) with pagination |
+| Custom TSL import | Complete | Config-based + runtime import via admin API (GET/POST/DELETE /admin/trust/custom-tsls) |
 | Wallet trust composable | Complete | Reactive composable with auto-validation on DID/wallet change |
 
 ## Troubleshooting
@@ -648,21 +730,21 @@ Check that `memberStates` in config is set to `["*"]` or includes the desired co
 
 ## Test Coverage
 
-115 unit tests across 9 test files:
+133 unit tests across 9 test files:
 
 | Module | Tests | File |
 |--------|-------|------|
 | EtsiTrustedIssuerPolicy | 6 | `waltid-verification-policies2/.../EtsiTrustedIssuerPolicyTest.kt` |
-| CompositeTrustService | 38 | `waltid-service-commons/.../CompositeTrustServiceTest.kt` |
+| CompositeTrustService | 44 | `waltid-service-commons/.../CompositeTrustServiceTest.kt` |
 | TrustListServiceFactory | 6 | `waltid-service-commons/.../TrustListServiceFactoryTest.kt` |
-| TrustAdminController | 19 | `waltid-verifier-api2/.../TrustAdminControllerTest.kt` |
+| TrustAdminController | 27 | `waltid-verifier-api2/.../TrustAdminControllerTest.kt` |
 | EnhancedTrustValidationService | 6 | `waltid-wallet-api/.../EnhancedTrustValidationServiceTest.kt` |
 | JvmTslParser | 16 | `waltid-etsi-tsl/.../JvmTslParserTest.kt` |
-| EtsiTrustListService | 6 | `waltid-etsi-tsl/.../EtsiTrustListServiceTest.kt` |
+| EtsiTrustListService | 10 | `waltid-etsi-tsl/.../EtsiTrustListServiceTest.kt` |
 | EntityStatementFetcher | 10 | `waltid-openid-federation/.../EntityStatementFetcherTest.kt` |
 | TrustChainBuilder | 8 | `waltid-openid-federation/.../TrustChainBuilderTest.kt` |
 
-The CompositeTrustServiceTest covers 11 validation/status tests plus 27 browsing and search tests (getLotl, getMemberStateTls, searchProviders with query/country/status/type filters and pagination). The TrustAdminControllerTest covers all admin endpoints including the 3 browsing routes (LOTL overview, country detail, search).
+The CompositeTrustServiceTest covers 11 validation/status tests, 27 browsing/search tests, and 6 custom TSL tests (add/remove/list delegation). The TrustAdminControllerTest covers all admin endpoints including browsing (LOTL overview, country detail, search) and custom TSL import (GET/POST/DELETE custom-tsls).
 
 Run all trust-related tests:
 

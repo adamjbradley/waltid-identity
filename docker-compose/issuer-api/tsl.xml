@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#"
+                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                        TSLTag="http://uri.etsi.org/19612/TSLTag">
+    <SchemeInformation>
+        <TSLVersionIdentifier>5</TSLVersionIdentifier>
+        <TSLSequenceNumber>1</TSLSequenceNumber>
+        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+        <SchemeOperatorName>
+            <Name xml:lang="en">Australia Hack Authority</Name>
+        </SchemeOperatorName>
+        <SchemeTerritory>AU</SchemeTerritory>
+        <ListIssueDateTime>2026-01-01T00:00:00Z</ListIssueDateTime>
+        <NextUpdate>
+            <DateTime>2027-01-01T00:00:00Z</DateTime>
+        </NextUpdate>
+    </SchemeInformation>
+
+    <TrustServiceProviderList>
+        <TrustServiceProvider>
+            <TSPInformation>
+                <TSPName>
+                    <Name xml:lang="en">TheAustraliaHack Issuer</Name>
+                </TSPName>
+                <TSPTradeName>
+                    <Name xml:lang="en">issuer.theaustraliahack.com</Name>
+                </TSPTradeName>
+            </TSPInformation>
+            <TSPServices>
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">TheAustraliaHack Issuer CA/QC</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509SubjectName>CN=issuer.theaustraliahack.com</X509SubjectName>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+                        <StatusStartingTime>2026-01-01T00:00:00Z</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+            </TSPServices>
+        </TrustServiceProvider>
+
+        <TrustServiceProvider>
+            <TSPInformation>
+                <TSPName>
+                    <Name xml:lang="en">TheAustraliaHack Verifier</Name>
+                </TSPName>
+                <TSPTradeName>
+                    <Name xml:lang="en">verifier2.theaustraliahack.com</Name>
+                </TSPTradeName>
+            </TSPInformation>
+            <TSPServices>
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">TheAustraliaHack Verifier CA/QC</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509SubjectName>CN=verifier2.theaustraliahack.com</X509SubjectName>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+                        <StatusStartingTime>2026-01-01T00:00:00Z</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+            </TSPServices>
+        </TrustServiceProvider>
+    </TrustServiceProviderList>
+</TrustServiceStatusList>

@@ -8,7 +8,8 @@ data class TslConfig(
     val cacheTtlHours: Int = 24,
     val memberStates: List<String> = listOf("*"),
     val validateSignatures: Boolean = true,
-    val localTestFile: String? = null
+    val localTestFile: String? = null,
+    val additionalTslUrls: Map<String, String> = emptyMap()
 ) {
     val isLocalTestMode: Boolean
         get() = localTestFile != null
