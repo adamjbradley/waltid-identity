@@ -5,6 +5,8 @@ import id.walt.credentials.formats.DigitalCredential
 import id.walt.etsi.tsl.EtsiTrustListService
 import id.walt.etsi.tsl.config.TslConfig
 import id.walt.trust.*
+import id.walt.trust.models.TrustServiceList
+import id.walt.trust.models.TrustServiceProvider
 import io.klogging.noCoLogger
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
@@ -141,5 +143,58 @@ class CompositeTrustService(
     override suspend fun setEnabled(source: TrustSource, enabled: Boolean) {
         enabledSources[source] = enabled
         log.info { "Trust source $source ${if (enabled) "enabled" else "disabled"}" }
+    }
+
+    override fun getLotl(): TrustServiceList? {
+        return if (enabledSources[TrustSource.ETSI_TL] == true) {
+            etsiService.getCachedLotl()
+        } else null
+    }
+
+    override fun getMemberStateTls(): Map<String, TrustServiceList> {
+        return if (enabledSources[TrustSource.ETSI_TL] == true) {
+            etsiService.getCachedMemberStateTls()
+        } else emptyMap()
+    }
+
+    override fun getMemberStateTl(country: String): TrustServiceList? {
+        return if (enabledSources[TrustSource.ETSI_TL] == true) {
+            etsiService.getCachedMemberStateTl(country)
+        } else null
+    }
+
+    override suspend fun searchProviders(
+        query: String?,
+        country: String?,
+        status: String?,
+        serviceType: String?,
+        limit: Int,
+        offset: Int
+    ): List<TrustServiceProvider> {
+        if (enabledSources[TrustSource.ETSI_TL] != true) return emptyList()
+
+        val allProviders = etsiService.getAllTrustedProviders()
+        val queryLower = query?.lowercase()
+
+        return allProviders
+            .filter { provider ->
+                (country == null || provider.country.equals(country, ignoreCase = true)) &&
+                (queryLower == null ||
+                    provider.name.lowercase().contains(queryLower) ||
+                    provider.tradeName?.lowercase()?.contains(queryLower) == true ||
+                    provider.trustServices.any { it.serviceName.lowercase().contains(queryLower) })
+            }
+            .map { provider ->
+                if (status == null && serviceType == null) provider
+                else provider.copy(
+                    trustServices = provider.trustServices.filter { service ->
+                        (status == null || service.currentStatus.contains(status, ignoreCase = true)) &&
+                        (serviceType == null || service.serviceType.contains(serviceType, ignoreCase = true))
+                    }
+                )
+            }
+            .filter { it.trustServices.isNotEmpty() || (status == null && serviceType == null) }
+            .drop(offset)
+            .take(limit)
     }
 }
