@@ -9,4 +9,7 @@ interface EtsiTrustListProvider {
     suspend fun getAllTrustedProviders(): List<TrustServiceProvider>
     suspend fun refresh()
     fun isHealthy(): Boolean
+    fun getCachedLotl(): TrustServiceList?
+    fun getCachedMemberStateTls(): Map<String, TrustServiceList>
+    fun getCachedMemberStateTl(country: String): TrustServiceList?
 }
