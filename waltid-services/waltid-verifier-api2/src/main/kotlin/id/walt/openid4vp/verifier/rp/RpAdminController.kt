@@ -8,7 +8,12 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -300,13 +305,12 @@ fun Application.rpAdminRoutes() {
                     val cf = java.security.cert.CertificateFactory.getInstance("X.509")
                     val cert = cf.generateCertificate(certBytes.inputStream()) as java.security.cert.X509Certificate
 
-                    // We can't reconstruct the private key from JWK without crypto library help,
-                    // so we return the x5c and JWK as JSON for now
-                    call.respond(mapOf(
-                        "x5c" to rp.x5c,
-                        "privateKeyJwk" to rp.privateKeyJwk,
-                        "certificate" to rp.certificate
-                    ))
+                    val response = buildJsonObject {
+                        putJsonArray("x5c") { rp.x5c.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+                        put("privateKeyJwk", rp.privateKeyJwk!!)
+                        put("certificate", Json.encodeToJsonElement(rp.certificate!!))
+                    }
+                    call.respond(response)
                 }
 
                 put("intended-use") {
