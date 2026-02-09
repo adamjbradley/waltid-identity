@@ -66,8 +66,11 @@ services:
       - caddy
     env_file:
       - .env
+    environment:
+      RP_REGISTRAR_ENABLED: ${RP_REGISTRAR_ENABLED:-false}
     volumes:
       - ./verifier-api2/config:/waltid-verifier-api2/config
+      - verifier-api2-data:/waltid-verifier-api2/data
 
 
   waltid-demo-wallet:
@@ -435,3 +438,4 @@ volumes:
   wallet-api-db:
   vault_data:
   valkey_data:
+  verifier-api2-data:

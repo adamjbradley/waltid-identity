@@ -9,7 +9,13 @@ import id.walt.commons.web.WebService
 import id.walt.did.dids.DidService
 import id.walt.did.dids.resolver.LocalResolver
 import id.walt.openid4vp.verifier.config.ClientMetadataHopliteDecoder
+import id.walt.openid4vp.verifier.rp.RelyingPartyStore
+import id.walt.openid4vp.verifier.rp.RpRegistrarConfig
+import id.walt.openid4vp.verifier.rp.rpAdminRoutes
 import id.walt.openid4vp.verifier.trust.trustAdminRoutes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.callid.*
@@ -38,6 +44,15 @@ suspend fun main(args: Array<String>) {
                 id.walt.policies2.vc.policies.EtsiTrustedIssuerPolicy.trustServiceProvider = {
                     id.walt.commons.trust.TrustListServiceFactory.getServiceOrNull()
                 }
+                // Initialize trust list cache + periodic refresh
+                val tslScope = CoroutineScope(Dispatchers.IO)
+                tslScope.launch {
+                    id.walt.commons.trust.TrustListServiceFactory.initService(tslScope)
+                };
+                // Initialize RP Registrar store when feature is enabled
+                {
+                    RelyingPartyStore.init(ConfigManager.getConfig<RpRegistrarConfig>().storageDir)
+                } whenFeature OSSVerifier2FeatureCatalog.rpRegistrarFeature
             },
             run = WebService(Application::verifierModule).run()
         )
@@ -54,7 +69,8 @@ fun Application.verifierModule(withPlugins: Boolean = true) {
         configurePlugins()
     }
     verifierApi();
-    { trustAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.trustListFeature
+    { trustAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.trustListFeature;
+    { rpAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.rpRegistrarFeature
 }
 
 fun Application.configureHTTP() {

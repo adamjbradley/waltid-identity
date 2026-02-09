@@ -7,6 +7,7 @@ import id.walt.federation.OpenIdFederationProvider
 import id.walt.federation.models.EntityStatement
 import id.walt.federation.models.TrustChain
 import id.walt.trust.TrustSource
+import id.walt.trust.models.TrustAnchorInfo
 import id.walt.trust.models.TrustServiceEntry
 import id.walt.trust.models.TrustServiceList
 import id.walt.trust.models.TrustServiceProvider
@@ -711,6 +712,120 @@ class CompositeTrustServiceTest {
             val results = svc.searchProviders(country = "AU")
             assertEquals(1, results.size)
             assertEquals("TheAustraliaHack Issuer", results[0].name)
+        }
+    }
+
+    // -- Custom TSL issuer validation tests (x509SubjectName matching) --
+
+    @Nested
+    inner class CustomTslIssuerValidationTests {
+
+        private lateinit var mockEtsi: EtsiTrustListProvider
+        private lateinit var svc: CompositeTrustService
+
+        private val customTslWithCerts = TrustServiceList(
+            schemeTerritory = "AU",
+            schemeOperatorName = "Australia Hack Authority",
+            trustServiceProviders = listOf(
+                TrustServiceProvider(
+                    name = "TheAustraliaHack Issuer",
+                    country = "AU",
+                    trustServices = listOf(
+                        TrustServiceEntry(
+                            serviceType = TrustServiceEntry.TYPE_CA_QC,
+                            serviceName = "TheAustraliaHack Issuer CA/QC",
+                            currentStatus = TrustServiceEntry.STATUS_GRANTED,
+                            serviceDigitalIdentity = TrustAnchorInfo(
+                                x509SubjectName = "CN=issuer.theaustraliahack.com",
+                                x509Certificate = "MIIByDCCAW+gAwIBAgIUU9b7c6Hrgh9j..."
+                            )
+                        )
+                    )
+                ),
+                TrustServiceProvider(
+                    name = "TheAustraliaHack Verifier",
+                    country = "AU",
+                    trustServices = listOf(
+                        TrustServiceEntry(
+                            serviceType = TrustServiceEntry.TYPE_CA_QC,
+                            serviceName = "TheAustraliaHack Verifier CA/QC",
+                            currentStatus = TrustServiceEntry.STATUS_GRANTED,
+                            serviceDigitalIdentity = TrustAnchorInfo(
+                                x509SubjectName = "CN=verifier2.theaustraliahack.com",
+                                x509Certificate = "MIIBnzCCAUagAwIBAgIUQSg5NhDlxwDF..."
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        @BeforeEach
+        fun setUp() {
+            mockEtsi = mockk<EtsiTrustListProvider>()
+            every { mockEtsi.isHealthy() } returns true
+            coEvery { mockEtsi.getAllTrustedProviders() } returns customTslWithCerts.trustServiceProviders
+            every { mockEtsi.getCachedLotl() } returns null
+            every { mockEtsi.getCachedMemberStateTls() } returns mapOf("AU" to customTslWithCerts)
+
+            svc = CompositeTrustService(TrustListConfig(enabled = true), mockEtsi)
+        }
+
+        @Test
+        fun `validateIssuer matches by x509SubjectName from custom TSL`() = runBlocking {
+            val credential = mockk<DigitalCredential>()
+            every { credential.issuer } returns "issuer.theaustraliahack.com"
+
+            val result = svc.validateIssuer(credential)
+
+            assertTrue(result.trusted, "Issuer matching x509SubjectName in custom TSL should be trusted")
+            assertEquals(TrustSource.ETSI_TL, result.source)
+            assertEquals("TheAustraliaHack Issuer", result.providerName)
+            assertEquals("AU", result.country)
+            assertEquals(TrustServiceEntry.STATUS_GRANTED, result.status)
+            assertEquals("TheAustraliaHack Issuer CA/QC", result.details["serviceName"])
+        }
+
+        @Test
+        fun `validateIssuer matches partial issuer string within x509SubjectName`() = runBlocking {
+            // The matching uses contains() so "issuer.theaustraliahack.com" is found in "CN=issuer.theaustraliahack.com"
+            val credential = mockk<DigitalCredential>()
+            every { credential.issuer } returns "issuer.theaustraliahack.com"
+
+            val result = svc.validateIssuer(credential)
+
+            assertTrue(result.trusted, "Issuer contained in x509SubjectName should match")
+        }
+
+        @Test
+        fun `validateVerifier matches by x509SubjectName from custom TSL`() = runBlocking {
+            val result = svc.validateVerifier("verifier2.theaustraliahack.com", null)
+
+            assertTrue(result.trusted, "Verifier matching x509SubjectName in custom TSL should be trusted")
+            assertEquals(TrustSource.ETSI_TL, result.source)
+            assertEquals("TheAustraliaHack Verifier", result.providerName)
+            assertEquals("AU", result.country)
+        }
+
+        @Test
+        fun `validateIssuer returns untrusted for unknown issuer`() = runBlocking {
+            val credential = mockk<DigitalCredential>()
+            every { credential.issuer } returns "unknown.issuer.com"
+
+            val result = svc.validateIssuer(credential)
+
+            assertFalse(result.trusted, "Unknown issuer should not be trusted")
+        }
+
+        @Test
+        fun `validateIssuer does not match against certificate data only subject name`() = runBlocking {
+            // The certificate base64 string should NOT be used for matching — only x509SubjectName
+            val credential = mockk<DigitalCredential>()
+            every { credential.issuer } returns "MIIByDCCAW"
+
+            val result = svc.validateIssuer(credential)
+
+            assertFalse(result.trusted, "Certificate base64 data should not be used for issuer matching")
         }
     }
 }

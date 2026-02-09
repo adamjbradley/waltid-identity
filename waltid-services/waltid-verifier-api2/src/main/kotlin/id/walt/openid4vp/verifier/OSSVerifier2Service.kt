@@ -80,7 +80,8 @@ object Verifier2Service {
                 tags("Verification Session Management")
             }) {
                 post<VerificationSessionSetup>("create", VerificationSessionCreateOpenApi.createDocs) { sessionSetup ->
-                    val newSession = OSSVerifier2Manager.createVerificationSession(sessionSetup)
+                    val rpId = call.request.queryParameters["rpId"]
+                    val newSession = OSSVerifier2Manager.createVerificationSession(sessionSetup, rpId)
                     sessions[newSession.id] = newSession
                     val creationResponse = newSession.toSessionCreationResponse()
                     call.respond(creationResponse)

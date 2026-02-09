@@ -4,6 +4,7 @@ import id.walt.commons.config.ConfigManager
 import id.walt.commons.config.TrustListConfig
 import id.walt.trust.TrustService
 import io.klogging.noCoLogger
+import kotlinx.coroutines.CoroutineScope
 
 private val log = noCoLogger("TrustListServiceFactory")
 
@@ -27,5 +28,10 @@ object TrustListServiceFactory {
 
     fun reset() {
         cached = null
+    }
+
+    suspend fun initService(scope: CoroutineScope) {
+        val service = getServiceOrNull() as? CompositeTrustService ?: return
+        service.initWithCacheAndRefresh(scope)
     }
 }

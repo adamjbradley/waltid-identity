@@ -5,10 +5,28 @@ import id.walt.etsi.tsl.models.TrustServiceProvider
 import id.walt.etsi.tsl.models.TrustServiceList
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 private val log = KotlinLogging.logger {}
+
+private val cacheJson = Json {
+    ignoreUnknownKeys = true
+    prettyPrint = false
+}
+
+@Serializable
+data class TslDiskCache(
+    val savedAt: String,
+    val lotl: TrustServiceList?,
+    val memberStateTls: Map<String, TrustServiceList>,
+    val customTslUrls: Map<String, String>
+)
 
 class EtsiTrustListService(
     private val config: TslConfig,
@@ -22,6 +40,9 @@ class EtsiTrustListService(
     private var _cachedMemberStateTls: Map<String, TrustServiceList> = emptyMap()
     private var healthy = false
     private val customTslUrls: MutableMap<String, String> = config.additionalTslUrls.toMutableMap()
+
+    private val cacheFilePath: String?
+        get() = config.cacheDir?.let { "$it/tsl-cache.json" }
 
     override suspend fun fetchLotl(): TrustServiceList {
         return fetcher.fetchLotl()
@@ -95,6 +116,7 @@ class EtsiTrustListService(
             }
 
             log.info { "ETSI trust list refresh complete: ${allProviders.size} total providers" }
+            saveToDiskCache()
         } catch (e: Exception) {
             log.error(e) { "Failed to refresh ETSI trust lists" }
             mutex.withLock { healthy = false }
@@ -122,6 +144,7 @@ class EtsiTrustListService(
         }
 
         log.info { "Custom TSL for $country loaded: ${providersWithCountry.size} providers" }
+        saveToDiskCache()
         return tsl
     }
 
@@ -131,9 +154,77 @@ class EtsiTrustListService(
             _cachedMemberStateTls = _cachedMemberStateTls - country
             cachedProviders = cachedProviders?.filter { it.country != country }
             log.info { "Removed custom TSL for $country" }
+            saveToDiskCache()
         }
         return removed
     }
 
     override fun getCustomTslUrls(): Map<String, String> = customTslUrls.toMap()
+
+    fun loadFromDiskCache() {
+        val path = cacheFilePath ?: return
+        try {
+            val content = FileStorage.readText(path) ?: run {
+                log.info { "No disk cache found at $path" }
+                return
+            }
+            val cache = cacheJson.decodeFromString<TslDiskCache>(content)
+            val allProviders = cache.memberStateTls.values.flatMap { tsl ->
+                tsl.trustServiceProviders
+            }
+            cachedProviders = allProviders
+            _cachedLotl = cache.lotl
+            _cachedMemberStateTls = cache.memberStateTls
+            customTslUrls.putAll(cache.customTslUrls)
+            healthy = true
+            log.info { "Loaded ${allProviders.size} providers from disk cache (saved ${cache.savedAt})" }
+        } catch (e: Exception) {
+            log.warn { "Failed to load disk cache from $path: ${e.message}" }
+        }
+    }
+
+    private fun saveToDiskCache() {
+        val dir = config.cacheDir ?: return
+        val path = cacheFilePath ?: return
+        try {
+            FileStorage.mkdirs(dir)
+            val cache = TslDiskCache(
+                savedAt = kotlin.time.Clock.System.now().toString(),
+                lotl = _cachedLotl,
+                memberStateTls = _cachedMemberStateTls,
+                customTslUrls = customTslUrls.toMap()
+            )
+            FileStorage.writeText(path, cacheJson.encodeToString(TslDiskCache.serializer(), cache))
+            log.info { "Saved TSL cache to disk ($path)" }
+        } catch (e: Exception) {
+            log.error { "Failed to save TSL cache to $path: ${e.message}" }
+        }
+    }
+
+    fun startPeriodicRefresh(scope: CoroutineScope) {
+        val intervalMs = config.refreshIntervalHours * 3600_000L
+        scope.launch {
+            while (true) {
+                delay(intervalMs)
+                try {
+                    refresh()
+                } catch (e: Exception) {
+                    log.warn { "Periodic TSL refresh failed: ${e.message}" }
+                }
+            }
+        }
+        log.info { "Scheduled periodic TSL refresh every ${config.refreshIntervalHours}h" }
+    }
+
+    suspend fun initWithCacheAndRefresh(scope: CoroutineScope) {
+        loadFromDiskCache()
+        scope.launch {
+            try {
+                refresh()
+            } catch (e: Exception) {
+                log.warn { "Background TSL refresh failed: ${e.message}" }
+            }
+        }
+        startPeriodicRefresh(scope)
+    }
 }

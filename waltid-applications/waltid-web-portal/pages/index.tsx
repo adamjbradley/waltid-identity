@@ -1,5 +1,5 @@
 import CustomCredentialModal from "@/components/walt/modal/CustomCredentialModal";
-import {MagnifyingGlassIcon} from "@heroicons/react/24/outline";
+import {MagnifyingGlassIcon, Cog6ToothIcon} from "@heroicons/react/24/outline";
 import Credential from "@/components/walt/credential/Credential";
 import {AvailableCredential} from "@/types/credentials";
 import {CredentialsContext} from "@/pages/_app";
@@ -42,6 +42,13 @@ export default function Home() {
         <p className="mt-4 text-lg text-primary-900">
           Select a credential to issue or verify
         </p>
+        <button
+          onClick={() => router.push('/admin/trust-config')}
+          className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <Cog6ToothIcon className="w-4 h-4" />
+          Admin
+        </button>
       </div>
       <main className="flex flex-col items-center gap-5 justify-between mt-16 md:w-[740px] m-auto">
         <div className="flex flex-row gap-5 w-full px-5">
