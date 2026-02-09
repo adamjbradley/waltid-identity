@@ -3,6 +3,9 @@ package id.walt.commons.trust
 import id.walt.commons.config.TrustListConfig
 import id.walt.credentials.formats.DigitalCredential
 import id.walt.etsi.tsl.EtsiTrustListProvider
+import id.walt.federation.OpenIdFederationProvider
+import id.walt.federation.models.EntityStatement
+import id.walt.federation.models.TrustChain
 import id.walt.trust.TrustSource
 import id.walt.trust.models.TrustServiceEntry
 import id.walt.trust.models.TrustServiceList
@@ -132,10 +135,11 @@ class CompositeTrustServiceTest {
     }
 
     @Test
-    fun `getStatus shows OPENID_FEDERATION enabled when trust anchors present`() = runBlocking {
+    fun `getStatus shows OPENID_FEDERATION enabled when enabled flag and trust anchors present`() = runBlocking {
         val configWithAnchors = TrustListConfig(
             enabled = true,
             openidFederation = TrustListConfig.OpenIdFederationConfig(
+                enabled = true,
                 trustAnchors = listOf("https://trust-anchor.example.com")
             )
         )
@@ -145,7 +149,45 @@ class CompositeTrustServiceTest {
 
         assertTrue(
             status.sources[TrustSource.OPENID_FEDERATION]!!.enabled,
-            "OPENID_FEDERATION should be enabled when trust anchors are configured"
+            "OPENID_FEDERATION should be enabled when enabled flag is true and trust anchors are configured"
+        )
+    }
+
+    @Test
+    fun `getStatus shows OPENID_FEDERATION disabled when enabled false despite trust anchors`() = runBlocking {
+        val configDisabledWithAnchors = TrustListConfig(
+            enabled = true,
+            openidFederation = TrustListConfig.OpenIdFederationConfig(
+                enabled = false,
+                trustAnchors = listOf("https://trust-anchor.example.com")
+            )
+        )
+        val serviceDisabled = CompositeTrustService(configDisabledWithAnchors)
+
+        val status = serviceDisabled.getStatus()
+
+        assertFalse(
+            status.sources[TrustSource.OPENID_FEDERATION]!!.enabled,
+            "OPENID_FEDERATION should be disabled when enabled flag is false even with trust anchors"
+        )
+    }
+
+    @Test
+    fun `getStatus shows OPENID_FEDERATION disabled when enabled true but no trust anchors`() = runBlocking {
+        val configEnabledNoAnchors = TrustListConfig(
+            enabled = true,
+            openidFederation = TrustListConfig.OpenIdFederationConfig(
+                enabled = true,
+                trustAnchors = emptyList()
+            )
+        )
+        val serviceNoAnchors = CompositeTrustService(configEnabledNoAnchors)
+
+        val status = serviceNoAnchors.getStatus()
+
+        assertFalse(
+            status.sources[TrustSource.OPENID_FEDERATION]!!.enabled,
+            "OPENID_FEDERATION should be disabled when enabled is true but no trust anchors configured"
         )
     }
 
@@ -460,5 +502,128 @@ class CompositeTrustServiceTest {
             val results = svc.searchProviders(offset = 100)
             assertTrue(results.isEmpty())
         }
+    }
+
+    // -- Federation validation tests (with mocked provider) --
+
+    private fun createServiceWithFederation(
+        mockProvider: OpenIdFederationProvider
+    ): CompositeTrustService {
+        val config = TrustListConfig(
+            enabled = true,
+            openidFederation = TrustListConfig.OpenIdFederationConfig(
+                enabled = true,
+                trustAnchors = listOf("https://trust-anchor.example.com")
+            )
+        )
+        return CompositeTrustService(config, federationProvider = mockProvider)
+    }
+
+    private fun validTrustChain(entityId: String = "https://issuer.example.com") = TrustChain(
+        entityId = entityId,
+        trustAnchorId = "https://trust-anchor.example.com",
+        statements = listOf(
+            EntityStatement(issuer = entityId, subject = entityId),
+            EntityStatement(issuer = "https://trust-anchor.example.com", subject = entityId)
+        ),
+        valid = true
+    )
+
+    @Test
+    fun `validateIssuer returns trusted via federation when chain is valid`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        coEvery { mockProvider.buildTrustChain(any()) } returns validTrustChain()
+        val svc = createServiceWithFederation(mockProvider)
+        svc.setEnabled(TrustSource.ETSI_TL, false)
+
+        val credential = mockk<DigitalCredential>()
+        every { credential.issuer } returns "https://issuer.example.com"
+
+        val result = svc.validateIssuer(credential)
+
+        assertTrue(result.trusted, "Should be trusted when federation returns valid chain")
+        assertEquals(TrustSource.OPENID_FEDERATION, result.source)
+        assertEquals("https://trust-anchor.example.com", result.providerName)
+        assertEquals("https://trust-anchor.example.com", result.details["trustAnchorId"])
+        assertEquals("2", result.details["chainDepth"])
+    }
+
+    @Test
+    fun `validateIssuer returns untrusted via federation when chain is invalid`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        coEvery { mockProvider.buildTrustChain(any()) } returns TrustChain(
+            entityId = "https://issuer.example.com",
+            trustAnchorId = "",
+            statements = emptyList(),
+            valid = false,
+            error = "No trust anchor found"
+        )
+        val svc = createServiceWithFederation(mockProvider)
+        svc.setEnabled(TrustSource.ETSI_TL, false)
+
+        val credential = mockk<DigitalCredential>()
+        every { credential.issuer } returns "https://issuer.example.com"
+
+        val result = svc.validateIssuer(credential)
+
+        assertFalse(result.trusted, "Should be untrusted when federation returns invalid chain")
+    }
+
+    @Test
+    fun `validateIssuer returns untrusted via federation when chain is null`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        coEvery { mockProvider.buildTrustChain(any()) } returns null
+        val svc = createServiceWithFederation(mockProvider)
+        svc.setEnabled(TrustSource.ETSI_TL, false)
+
+        val credential = mockk<DigitalCredential>()
+        every { credential.issuer } returns "https://issuer.example.com"
+
+        val result = svc.validateIssuer(credential)
+
+        assertFalse(result.trusted, "Should be untrusted when federation returns null chain")
+    }
+
+    @Test
+    fun `validateVerifier returns trusted via federation when chain is valid`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        coEvery { mockProvider.buildTrustChain(any()) } returns validTrustChain("https://verifier.example.com")
+        val svc = createServiceWithFederation(mockProvider)
+        svc.setEnabled(TrustSource.ETSI_TL, false)
+
+        val result = svc.validateVerifier("https://verifier.example.com", null)
+
+        assertTrue(result.trusted, "Should be trusted when federation returns valid chain for verifier")
+        assertEquals(TrustSource.OPENID_FEDERATION, result.source)
+        assertEquals("https://trust-anchor.example.com", result.providerName)
+    }
+
+    @Test
+    fun `validateIssuer handles federation exception gracefully`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        coEvery { mockProvider.buildTrustChain(any()) } throws RuntimeException("Network error")
+        val svc = createServiceWithFederation(mockProvider)
+        svc.setEnabled(TrustSource.ETSI_TL, false)
+
+        val credential = mockk<DigitalCredential>()
+        every { credential.issuer } returns "https://issuer.example.com"
+
+        val result = svc.validateIssuer(credential)
+
+        assertFalse(result.trusted, "Should be untrusted when federation throws exception")
+    }
+
+    @Test
+    fun `getStatus reports federation entry count from config`() = runBlocking {
+        val mockProvider = mockk<OpenIdFederationProvider>()
+        every { mockProvider.isHealthy() } returns true
+        val svc = createServiceWithFederation(mockProvider)
+
+        val status = svc.getStatus()
+
+        val fedStatus = status.sources[TrustSource.OPENID_FEDERATION]!!
+        assertTrue(fedStatus.enabled, "Federation should be enabled")
+        assertTrue(fedStatus.healthy, "Federation should be healthy")
+        assertEquals(1, fedStatus.entryCount, "Entry count should match configured trust anchors")
     }
 }
