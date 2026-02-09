@@ -136,7 +136,9 @@ fun Application.trustAdminRoutes() {
                                     status = humanReadableStatus(service.currentStatus),
                                     statusRaw = service.currentStatus,
                                     statusStartingTime = service.statusStartingTime?.toString(),
-                                    isQualified = service.isQualified
+                                    isQualified = service.isQualified,
+                                    x509SubjectName = service.serviceDigitalIdentity?.x509SubjectName,
+                                    x509Certificate = service.serviceDigitalIdentity?.x509Certificate
                                 )
                             }
                         )
@@ -186,7 +188,9 @@ fun Application.trustAdminRoutes() {
                                     status = humanReadableStatus(svc.currentStatus),
                                     statusRaw = svc.currentStatus,
                                     statusStartingTime = svc.statusStartingTime?.toString(),
-                                    isQualified = svc.isQualified
+                                    isQualified = svc.isQualified,
+                                    x509SubjectName = svc.serviceDigitalIdentity?.x509SubjectName,
+                                    x509Certificate = svc.serviceDigitalIdentity?.x509Certificate
                                 )
                             }
                         )
@@ -319,7 +323,9 @@ data class ServiceDetail(
     val status: String,
     val statusRaw: String,
     val statusStartingTime: String? = null,
-    val isQualified: Boolean
+    val isQualified: Boolean,
+    val x509SubjectName: String? = null,
+    val x509Certificate: String? = null
 )
 
 @Serializable
