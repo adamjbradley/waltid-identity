@@ -4,17 +4,127 @@ This guide covers detailed integration with the Verify API SDKs for JavaScript/T
 
 ## Table of Contents
 
-1. [Widget SDK (Zero Backend)](#widget-sdk-zero-backend)
-2. [JavaScript/TypeScript SDK](#javascripttypescript-sdk)
-3. [iOS Swift SDK](#ios-swift-sdk)
-4. [Android Kotlin SDK](#android-kotlin-sdk)
-5. [Cross-Platform Patterns](#cross-platform-patterns)
+1. [Relying Party Onboarding](#relying-party-onboarding)
+2. [Widget SDK (Zero Backend)](#widget-sdk-zero-backend)
+3. [JavaScript/TypeScript SDK](#javascripttypescript-sdk)
+4. [iOS Swift SDK](#ios-swift-sdk)
+5. [Android Kotlin SDK](#android-kotlin-sdk)
+6. [Cross-Platform Patterns](#cross-platform-patterns)
+
+---
+
+## Relying Party Onboarding
+
+Before integrating any SDK in production, register as a Relying Party (RP) to get your own X.509 certificate and client identity. This ensures the EUDI wallet displays your organisation's name rather than a shared verifier.
+
+> **For development:** Use the [sandbox credentials](#sandbox-credentials) to skip registration and start coding immediately.
+
+### How It Works
+
+```
+┌────────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│  RP REGISTRAR      │     │   VERIFY API          │     │   YOUR APP      │
+│  (verifier-api2)   │     │   (verify-api)        │     │   (SDK)         │
+│                    │     │                       │     │                 │
+│ 1. POST /admin/rp  │     │                       │     │                 │
+│    Register RP ────┼─┐   │                       │     │                 │
+│                    │ │   │                       │     │                 │
+│ 2. POST /admin/rp  │ │   │                       │     │                 │
+│    /{id}/cert/gen  │ │   │                       │     │                 │
+│    Generate cert ──┼─┤   │                       │     │                 │
+│                    │ │   │                       │     │                 │
+│                    │ └──►│ 3. PUT /v1/admin/     │     │                 │
+│                    │     │    orgs/{id}/rp       │     │                 │
+│                    │     │    Link RP to org ────┼────►│ 4. SDK uses     │
+│                    │     │                       │     │    API key      │
+│                    │     │ 5. Resolves org→rpId  │     │    (unchanged)  │
+│                    │     │    Uses RP's cert ────┼────►│                 │
+│                    │     │    for signed JAR     │     │                 │
+└────────────────────┘     └──────────────────────┘     └─────────────────┘
+```
+
+The SDK code is identical whether or not an RP is registered. The difference is entirely server-side — the Verify API resolves your organisation's RP ID and uses that RP's certificate when creating verification sessions.
+
+### Step 1: Register Your Relying Party
+
+```bash
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "legalName": "Your Company Ltd",
+    "country": "AU",
+    "domain": "verify.yourcompany.com",
+    "contactEmail": "dev@yourcompany.com",
+    "contactAddress": "123 Main St, Sydney NSW 2000",
+    "privacyPolicyUrl": "https://yourcompany.com/privacy",
+    "dataRetentionPeriod": "P90D",
+    "lawfulBasis": "consent",
+    "dpaAcknowledged": true
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "03b25ab0-84a6-4574-8f10-c0e18e7f93ed",
+  "legalName": "Your Company Ltd",
+  "domain": "verify.yourcompany.com",
+  "clientId": "x509_san_dns:verify.yourcompany.com",
+  "status": "ACTIVE"
+}
+```
+
+Save the `id` — you'll need it in Steps 2 and 3.
+
+### Step 2: Generate a Signing Certificate
+
+```bash
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp/03b25ab0-84a6-4574-8f10-c0e18e7f93ed/certificate/generate
+```
+
+This creates an EC P-256 X.509 certificate with your domain as the Subject Alternative Name (SAN). The private key and certificate are stored server-side. You never handle signing — the Verify API signs JAR (JWT-Secured Authorization Requests) automatically using your RP's key.
+
+### Step 3: Link RP to Your Verify API Organisation
+
+```bash
+curl -X PUT https://verify-api.theaustraliahack.com/v1/admin/organizations/{ORG_ID}/rp \
+  -H "Authorization: Bearer vfy_live_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{ "rpId": "03b25ab0-84a6-4574-8f10-c0e18e7f93ed" }'
+```
+
+Once linked, every verification session created with your organisation's API keys uses your RP's certificate and client ID.
+
+### Step 4: Use Any SDK (No Code Changes)
+
+The SDK code is the same whether or not you have an RP registered:
+
+```typescript
+// TypeScript — same code before and after RP registration
+const client = new VerifyClient({ apiKey: 'vfy_live_your_key' });
+const session = await client.verifyIdentity({ template: 'age_check' });
+```
+
+The difference is what the EUDI wallet sees:
+- **Without RP:** `x509_san_dns:verifier2.theaustraliahack.com` (shared verifier)
+- **With RP:** `x509_san_dns:verify.yourcompany.com` (your identity)
+
+### Sandbox Credentials
+
+For development and testing, use sandbox credentials that work without RP registration:
+
+| Environment | API Key |
+|-------------|---------|
+| Test | `vfy_test_sandbox_demo_key_12345678` |
+| Live | `vfy_live_sandbox_demo_key_12345678` |
 
 ---
 
 ## Widget SDK (Zero Backend)
 
 The Widget SDK enables verification with minimal backend code - just a single endpoint to generate client tokens. QR codes are generated server-side and returned as base64 PNG data URLs.
+
+> **Note:** The Widget SDK uses client tokens (not API keys directly). Your backend generates client tokens using your API key. If your organisation has a linked RP, all verification sessions created via the widget automatically use your RP's certificate — no SDK code changes needed.
 
 ### Quick Start
 

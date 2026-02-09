@@ -1,5 +1,6 @@
 package id.walt.verifyapi.service
 
+import id.walt.verifyapi.db.VerifyOrganizations
 import id.walt.verifyapi.routes.VerificationResponse
 import id.walt.verifyapi.session.ResponseMode
 import id.walt.verifyapi.session.SessionManager
@@ -15,6 +16,9 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
@@ -63,9 +67,21 @@ object VerificationService {
 
         logger.info { "Found template '${template.name}' for verification (type: ${template.templateType})" }
 
-        // 2. Create session on verifier-api2 with signed JAR request
+        // 2. Look up the organization's registered RP ID (if any)
+        val rpId = transaction {
+            VerifyOrganizations.selectAll()
+                .where { VerifyOrganizations.id eq organizationId }
+                .singleOrNull()
+                ?.get(VerifyOrganizations.rpId)
+        }
+
+        if (rpId != null) {
+            logger.info { "Organization $organizationId is linked to registered RP: $rpId" }
+        }
+
+        // 3. Create session on verifier-api2 with signed JAR request
         val verifierSession = try {
-            Verifier2Client.createSession(template.dcqlQuery)
+            Verifier2Client.createSession(template.dcqlQuery, rpId)
         } catch (e: Exception) {
             logger.error(e) { "Failed to create verifier-api2 session" }
             throw RuntimeException("Failed to create verification session: ${e.message}", e)
@@ -73,7 +89,7 @@ object VerificationService {
 
         logger.info { "Created verifier-api2 session: ${verifierSession.sessionId}" }
 
-        // 3. Create our internal session and link to verifier-api2 session
+        // 4. Create our internal session and link to verifier-api2 session
         val session = SessionManager.createSession(
             organizationId = organizationId,
             templateName = templateName,
@@ -84,11 +100,11 @@ object VerificationService {
 
         logger.info { "Created verify-api session ${session.id} linked to verifier-api2 session ${verifierSession.sessionId}" }
 
-        // 4. Extract QR code data from the verifier-api2 response
+        // 5. Extract QR code data from the verifier-api2 response
         // The bootstrapAuthorizationRequestUrl is the OpenID4VP URL for QR codes
         val qrCodeData = verifierSession.bootstrapAuthorizationRequestUrl
 
-        // 5. Generate EUDI wallet deep link
+        // 6. Generate EUDI wallet deep link
         // Convert openid4vp:// to eudi-openid4vp:// for EUDI wallet
         val deepLink = qrCodeData.replace("openid4vp://", "eudi-openid4vp://")
 

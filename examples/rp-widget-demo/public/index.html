@@ -1696,6 +1696,25 @@
         </div>
     </section>
 
+    <!-- RP Configuration Section -->
+    <section class="demo-section section-bg-gray">
+        <div class="container">
+            <h2>Relying Party Configuration</h2>
+            <p class="subtitle">Current RP registration details loaded from the server</p>
+
+            <div class="demo-box">
+                <h3>Active RP Settings</h3>
+                <p class="description">These values are returned by <code>/api/config</code> and passed to <code>WaltVerify.init()</code>. When an RP is registered, verification sessions use its own X.509 certificate and client ID instead of the global verifier.</p>
+
+                <div id="rp-config-display" style="font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; background: #1e1e2e; color: #cdd6f4; border-radius: 4px; padding: 20px; overflow-x: auto;">
+                    <div style="color: #6c7086;">// Loading RP configuration...</div>
+                </div>
+
+                <div id="rp-status" style="margin-top: 16px; padding: 12px 16px; border-radius: 4px; font-size: 13px;"></div>
+            </div>
+        </div>
+    </section>
+
     <!-- Inline Demo Section -->
     <section class="demo-section section-bg-white">
         <div class="container">
@@ -1804,31 +1823,101 @@
     <section class="demo-section section-bg-white">
         <div class="container">
             <h2>Quick Integration Guide</h2>
-            <p class="subtitle">Add age verification to your site in minutes</p>
+            <p class="subtitle">Onboard as a Relying Party and add EUDI wallet verification to your site</p>
 
             <div class="demo-box">
-                <h3>Step 1: Include the SDK</h3>
+                <h3>Step 1: Register as a Relying Party</h3>
+                <p style="margin-bottom: 12px; color: #666;">Register your organisation with the RP Registrar. This creates your RP identity with a unique <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">id</code> and <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">clientId</code>.</p>
+                <div class="code-block">
+                    <span class="comment"># Register your RP via the admin API</span><br>
+                    curl -X POST https://verifier2.theaustraliahack.com/admin/rp \<br>
+                    &nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
+                    &nbsp;&nbsp;-d <span class="string">'{<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"legalName": "Your Company Pty Ltd",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"country": "AU",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"contactEmail": "admin@yourcompany.com",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"domain": "verify.yourcompany.com",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"intendedUse": "Age verification for online retail",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"privacyPolicyUrl": "https://yourcompany.com/privacy",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"dataRetentionPeriod": "30 days",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"lawfulBasis": "CONSENT",<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;"dpaAcknowledged": true<br>
+                    &nbsp;&nbsp;}'</span><br>
+                    <br>
+                    <span class="comment"># Response: { "id": "a1b2c3d4-...", "clientId": "x509_san_dns:verify.yourcompany.com", ... }</span>
+                </div>
+            </div>
+
+            <div class="demo-box">
+                <h3>Step 2: Generate a Signing Certificate</h3>
+                <p style="margin-bottom: 12px; color: #666;">Generate an X.509 certificate for your RP. This certificate is used to sign EUDI wallet authorization requests (JAR) so the wallet displays your domain as the verifier. The private key is stored securely server-side &mdash; <strong>you never need to handle signing yourself</strong>.</p>
+                <div class="code-block">
+                    <span class="comment"># Generate a certificate for your RP (use the id from Step 1)</span><br>
+                    curl -X POST https://verifier2.theaustraliahack.com/admin/rp/{id}/certificate/generate
+                </div>
+                <p style="margin-top: 16px; margin-bottom: 8px; color: #666; font-weight: 600;">Response &mdash; save this JSON for Step 5:</p>
+                <div class="code-block" style="background: #1a2332; border-left: 4px solid #3d8b37;">
+                    {<br>
+                    &nbsp;&nbsp;<span class="string">"id"</span>: <span class="string">"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"</span>,<br>
+                    &nbsp;&nbsp;<span class="string">"clientId"</span>: <span class="string">"x509_san_dns:verify.yourcompany.com"</span>,<br>
+                    &nbsp;&nbsp;<span class="string">"domain"</span>: <span class="string">"verify.yourcompany.com"</span>,<br>
+                    &nbsp;&nbsp;<span class="string">"certificate"</span>: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"subject"</span>: <span class="string">"CN=verify.yourcompany.com"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"issuer"</span>: <span class="string">"CN=verify.yourcompany.com"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"notBefore"</span>: <span class="string">"2026-02-09T00:00:00Z"</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">"notAfter"</span>: <span class="string">"2027-02-09T00:00:00Z"</span><br>
+                    &nbsp;&nbsp;},<br>
+                    &nbsp;&nbsp;<span class="string">"x5c"</span>: [<span class="string">"MIIBnz..."</span>],<br>
+                    &nbsp;&nbsp;<span class="string">"status"</span>: <span class="string">"ACTIVE"</span><br>
+                    }
+                </div>
+                <p style="margin-top: 12px; color: #888; font-size: 0.9em;">The server generates an EC P-256 key pair and self-signed certificate for your domain. All JAR signing is handled automatically &mdash; when a verification session is created with your RP ID, the server signs the request using your stored private key and presents your certificate to the wallet.</p>
+            </div>
+
+            <div class="demo-box">
+                <h3>Step 3: Link Your RP to a Verify API Organisation</h3>
+                <p style="margin-bottom: 12px; color: #666;">Associate your registered RP with your Verify API organisation using the <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">id</code> from Step 1. This ensures verification sessions use your certificate and domain.</p>
+                <div class="code-block">
+                    <span class="comment"># Link your RP ID to your organisation</span><br>
+                    curl -X PUT https://verify-api.theaustraliahack.com/v1/admin/organizations/{orgId}/rp \<br>
+                    &nbsp;&nbsp;-H <span class="string">"Authorization: Bearer {admin_jwt_token}"</span> \<br>
+                    &nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
+                    &nbsp;&nbsp;-d <span class="string">'{ "rpId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d" }'</span>
+                </div>
+            </div>
+
+            <div class="demo-box">
+                <h3>Step 4: Include the SDK</h3>
                 <div class="code-block">
                     <span class="comment">&lt;!-- Add this to your HTML --&gt;</span><br>
-                    &lt;script src=<span class="string">"https://verify.example.com/widget/v1/sdk.js"</span>&gt;&lt;/script&gt;
+                    &lt;script src=<span class="string">"https://verify-api.theaustraliahack.com/widget/v1/sdk.js"</span>&gt;&lt;/script&gt;
                 </div>
             </div>
 
             <div class="demo-box">
-                <h3>Step 2: Get a Client Token (Server-side)</h3>
+                <h3>Step 5: Initialise the SDK with your RP configuration</h3>
+                <p style="margin-bottom: 12px; color: #666;">Pass the registration response from Step 2 to the SDK. Your backend fetches a client token using your API key, then the SDK is initialised with both the token and your RP identity.</p>
                 <div class="code-block">
-                    <span class="comment">// Your backend generates a token using your API key</span><br>
+                    <span class="comment">// Server-side: get a client token using your API key</span><br>
                     <span class="keyword">const</span> response = <span class="keyword">await</span> <span class="function">fetch</span>(<span class="string">'/api/token'</span>);<br>
-                    <span class="keyword">const</span> { clientToken } = <span class="keyword">await</span> response.<span class="function">json</span>();
+                    <span class="keyword">const</span> { clientToken } = <span class="keyword">await</span> response.<span class="function">json</span>();<br>
+                    <br>
+                    <span class="comment">// Client-side: initialise with your RP registration config</span><br>
+                    <span class="function">WaltVerify</span>.<span class="function">init</span>({<br>
+                    &nbsp;&nbsp;clientToken: clientToken,<br>
+                    &nbsp;&nbsp;rp: {<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;id: <span class="string">'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;clientId: <span class="string">'x509_san_dns:verify.yourcompany.com'</span>,<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;domain: <span class="string">'verify.yourcompany.com'</span><br>
+                    &nbsp;&nbsp;}<br>
+                    });
                 </div>
             </div>
 
             <div class="demo-box">
-                <h3>Step 3: Initialise and Verify</h3>
+                <h3>Step 6: Verify</h3>
+                <p style="margin-bottom: 12px; color: #666;">The EUDI wallet will display <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">verify.yourcompany.com</code> as the requesting party. The authorization request is signed server-side with your RP's certificate &mdash; no client-side signing required.</p>
                 <div class="code-block">
-                    <span class="comment">// Initialize the SDK</span><br>
-                    <span class="function">WaltVerify</span>.<span class="function">init</span>({ clientToken: clientToken });<br>
-                    <br>
                     <span class="comment">// Age verification (modal mode)</span><br>
                     <span class="function">WaltVerify</span>.<span class="function">verifyAge</span>({<br>
                     &nbsp;&nbsp;minAge: <span class="string">18</span>,<br>
@@ -1933,7 +2022,8 @@
     <script>
         // Configuration
         let config = {
-            apiBaseUrl: 'http://localhost:7010'
+            apiBaseUrl: 'http://localhost:7010',
+            rp: null
         };
         let clientToken = null;
         let sdkReady = false;
@@ -1950,6 +2040,10 @@
                 const response = await fetch('/api/config');
                 const data = await response.json();
                 config.apiBaseUrl = data.apiBaseUrl;
+                if (data.rp) {
+                    config.rp = data.rp;
+                    console.log('[Config] RP:', config.rp.clientId);
+                }
                 console.log('[Config] API URL:', config.apiBaseUrl);
             } catch (error) {
                 console.warn('[Config] Using default:', config.apiBaseUrl);
@@ -1990,6 +2084,44 @@
             }
         }
 
+        // Update RP configuration display
+        function updateRpConfigDisplay() {
+            const el = document.getElementById('rp-config-display');
+            const statusEl = document.getElementById('rp-status');
+            if (!el) return;
+
+            if (config.rp) {
+                const c = '<span style="color:#89b4fa">';
+                const s = '<span style="color:#a6e3a1">';
+                const k = '<span style="color:#cba6f7">';
+                const p = '<span style="color:#f9e2af">';
+                const e = '</span>';
+                el.innerHTML =
+                    `${p}WaltVerify${e}.${p}init${e}({\n` +
+                    `  ${k}clientToken${e}: ${s}"wt_..."${e},\n` +
+                    `  ${k}apiBase${e}:     ${s}"${config.apiBaseUrl}"${e},\n` +
+                    `  ${k}rp${e}: {\n` +
+                    `    ${k}id${e}:       ${s}"${config.rp.id}"${e},\n` +
+                    `    ${k}clientId${e}: ${s}"${config.rp.clientId}"${e},\n` +
+                    `    ${k}domain${e}:   ${s}"${config.rp.domain}"${e}\n` +
+                    `  }\n` +
+                    `});`;
+                statusEl.innerHTML = '<span style="color: #22c55e;">&#9679;</span> Registered RP &mdash; verification sessions use per-RP certificate and client ID';
+                statusEl.style.background = '#f0fdf4';
+                statusEl.style.border = '1px solid #bbf7d0';
+            } else {
+                el.innerHTML =
+                    '<span style="color:#f9e2af">WaltVerify</span>.<span style="color:#f9e2af">init</span>({\n' +
+                    '  <span style="color:#cba6f7">clientToken</span>: <span style="color:#a6e3a1">"wt_..."</span>,\n' +
+                    '  <span style="color:#cba6f7">apiBase</span>:     <span style="color:#a6e3a1">"' + config.apiBaseUrl + '"</span>\n' +
+                    '  <span style="color:#6c7086">// No RP configured — using global verifier identity</span>\n' +
+                    '});';
+                statusEl.innerHTML = '<span style="color: #eab308;">&#9679;</span> No RP registered &mdash; using global verifier certificate (verifier2.theaustraliahack.com)';
+                statusEl.style.background = '#fefce8';
+                statusEl.style.border = '1px solid #fef08a';
+            }
+        }
+
         // Initialize SDK
         async function initializeSDK() {
             try {
@@ -2001,14 +2133,21 @@
                 console.log('[Token] Received:', clientToken.substring(0, 20) + '...');
 
                 // Initialize WaltVerify
-                WaltVerify.init({
+                const initConfig = {
                     clientToken: clientToken,
                     apiBase: config.apiBaseUrl,
                     theme: currentTheme
-                });
+                };
+                if (config.rp) {
+                    initConfig.rp = config.rp;
+                }
+                WaltVerify.init(initConfig);
 
                 sdkReady = true;
                 console.log('[SDK] Initialized successfully');
+
+                // Update RP config display
+                updateRpConfigDisplay();
 
                 // Hide loading indicator
                 document.getElementById('sdk-loading').style.display = 'none';
@@ -2036,7 +2175,6 @@
                 onSuccess: function(result) {
                     console.log('[Verify] Success:', result);
                     showResult('modal', result);
-                    alert(`Age verified! You are ${minAge} or older.`);
                 },
                 onFailure: function(error) {
                     console.error('[Verify] Failed:', error);
@@ -2127,11 +2265,15 @@
 
             // Re-initialize SDK with new theme
             if (sdkReady && clientToken) {
-                WaltVerify.init({
+                const reinitConfig = {
                     clientToken: clientToken,
                     apiBase: config.apiBaseUrl,
                     theme: currentTheme
-                });
+                };
+                if (config.rp) {
+                    reinitConfig.rp = config.rp;
+                }
+                WaltVerify.init(reinitConfig);
                 console.log('[Theme] Updated:', currentTheme);
             }
         }

@@ -85,31 +85,60 @@ object Verifier2Client {
      * Creates a verification session on verifier-api2 with EUDI-compatible signed JAR request.
      *
      * @param dcqlQuery The DCQL query JSON specifying credentials and claims to request
+     * @param rpId Optional registered RP ID. When provided, verifier-api2 resolves the RP's
+     *             own clientId, signing key, and x5c from the RP Registrar. When null, the
+     *             global verifier config (clientId, signingKey, x5c) is used as fallback.
      * @return Session response with authorization URLs
      */
-    suspend fun createSession(dcqlQuery: JsonObject): VerificationSessionResponse {
-        logger.info { "Creating verifier-api2 session with DCQL query" }
-        logger.debug { "DCQL Query: $dcqlQuery" }
+    /**
+     * Builds the session creation URL, appending `?rpId=` when an RP ID is provided.
+     */
+    internal fun buildSessionUrl(rpId: String?): String {
+        return if (rpId != null) {
+            "$verifierApi2Url/verification-session/create?rpId=$rpId"
+        } else {
+            "$verifierApi2Url/verification-session/create"
+        }
+    }
 
-        val requestBody = buildJsonObject {
+    /**
+     * Builds the session creation request body.
+     * When rpId is null, includes global signing config (clientId, key, x5c).
+     * When rpId is set, omits them so verifier-api2 resolves from the registered RP.
+     */
+    internal fun buildSessionRequestBody(dcqlQuery: JsonObject, rpId: String?): JsonObject {
+        return buildJsonObject {
             put("flow_type", "cross_device")
             putJsonObject("core_flow") {
                 put("signed_request", true)
-                put("clientId", clientId)
-                putJsonObject("key") {
-                    put("type", "jwk")
-                    put("jwk", signingKey)
-                }
-                putJsonArray("x5c") {
-                    x5c.forEach { add(it) }
-                }
                 put("dcql_query", dcqlQuery)
+                if (rpId == null) {
+                    // Fallback: use global verifier config
+                    put("clientId", clientId)
+                    putJsonObject("key") {
+                        put("type", "jwk")
+                        put("jwk", signingKey)
+                    }
+                    putJsonArray("x5c") {
+                        x5c.forEach { add(it) }
+                    }
+                }
+                // When rpId is set, verifier-api2 resolves key/x5c from the registered RP
             }
         }
+    }
 
+    suspend fun createSession(dcqlQuery: JsonObject, rpId: String? = null): VerificationSessionResponse {
+        logger.info { "Creating verifier-api2 session with DCQL query${rpId?.let { " (rpId=$it)" } ?: " (global config)"}" }
+        logger.debug { "DCQL Query: $dcqlQuery" }
+
+        val requestBody = buildSessionRequestBody(dcqlQuery, rpId)
+        val url = buildSessionUrl(rpId)
+
+        logger.debug { "Request URL: $url" }
         logger.debug { "Request body: $requestBody" }
 
-        val response = httpClient.post("$verifierApi2Url/verification-session/create") {
+        val response = httpClient.post(url) {
             contentType(ContentType.Application.Json)
             setBody(requestBody)
         }

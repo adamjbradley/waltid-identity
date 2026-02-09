@@ -16,6 +16,7 @@ object VerifyOrganizations : UUIDTable("verify_organizations") {
     val billingEmail = varchar("billing_email", 255)
     val plan = varchar("plan", 50).default("free")
     val widgetAllowedOrigins = text("widget_allowed_origins").nullable()  // JSON array of allowed origins for widget integration
+    val rpId = varchar("rp_id", 100).nullable()  // Registered RP ID from verifier-api2 RP Registrar
     val createdAt = timestamp("created_at")
     val updatedAt = timestamp("updated_at")
 }

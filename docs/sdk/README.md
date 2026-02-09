@@ -10,15 +10,62 @@ Official SDKs for integrating with the Verify API multi-tenant verification gate
 | iOS (Swift) | `WaltIDVerifySDK` | Swift Package Manager |
 | Android (Kotlin) | `id.walt.verify:sdk` | Gradle/Maven |
 
+## Onboarding as a Relying Party
+
+Before using any SDK in production, you must register as a Relying Party (RP). This gives your application its own X.509 certificate and client identity for EUDI wallet compatibility.
+
+> **Sandbox shortcut:** For development, skip to [Quick Start](#quick-start) using the pre-configured sandbox credentials. No registration needed.
+
+### Step 1: Register Your RP
+
+```bash
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "legalName": "Your Company Ltd",
+    "country": "AU",
+    "domain": "verify.yourcompany.com",
+    "contactEmail": "dev@yourcompany.com",
+    "contactAddress": "123 Main St, Sydney",
+    "privacyPolicyUrl": "https://yourcompany.com/privacy",
+    "dataRetentionPeriod": "P90D",
+    "lawfulBasis": "consent",
+    "dpaAcknowledged": true
+  }'
+```
+
+Save the `id` from the response — this is your RP ID.
+
+### Step 2: Generate a Signing Certificate
+
+```bash
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp/{RP_ID}/certificate/generate
+```
+
+This creates an EC P-256 certificate for your domain. The certificate is stored server-side and used automatically when your RP creates verification sessions. You never handle signing yourself.
+
+### Step 3: Link Your RP to a Verify API Organisation
+
+```bash
+curl -X PUT https://verify-api.theaustraliahack.com/v1/admin/organizations/{ORG_ID}/rp \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "rpId": "YOUR_RP_ID" }'
+```
+
+Once linked, all verification sessions created with your API key will use your RP's certificate and `x509_san_dns:verify.yourcompany.com` client ID — the EUDI wallet sees your identity, not a shared verifier.
+
+### Step 4: Get Your API Keys
+
+Your organisation has test and live API keys:
+- **Test keys:** `vfy_test_xxx` (sandbox, no billing)
+- **Live keys:** `vfy_live_xxx` (production)
+
+---
+
 ## Quick Start
 
-### 1. Get API Key
-
-Sign up at the Verify API portal to get your API key:
-- Test keys: `vfy_test_xxx` (sandbox, no billing)
-- Live keys: `vfy_live_xxx` (production)
-
-### 2. Install SDK
+### 1. Install SDK
 
 **JavaScript/TypeScript:**
 ```bash

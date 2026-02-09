@@ -8,6 +8,28 @@ TypeScript/JavaScript SDK for the walt.id Verify API. Simplify identity verifica
 npm install @waltid/verify-sdk
 ```
 
+## Relying Party Onboarding (Production)
+
+Before going to production, register as a Relying Party to get your own X.509 certificate and client identity. See the [full onboarding guide](../docs/verify-api/sdk-integration.md#relying-party-onboarding) for details.
+
+```bash
+# 1. Register your RP
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp \
+  -H "Content-Type: application/json" \
+  -d '{"legalName":"Your Co","country":"AU","domain":"verify.yourco.com","contactEmail":"dev@yourco.com","contactAddress":"123 Main St","privacyPolicyUrl":"https://yourco.com/privacy","dataRetentionPeriod":"P90D","lawfulBasis":"consent","dpaAcknowledged":true}'
+
+# 2. Generate signing certificate
+curl -X POST https://verifier2.theaustraliahack.com/admin/rp/{RP_ID}/certificate/generate
+
+# 3. Link RP to your organisation
+curl -X PUT https://verify-api.theaustraliahack.com/v1/admin/organizations/{ORG_ID}/rp \
+  -H "Authorization: Bearer vfy_live_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"rpId":"YOUR_RP_ID"}'
+```
+
+Once linked, the SDK code is unchanged — the Verify API resolves your RP's certificate automatically based on your API key.
+
 ## Quick Start
 
 ```typescript

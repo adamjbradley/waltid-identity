@@ -237,13 +237,20 @@ private fun seedSandboxOrganization() {
 
         // Create sandbox organization
         val orgId = java.util.UUID.randomUUID()
+        val sandboxRpId = System.getenv("RP_THEAUSTRALIAHACK_ID")
         VerifyOrganizations.insert {
             it[id] = orgId
             it[name] = "Sandbox Demo"
             it[billingEmail] = "sandbox@demo.example.com"
             it[plan] = "sandbox"
+            if (sandboxRpId != null) {
+                it[rpId] = sandboxRpId
+            }
             it[createdAt] = now
             it[updatedAt] = now
+        }
+        if (sandboxRpId != null) {
+            logger.info { "Sandbox organization linked to registered RP: $sandboxRpId" }
         }
 
         // Create sandbox test API key
