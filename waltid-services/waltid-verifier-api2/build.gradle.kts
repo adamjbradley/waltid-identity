@@ -83,6 +83,10 @@ dependencies {
     api(project(":waltid-libraries:credentials:waltid-digital-credentials"))
     api(project(":waltid-libraries:credentials:waltid-verification-policies2"))
 
+    // BouncyCastle (for RP certificate generation)
+    implementation(identityLibs.bcprov.lts8on)
+    implementation(identityLibs.bcpkix.lts8on)
+
     // Trust lists
     api(project(":waltid-libraries:credentials:waltid-trust"))
     implementation(project(":waltid-libraries:credentials:waltid-etsi-tsl"))
