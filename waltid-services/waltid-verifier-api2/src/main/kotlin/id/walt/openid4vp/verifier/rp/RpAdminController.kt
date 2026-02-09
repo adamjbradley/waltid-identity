@@ -29,8 +29,12 @@ data class RegisterRpRequest(
     val domain: String,
     val contactEmail: String,
     val contactPhone: String? = null,
-    val contactAddress: String? = null,
-    val intendedUse: String? = null
+    val contactAddress: String,
+    val intendedUse: String? = null,
+    val privacyPolicyUrl: String,
+    val dataRetentionPeriod: String,
+    val lawfulBasis: LawfulBasis,
+    val dpaAcknowledged: Boolean
 )
 
 @Serializable
@@ -43,7 +47,11 @@ data class UpdateRpRequest(
     val contactPhone: String? = null,
     val contactAddress: String? = null,
     val intendedUse: String? = null,
-    val status: RpStatus? = null
+    val status: RpStatus? = null,
+    val privacyPolicyUrl: String? = null,
+    val dataRetentionPeriod: String? = null,
+    val lawfulBasis: LawfulBasis? = null,
+    val dpaAcknowledged: Boolean? = null
 )
 
 @Serializable
@@ -82,6 +90,10 @@ data class RpDetail(
     val contactAddress: String? = null,
     val intendedUse: String? = null,
     val dcqlQuery: JsonObject? = null,
+    val privacyPolicyUrl: String? = null,
+    val dataRetentionPeriod: String? = null,
+    val lawfulBasis: LawfulBasis? = null,
+    val dpaAcknowledged: Boolean = false,
     val clientId: String,
     val domain: String,
     val certificate: X509CertInfo? = null,
@@ -127,6 +139,18 @@ fun Application.rpAdminRoutes() {
                 if (req.contactEmail.isBlank()) return@post call.respond(
                     HttpStatusCode.BadRequest, mapOf("error" to "contactEmail is required")
                 )
+                if (req.contactAddress.isBlank()) return@post call.respond(
+                    HttpStatusCode.BadRequest, mapOf("error" to "contactAddress is required")
+                )
+                if (req.privacyPolicyUrl.isBlank()) return@post call.respond(
+                    HttpStatusCode.BadRequest, mapOf("error" to "privacyPolicyUrl is required")
+                )
+                if (req.dataRetentionPeriod.isBlank()) return@post call.respond(
+                    HttpStatusCode.BadRequest, mapOf("error" to "dataRetentionPeriod is required")
+                )
+                if (!req.dpaAcknowledged) return@post call.respond(
+                    HttpStatusCode.BadRequest, mapOf("error" to "dpaAcknowledged must be true to register")
+                )
                 if (req.intendedUse != null && req.intendedUse.length > 500) return@post call.respond(
                     HttpStatusCode.BadRequest, mapOf("error" to "intendedUse must be 500 characters or less")
                 )
@@ -147,6 +171,10 @@ fun Application.rpAdminRoutes() {
                     contactPhone = req.contactPhone,
                     contactAddress = req.contactAddress,
                     intendedUse = req.intendedUse,
+                    privacyPolicyUrl = req.privacyPolicyUrl,
+                    dataRetentionPeriod = req.dataRetentionPeriod,
+                    lawfulBasis = req.lawfulBasis,
+                    dpaAcknowledged = req.dpaAcknowledged,
                     clientId = "x509_san_dns:${req.domain}",
                     domain = req.domain,
                     status = RpStatus.ACTIVE,
@@ -203,6 +231,10 @@ fun Application.rpAdminRoutes() {
                         contactPhone = req.contactPhone ?: rp.contactPhone,
                         contactAddress = req.contactAddress ?: rp.contactAddress,
                         intendedUse = req.intendedUse ?: rp.intendedUse,
+                        privacyPolicyUrl = req.privacyPolicyUrl ?: rp.privacyPolicyUrl,
+                        dataRetentionPeriod = req.dataRetentionPeriod ?: rp.dataRetentionPeriod,
+                        lawfulBasis = req.lawfulBasis ?: rp.lawfulBasis,
+                        dpaAcknowledged = req.dpaAcknowledged ?: rp.dpaAcknowledged,
                         status = req.status ?: rp.status,
                         updatedAt = java.time.Instant.now().toString()
                     )
@@ -370,6 +402,10 @@ private fun RelyingParty.toDetail() = RpDetail(
     contactAddress = contactAddress,
     intendedUse = intendedUse,
     dcqlQuery = dcqlQuery,
+    privacyPolicyUrl = privacyPolicyUrl,
+    dataRetentionPeriod = dataRetentionPeriod,
+    lawfulBasis = lawfulBasis,
+    dpaAcknowledged = dpaAcknowledged,
     clientId = clientId,
     domain = domain,
     certificate = certificate,

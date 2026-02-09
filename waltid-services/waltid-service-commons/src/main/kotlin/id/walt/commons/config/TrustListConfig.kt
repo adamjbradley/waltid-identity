@@ -10,7 +10,9 @@ data class TrustListConfig(
         val cacheTtlHours: Int = 24,
         val memberStates: List<String> = listOf("*"),
         val validateSignatures: Boolean = true,
-        val additionalTslUrls: Map<String, String> = emptyMap()
+        val additionalTslUrls: Map<String, String> = emptyMap(),
+        val cacheDir: String? = "data/tsl-cache",
+        val refreshIntervalHours: Int = 1
     )
 
     data class OpenIdFederationConfig(

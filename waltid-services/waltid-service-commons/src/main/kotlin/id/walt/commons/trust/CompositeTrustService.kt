@@ -15,6 +15,7 @@ import id.walt.trust.models.TrustServiceProvider
 import io.klogging.noCoLogger
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
+import kotlinx.coroutines.CoroutineScope
 
 private val log = noCoLogger("CompositeTrustService")
 
@@ -33,7 +34,9 @@ class CompositeTrustService(
                 cacheTtlHours = config.etsi.cacheTtlHours,
                 memberStates = config.etsi.memberStates,
                 validateSignatures = config.etsi.validateSignatures,
-                additionalTslUrls = config.etsi.additionalTslUrls
+                additionalTslUrls = config.etsi.additionalTslUrls,
+                cacheDir = config.etsi.cacheDir,
+                refreshIntervalHours = config.etsi.refreshIntervalHours
             )
             EtsiTrustListService(tslConfig, httpClient)
         }
@@ -278,5 +281,11 @@ class CompositeTrustService(
 
     override fun getCustomTslUrls(): Map<String, String> {
         return etsiService.getCustomTslUrls()
+    }
+
+    suspend fun initWithCacheAndRefresh(scope: CoroutineScope) {
+        if (enabledSources[TrustSource.ETSI_TL] == true) {
+            (etsiService as? EtsiTrustListService)?.initWithCacheAndRefresh(scope)
+        }
     }
 }

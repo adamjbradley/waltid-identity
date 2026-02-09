@@ -14,6 +14,7 @@ import {
   KeyIcon,
   DocumentArrowDownIcon,
 } from '@heroicons/react/24/outline';
+import AdminNav from '@/components/walt/nav/AdminNav';
 
 // -- Interfaces --
 
@@ -39,6 +40,10 @@ interface RpDetail {
   contactAddress?: string;
   intendedUse?: string;
   dcqlQuery?: object;
+  privacyPolicyUrl?: string;
+  dataRetentionPeriod?: string;
+  lawfulBasis?: string;
+  dpaAcknowledged?: boolean;
   clientId: string;
   domain: string;
   certificate?: {
@@ -102,6 +107,10 @@ export default function RelyingParties() {
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formIntendedUse, setFormIntendedUse] = useState('');
+  const [formPrivacyPolicyUrl, setFormPrivacyPolicyUrl] = useState('');
+  const [formDataRetention, setFormDataRetention] = useState('');
+  const [formLawfulBasis, setFormLawfulBasis] = useState('');
+  const [formDpaAcknowledged, setFormDpaAcknowledged] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registerSuccess, setRegisterSuccess] = useState<string | null>(null);
@@ -184,8 +193,12 @@ export default function RelyingParties() {
         domain: formDomain,
         contactEmail: formEmail,
         contactPhone: formPhone || undefined,
-        contactAddress: formAddress || undefined,
+        contactAddress: formAddress,
         intendedUse: formIntendedUse || undefined,
+        privacyPolicyUrl: formPrivacyPolicyUrl,
+        dataRetentionPeriod: formDataRetention,
+        lawfulBasis: formLawfulBasis,
+        dpaAcknowledged: formDpaAcknowledged,
       });
 
       setRegisterSuccess(
@@ -201,6 +214,10 @@ export default function RelyingParties() {
       setFormPhone('');
       setFormAddress('');
       setFormIntendedUse('');
+      setFormPrivacyPolicyUrl('');
+      setFormDataRetention('');
+      setFormLawfulBasis('');
+      setFormDpaAcknowledged(false);
       // Refresh list
       await fetchRpList();
     } catch (e: any) {
@@ -295,11 +312,14 @@ export default function RelyingParties() {
 
   return (
     <div className="flex flex-col justify-center items-center bg-gray-50 min-h-screen">
-      <div
-        className="my-5 flex flex-row justify-center cursor-pointer"
-        onClick={() => router.push('/')}
-      >
-        <WaltIcon height={35} width={35} type="primary" />
+      <div className="my-5 flex flex-row items-center gap-4">
+        <div
+          className="cursor-pointer"
+          onClick={() => router.push('/')}
+        >
+          <WaltIcon height={35} width={35} type="primary" />
+        </div>
+        <AdminNav />
       </div>
 
       <div className="w-11/12 md:w-9/12 lg:w-8/12 shadow-2xl rounded-lg mt-5 pt-8 pb-8 px-10 bg-white max-w-[1100px]">
@@ -568,7 +588,7 @@ export default function RelyingParties() {
                       onChange={setFormAddress}
                       type="text"
                       name="contactAddress"
-                      label="Address"
+                      label="Address *"
                       placeholder="123 George St, Sydney NSW 2000"
                       showLabel={true}
                     />
@@ -590,6 +610,84 @@ export default function RelyingParties() {
                       </p>
                     </div>
 
+                    {/* Data Protection & Compliance */}
+                    <div className="border-t border-gray-200 pt-4 mt-2">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        Data Protection & Compliance
+                      </h3>
+
+                      <div className="space-y-4">
+                        <InputField
+                          value={formPrivacyPolicyUrl}
+                          onChange={setFormPrivacyPolicyUrl}
+                          type="url"
+                          name="privacyPolicyUrl"
+                          label="Privacy Policy URL *"
+                          placeholder="https://acme.com/privacy"
+                          showLabel={true}
+                        />
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Data Retention Period *
+                            </label>
+                            <select
+                              value={formDataRetention}
+                              onChange={(e) => setFormDataRetention(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">Select retention period...</option>
+                              <option value="30_DAYS">30 Days</option>
+                              <option value="90_DAYS">90 Days</option>
+                              <option value="1_YEAR">1 Year</option>
+                              <option value="3_YEARS">3 Years</option>
+                              <option value="DURATION_OF_CONTRACT">Duration of Contract</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Lawful Basis (GDPR Art. 6) *
+                            </label>
+                            <select
+                              value={formLawfulBasis}
+                              onChange={(e) => setFormLawfulBasis(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">Select lawful basis...</option>
+                              <option value="CONSENT">Consent (Art. 6(1)(a))</option>
+                              <option value="CONTRACT">Contract (Art. 6(1)(b))</option>
+                              <option value="LEGAL_OBLIGATION">Legal Obligation (Art. 6(1)(c))</option>
+                              <option value="VITAL_INTEREST">Vital Interest (Art. 6(1)(d))</option>
+                              <option value="PUBLIC_TASK">Public Task (Art. 6(1)(e))</option>
+                              <option value="LEGITIMATE_INTEREST">Legitimate Interest (Art. 6(1)(f))</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <input
+                            type="checkbox"
+                            id="dpaAcknowledged"
+                            checked={formDpaAcknowledged}
+                            onChange={(e) => setFormDpaAcknowledged(e.target.checked)}
+                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="dpaAcknowledged" className="text-sm text-gray-700">
+                            <span className="font-medium">Data Protection Acknowledgment *</span>
+                            <br />
+                            <span className="text-xs text-gray-500">
+                              I acknowledge that this relying party will process personal data in
+                              accordance with GDPR and the eIDAS 2.0 Implementing Act. A Data
+                              Protection Impact Assessment (DPIA) has been or will be completed
+                              where required.
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
                     <Button
                       onClick={handleRegister}
                       loading={registering}
@@ -597,7 +695,12 @@ export default function RelyingParties() {
                         !formLegalName.trim() ||
                         !formDomain.trim() ||
                         !formCountry.trim() ||
-                        !formEmail.trim()
+                        !formEmail.trim() ||
+                        !formAddress.trim() ||
+                        !formPrivacyPolicyUrl.trim() ||
+                        !formDataRetention ||
+                        !formLawfulBasis ||
+                        !formDpaAcknowledged
                       }
                       color="primary"
                     >
@@ -692,6 +795,31 @@ function RpDetailPanel({
           </p>
         </div>
       )}
+
+      {/* Data Protection & Compliance */}
+      <div className="mb-5 border border-gray-200 rounded-lg bg-white p-4">
+        <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+          Data Protection & Compliance
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          <InfoRow
+            label="Privacy Policy"
+            value={detail.privacyPolicyUrl || '-'}
+          />
+          <InfoRow
+            label="Data Retention"
+            value={detail.dataRetentionPeriod?.replace(/_/g, ' ') || '-'}
+          />
+          <InfoRow
+            label="Lawful Basis (GDPR)"
+            value={detail.lawfulBasis?.replace(/_/g, ' ') || '-'}
+          />
+          <InfoRow
+            label="DPA Acknowledged"
+            value={detail.dpaAcknowledged ? 'Yes' : 'No'}
+          />
+        </div>
+      </div>
 
       {/* Certificate section */}
       <div className="mb-5 border border-gray-200 rounded-lg bg-white p-4">

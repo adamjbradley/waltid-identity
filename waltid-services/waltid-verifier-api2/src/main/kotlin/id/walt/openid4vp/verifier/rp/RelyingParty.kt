@@ -7,6 +7,16 @@ import kotlinx.serialization.json.JsonObject
 enum class RpStatus { ACTIVE, SUSPENDED, REVOKED }
 
 @Serializable
+enum class LawfulBasis {
+    CONSENT,
+    CONTRACT,
+    LEGAL_OBLIGATION,
+    VITAL_INTEREST,
+    PUBLIC_TASK,
+    LEGITIMATE_INTEREST
+}
+
+@Serializable
 data class X509CertInfo(
     val subject: String,
     val issuer: String,
@@ -28,6 +38,10 @@ data class RelyingParty(
     val contactAddress: String? = null,
     val intendedUse: String? = null,
     val dcqlQuery: JsonObject? = null,
+    val privacyPolicyUrl: String? = null,
+    val dataRetentionPeriod: String? = null,
+    val lawfulBasis: LawfulBasis? = null,
+    val dpaAcknowledged: Boolean = false,
     val clientId: String,
     val domain: String,
     val certificate: X509CertInfo? = null,

@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
   PencilIcon,
 } from '@heroicons/react/24/outline';
+import AdminNav from '@/components/walt/nav/AdminNav';
 
 // -- Interfaces --
 
@@ -640,11 +641,14 @@ export default function TrustConfig() {
 
   return (
     <div className="flex flex-col justify-center items-center bg-gray-50 min-h-screen">
-      <div
-        className="my-5 flex flex-row justify-center cursor-pointer"
-        onClick={() => router.push('/')}
-      >
-        <WaltIcon height={35} width={35} type="primary" />
+      <div className="my-5 flex flex-row items-center gap-4">
+        <div
+          className="cursor-pointer"
+          onClick={() => router.push('/')}
+        >
+          <WaltIcon height={35} width={35} type="primary" />
+        </div>
+        <AdminNav />
       </div>
 
       <div className="w-11/12 md:w-9/12 lg:w-8/12 shadow-2xl rounded-lg mt-5 pt-8 pb-8 px-10 bg-white max-w-[1100px]">

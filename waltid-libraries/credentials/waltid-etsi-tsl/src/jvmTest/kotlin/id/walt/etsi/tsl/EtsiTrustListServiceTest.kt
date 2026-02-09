@@ -7,7 +7,11 @@ import io.ktor.client.engine.mock.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import java.nio.file.Path
 import kotlin.test.*
 
 class EtsiTrustListServiceTest {
@@ -326,6 +330,222 @@ class EtsiTrustListServiceTest {
         val urls = service.getCustomTslUrls()
         assertEquals(1, urls.size)
         assertEquals(customUrl, urls["XX"])
+
+        httpClient.close()
+    }
+
+    // -- Disk cache tests --
+
+    @Test
+    fun `test TslDiskCache serialization round-trip`() {
+        val tsl = TslParser.parse(SAMPLE_TSL_XML)
+        val cache = TslDiskCache(
+            savedAt = "2026-01-01T00:00:00Z",
+            lotl = null,
+            memberStateTls = mapOf("XX" to tsl),
+            customTslUrls = mapOf("XX" to "https://example.com/tsl.xml")
+        )
+
+        val json = Json { ignoreUnknownKeys = true }
+        val serialized = json.encodeToString(TslDiskCache.serializer(), cache)
+        val deserialized = json.decodeFromString<TslDiskCache>(serialized)
+
+        assertEquals(cache.savedAt, deserialized.savedAt)
+        assertNull(deserialized.lotl)
+        assertEquals(1, deserialized.memberStateTls.size)
+        assertEquals("XX", deserialized.memberStateTls["XX"]?.schemeTerritory)
+        assertEquals(1, deserialized.memberStateTls["XX"]?.trustServiceProviders?.size)
+        assertEquals("XX", deserialized.customTslUrls.keys.first())
+    }
+
+    @Test
+    fun `test saveToDiskCache creates cache file after refresh`(@TempDir tempDir: Path) = runTest {
+        val cacheDir = tempDir.resolve("tsl-cache").toString()
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl),
+            cacheDir = cacheDir
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        service.refresh()
+
+        val cacheFile = File(cacheDir, "tsl-cache.json")
+        assertTrue(cacheFile.exists(), "Cache file should be created after refresh")
+        assertTrue(cacheFile.length() > 0, "Cache file should not be empty")
+
+        // Verify the cache content is valid JSON
+        val json = Json { ignoreUnknownKeys = true }
+        val cache = json.decodeFromString<TslDiskCache>(cacheFile.readText())
+        assertNotNull(cache.savedAt)
+        assertEquals(1, cache.memberStateTls.size)
+        assertTrue(cache.memberStateTls.containsKey("XX"))
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test loadFromDiskCache restores state`(@TempDir tempDir: Path) = runTest {
+        val cacheDir = tempDir.resolve("tsl-cache").toString()
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val httpClient = mockHttpClient(customUrl)
+
+        // Service 1: refresh to populate and save cache
+        val config1 = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl),
+            cacheDir = cacheDir
+        )
+        val service1 = EtsiTrustListService(config1, httpClient)
+        service1.refresh()
+        assertTrue(service1.isHealthy())
+        assertEquals(1, service1.getAllTrustedProviders().size)
+
+        // Service 2: load from disk cache (no network)
+        val config2 = TslConfig(
+            lotlUrl = "https://invalid.example.com/should-not-be-called.xml",
+            validateSignatures = false,
+            cacheDir = cacheDir
+        )
+        val httpClient2 = HttpClient(CIO)
+        val service2 = EtsiTrustListService(config2, httpClient2)
+
+        assertFalse(service2.isHealthy())
+        service2.loadFromDiskCache()
+
+        assertTrue(service2.isHealthy())
+        val providers = service2.getAllTrustedProviders()
+        assertEquals(1, providers.size)
+        assertEquals("Test Provider", providers[0].name)
+        assertNotNull(service2.getCachedMemberStateTl("XX"))
+        assertEquals(mapOf("XX" to customUrl), service2.getCustomTslUrls())
+
+        httpClient.close()
+        httpClient2.close()
+    }
+
+    @Test
+    fun `test loadFromDiskCache handles missing file gracefully`(@TempDir tempDir: Path) {
+        val cacheDir = tempDir.resolve("nonexistent").toString()
+        val config = TslConfig(
+            lotlUrl = "https://invalid.example.com/lotl.xml",
+            validateSignatures = false,
+            cacheDir = cacheDir
+        )
+        val httpClient = HttpClient(CIO)
+        val service = EtsiTrustListService(config, httpClient)
+
+        // Should not throw, should remain unhealthy
+        service.loadFromDiskCache()
+        assertFalse(service.isHealthy())
+        assertNull(service.getCachedLotl())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test loadFromDiskCache handles corrupt file gracefully`(@TempDir tempDir: Path) {
+        val cacheDir = tempDir.resolve("tsl-cache").toString()
+        File(cacheDir).mkdirs()
+        File(cacheDir, "tsl-cache.json").writeText("{ invalid json {{}")
+
+        val config = TslConfig(
+            lotlUrl = "https://invalid.example.com/lotl.xml",
+            validateSignatures = false,
+            cacheDir = cacheDir
+        )
+        val httpClient = HttpClient(CIO)
+        val service = EtsiTrustListService(config, httpClient)
+
+        // Should not throw, should remain unhealthy
+        service.loadFromDiskCache()
+        assertFalse(service.isHealthy())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test no disk cache when cacheDir is null`() = runTest {
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl),
+            cacheDir = null
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        // refresh should work fine without caching
+        service.refresh()
+        assertTrue(service.isHealthy())
+        assertEquals(1, service.getAllTrustedProviders().size)
+
+        // loadFromDiskCache should be a no-op
+        service.loadFromDiskCache()
+        assertTrue(service.isHealthy())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test addCustomTsl saves cache to disk`(@TempDir tempDir: Path) = runTest {
+        val cacheDir = tempDir.resolve("tsl-cache").toString()
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            cacheDir = cacheDir
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        service.refresh()
+        val cacheFile = File(cacheDir, "tsl-cache.json")
+        assertTrue(cacheFile.exists())
+        val sizeAfterRefresh = cacheFile.length()
+
+        // Adding a custom TSL should update the cache file
+        service.addCustomTsl("XX", customUrl)
+        assertTrue(cacheFile.length() > sizeAfterRefresh, "Cache file should grow after adding custom TSL")
+
+        // Verify custom TSL is in the cache
+        val json = Json { ignoreUnknownKeys = true }
+        val cache = json.decodeFromString<TslDiskCache>(cacheFile.readText())
+        assertEquals(customUrl, cache.customTslUrls["XX"])
+        assertTrue(cache.memberStateTls.containsKey("XX"))
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test removeCustomTsl saves cache to disk`(@TempDir tempDir: Path) = runTest {
+        val cacheDir = tempDir.resolve("tsl-cache").toString()
+        val customUrl = "https://custom.example.com/tsl.xml"
+        val config = TslConfig(
+            lotlUrl = "https://lotl.example.com/lotl.xml",
+            validateSignatures = false,
+            additionalTslUrls = mapOf("XX" to customUrl),
+            cacheDir = cacheDir
+        )
+        val httpClient = mockHttpClient(customUrl)
+        val service = EtsiTrustListService(config, httpClient)
+
+        service.refresh()
+        val cacheFile = File(cacheDir, "tsl-cache.json")
+        assertTrue(cacheFile.exists())
+
+        // Remove and check the cache is updated
+        service.removeCustomTsl("XX")
+
+        val json = Json { ignoreUnknownKeys = true }
+        val cache = json.decodeFromString<TslDiskCache>(cacheFile.readText())
+        assertFalse(cache.customTslUrls.containsKey("XX"))
+        assertFalse(cache.memberStateTls.containsKey("XX"))
 
         httpClient.close()
     }

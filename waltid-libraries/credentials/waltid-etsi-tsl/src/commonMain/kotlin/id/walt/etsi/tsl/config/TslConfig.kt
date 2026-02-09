@@ -9,7 +9,9 @@ data class TslConfig(
     val memberStates: List<String> = listOf("*"),
     val validateSignatures: Boolean = true,
     val localTestFile: String? = null,
-    val additionalTslUrls: Map<String, String> = emptyMap()
+    val additionalTslUrls: Map<String, String> = emptyMap(),
+    val cacheDir: String? = null,
+    val refreshIntervalHours: Int = 1
 ) {
     val isLocalTestMode: Boolean
         get() = localTestFile != null
