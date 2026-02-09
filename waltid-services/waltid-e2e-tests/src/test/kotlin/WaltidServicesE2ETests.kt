@@ -438,6 +438,13 @@ class WaltidServicesE2ETests {
         batchIssuance.runTests()
         //endregion -Batch Issuance Test Suite-
 
+        //region -Draft 13+ Credential Response Tests-
+        val draft13Test = Draft13IssuanceE2ETest(e2e, client, issuerApi, exchangeApi, credentialsApi)
+        draft13Test.testJwtCredentialIssuanceAndClaim(wallet)
+        draft13Test.testSdJwtCredentialIssuanceAndClaim(wallet)
+        draft13Test.testMdocCredentialIssuanceAndClaim(wallet)
+        //endregion -Draft 13+ Credential Response Tests-
+
         //region -EUDI Wallet Compatibility Tests-
         val eudiPidMdoc = id.walt.eudi.EudiPidMdocE2ETest(e2e, client, issuerApi, exchangeApi, credentialsApi)
         eudiPidMdoc.testIssuerMetadataHasEudiPidMdocConfig()
