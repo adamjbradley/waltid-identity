@@ -7,6 +7,7 @@ import id.walt.commons.featureflag.FeatureManager
 import id.walt.verifyapi.auth.configureAuthentication
 import id.walt.verifyapi.db.configureDatabase
 import id.walt.verifyapi.portal.portalAuthRoutes
+import id.walt.verifyapi.routes.adminOrgRoutes
 import id.walt.verifyapi.routes.orchestrationRoutes
 import id.walt.verifyapi.routes.portalApiKeysRoutes
 import id.walt.verifyapi.routes.portalUsageRoutes
@@ -240,5 +241,8 @@ fun Application.configureRouting() {
 
         // Portal widget configuration routes
         portalWidgetConfigRoutes()
+
+        // Admin organization management routes (RP linking)
+        adminOrgRoutes()
     }
 }

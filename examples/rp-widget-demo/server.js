@@ -23,11 +23,22 @@ const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_sandbox_demo_key_
 // VERIFY_API_URL is for server-to-server calls (can be Docker internal hostname)
 const PUBLIC_VERIFY_API_URL = process.env.PUBLIC_VERIFY_API_URL || VERIFY_API_URL;
 
+// Registered RP configuration (from verifier-api2 RP Registrar)
+const RP_ID = process.env.RP_ID || '';
+const RP_CLIENT_ID = process.env.RP_CLIENT_ID || '';
+const RP_DOMAIN = process.env.RP_DOMAIN || '';
+
+// Verifier API2 internal URL (for proxying verification-session responses from wallets)
+const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
+
 // Export for use in tests
 const config = {
   VERIFY_API_URL,
   VERIFY_API_KEY,
-  PUBLIC_VERIFY_API_URL
+  PUBLIC_VERIFY_API_URL,
+  RP_ID,
+  RP_CLIENT_ID,
+  RP_DOMAIN
 };
 
 /**
@@ -36,6 +47,38 @@ const config = {
  */
 function createApp() {
   const app = express();
+
+  // Proxy verification-session requests to verifier-api2
+  // The EUDI wallet POSTs VP tokens to response_uri which uses the RP's domain.
+  // This proxy forwards those requests to verifier-api2 which owns the session.
+  // Uses raw http.request to stream bytes without encoding/compression issues.
+  const http = require('http');
+  app.all('/verification-session/*', (req, res) => {
+    const target = new URL(`${VERIFIER_API2_URL}${req.originalUrl}`);
+    console.log(`[Proxy] ${req.method} ${req.originalUrl} -> ${target.href}`);
+
+    const proxyReq = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: target.pathname + target.search,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: target.host,
+      },
+    }, (proxyRes) => {
+      console.log(`[Proxy] Response: ${proxyRes.statusCode}`);
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error(`[Proxy] Error: ${err.message}`);
+      res.status(502).json({ error: 'Proxy error', message: err.message });
+    });
+
+    req.pipe(proxyReq);
+  });
 
   // Serve static files
   app.use(express.static(path.join(__dirname, 'public')));
@@ -105,9 +148,18 @@ function createApp() {
    * This URL must be browser-accessible (not Docker internal hostname).
    */
   app.get('/api/config', (req, res) => {
-    res.json({
+    const response = {
       apiBaseUrl: config.PUBLIC_VERIFY_API_URL
-    });
+    };
+    // Include RP config if configured
+    if (config.RP_ID) {
+      response.rp = {
+        id: config.RP_ID,
+        clientId: config.RP_CLIENT_ID,
+        domain: config.RP_DOMAIN
+      };
+    }
+    res.json(response);
   });
 
   // Health check
@@ -134,6 +186,11 @@ function startServer() {
     console.log(`  Demo page:   http://localhost:${PORT}`);
     console.log(`  API URL:     ${config.VERIFY_API_URL}`);
     console.log(`  API Key:     ${config.VERIFY_API_KEY.substring(0, 15)}...`);
+    if (config.RP_ID) {
+      console.log(`  RP ID:       ${config.RP_ID}`);
+      console.log(`  RP Client:   ${config.RP_CLIENT_ID}`);
+      console.log(`  RP Domain:   ${config.RP_DOMAIN}`);
+    }
     console.log('');
     console.log('  Make sure the Verify API is running at the configured URL.');
     console.log('');

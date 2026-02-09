@@ -1,0 +1,39 @@
+{
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "legalName": "The Australia Hack - RP Demo",
+  "tradeName": "RP Demo",
+  "registrationNumber": null,
+  "country": "AU",
+  "contactEmail": "admin@theaustraliahack.com",
+  "contactPhone": null,
+  "contactAddress": "Sydney, Australia",
+  "intendedUse": "EUDI wallet verification demo for age check and identity verification",
+  "dcqlQuery": null,
+  "privacyPolicyUrl": "https://rp.theaustraliahack.com/privacy",
+  "dataRetentionPeriod": "30 days",
+  "lawfulBasis": "CONSENT",
+  "dpaAcknowledged": true,
+  "clientId": "x509_san_dns:rp.theaustraliahack.com",
+  "domain": "rp.theaustraliahack.com",
+  "certificate": {
+    "subject": "CN=rp.theaustraliahack.com",
+    "issuer": "CN=rp.theaustraliahack.com",
+    "notBefore": "2026-02-09T09:49:38Z",
+    "notAfter": "2027-02-09T09:49:38Z",
+    "serialNumber": "0eb1f389ac338ebf7ab03917268bf680c4a2393e",
+    "fingerprint": "rp.theaustraliahack.com-self-signed"
+  },
+  "privateKeyJwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "5eTAZZqdlwa0Grp8j9-myHw8owTbl7kasXsbr-ttJAY",
+    "y": "poN7OiWnLyJSvaR9nN6ke6MQ_n8hA3oUSPK_Y41R0cQ",
+    "d": "H2SPYe0MFkpcGRk5C5ZhfmFST-5dlyp77v0AUb8_KCU"
+  },
+  "x5c": [
+    "MIIBvjCCAWOgAwIBAgIUDrHziawzjr96sDkXJov2gMSiOT4wCgYIKoZIzj0EAwIwIjEgMB4GA1UEAwwXcnAudGhlYXVzdHJhbGlhaGFjay5jb20wHhcNMjYwMjA5MDk0OTM4WhcNMjcwMjA5MDk0OTM4WjAiMSAwHgYDVQQDDBdycC50aGVhdXN0cmFsaWFoYWNrLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOXkwGWanZcGtBq6fI/fpsh8PKME25e5GrF7G6/rbSQGpoN7OiWnLyJSvaR9nN6ke6MQ/n8hA3oUSPK/Y41R0cSjdzB1MB0GA1UdDgQWBBR3bAdkolBRiHYWlQW+5tftYaMnVDAfBgNVHSMEGDAWgBR3bAdkolBRiHYWlQW+5tftYaMnVDAPBgNVHRMBAf8EBTADAQH/MCIGA1UdEQQbMBmCF3JwLnRoZWF1c3RyYWxpYWhhY2suY29tMAoGCCqGSM49BAMCA0kAMEYCIQCow3ELulmLtfTOdRaA+xE7DY0EE/AU7xlF6LgZwjUrfgIhAL0sk//BaHQUvvd1GfsCUYmekKI5NQ9CCUk/RnJQRrEa"
+  ],
+  "status": "ACTIVE",
+  "createdAt": "2026-02-09T09:49:38Z",
+  "updatedAt": "2026-02-09T09:49:38Z"
+}

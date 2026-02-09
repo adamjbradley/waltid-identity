@@ -3,10 +3,16 @@ package id.walt.openid4vp.verifier.rp
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage
 import org.bouncycastle.asn1.x509.Extension
 import org.bouncycastle.asn1.x509.GeneralName
 import org.bouncycastle.asn1.x509.GeneralNames
+import org.bouncycastle.asn1.x509.KeyPurposeId
 import org.bouncycastle.asn1.x509.KeyUsage
+import org.bouncycastle.asn1.x509.SubjectKeyIdentifier
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -66,6 +72,27 @@ object RpCertificateService {
             KeyUsage(KeyUsage.digitalSignature)
         )
 
+        // Add ExtendedKeyUsage with mdoc reader auth OID (required by EUDI wallet profile validation)
+        val readerAuthOid = KeyPurposeId.getInstance(ASN1ObjectIdentifier("1.0.18013.5.1.6"))
+        builder.addExtension(
+            Extension.extendedKeyUsage,
+            false,
+            ExtendedKeyUsage(readerAuthOid)
+        )
+
+        // Add SKI and AKI extensions (required by EUDI wallet trust store validation)
+        val extUtils = JcaX509ExtensionUtils()
+        builder.addExtension(
+            Extension.subjectKeyIdentifier,
+            false,
+            extUtils.createSubjectKeyIdentifier(keyPair.public)
+        )
+        builder.addExtension(
+            Extension.authorityKeyIdentifier,
+            false,
+            extUtils.createAuthorityKeyIdentifier(keyPair.public)
+        )
+
         val signer = JcaContentSignerBuilder("SHA256withECDSA").setProvider("BC").build(keyPair.private)
         val cert = JcaX509CertificateConverter().setProvider("BC").getCertificate(builder.build(signer))
 
@@ -113,14 +140,11 @@ object RpCertificateService {
         val d = ecPrivateKey.s.toByteArray().let { padOrTrimTo32(it) }
 
         return JsonObject(mapOf(
-            "type" to JsonPrimitive("jwk"),
-            "jwk" to JsonObject(mapOf(
-                "kty" to JsonPrimitive("EC"),
-                "crv" to JsonPrimitive("P-256"),
-                "x" to JsonPrimitive(base64UrlEncode(x)),
-                "y" to JsonPrimitive(base64UrlEncode(y)),
-                "d" to JsonPrimitive(base64UrlEncode(d))
-            ))
+            "kty" to JsonPrimitive("EC"),
+            "crv" to JsonPrimitive("P-256"),
+            "x" to JsonPrimitive(base64UrlEncode(x)),
+            "y" to JsonPrimitive(base64UrlEncode(y)),
+            "d" to JsonPrimitive(base64UrlEncode(d))
         ))
     }
 

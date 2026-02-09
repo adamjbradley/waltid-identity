@@ -277,7 +277,9 @@ describe('Integration Tests with Sandbox API', () => {
       .get('/api/token')
       .expect(200);
 
-    const expiryDate = new Date(response.body.expiresAt);
+    // expiresAt is epoch seconds, convert to milliseconds for Date comparison
+    const expiryMs = response.body.expiresAt * 1000;
+    const expiryDate = new Date(expiryMs);
     const now = new Date();
     expect(expiryDate.getTime()).toBeGreaterThan(now.getTime());
   });

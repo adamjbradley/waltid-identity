@@ -349,6 +349,7 @@ services:
       VALKEY_URL: "redis://valkey:6379"
       VERIFIER_API2_URL: "http://verifier-api2:7004"
       PUBLIC_BASE_URL: "${VERIFY_API_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFY_API_PORT}"
+      RP_THEAUSTRALIAHACK_ID: "${RP_THEAUSTRALIAHACK_ID:-}"
     volumes:
       - ./verify-api/config:/waltid-verify-api/config
 
@@ -409,6 +410,12 @@ services:
       # Browser SDK loading (must be publicly accessible)
       PUBLIC_VERIFY_API_URL: "${VERIFY_API_EXTERNAL_URL:-http://localhost:7010}"
       VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
+      # Registered RP configuration (from verifier-api2 RP Registrar)
+      RP_ID: "${RP_THEAUSTRALIAHACK_ID:-}"
+      RP_CLIENT_ID: "x509_san_dns:rp.theaustraliahack.com"
+      RP_DOMAIN: "rp.theaustraliahack.com"
+      # Verifier API2 internal URL (for proxying wallet VP token responses)
+      VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
       PORT: 4000
     ports:
       - "${RP_WIDGET_PORT:-4000}:4000"

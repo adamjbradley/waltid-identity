@@ -85,31 +85,60 @@ object Verifier2Client {
      * Creates a verification session on verifier-api2 with EUDI-compatible signed JAR request.
      *
      * @param dcqlQuery The DCQL query JSON specifying credentials and claims to request
+     * @param rpId Optional registered RP ID. When provided, verifier-api2 resolves the RP's
+     *             own clientId, signing key, and x5c from the RP Registrar. When null, the
+     *             global verifier config (clientId, signingKey, x5c) is used as fallback.
      * @return Session response with authorization URLs
      */
-    suspend fun createSession(dcqlQuery: JsonObject): VerificationSessionResponse {
-        logger.info { "Creating verifier-api2 session with DCQL query" }
-        logger.debug { "DCQL Query: $dcqlQuery" }
+    /**
+     * Builds the session creation URL, appending `?rpId=` when an RP ID is provided.
+     */
+    internal fun buildSessionUrl(rpId: String?): String {
+        return if (rpId != null) {
+            "$verifierApi2Url/verification-session/create?rpId=$rpId"
+        } else {
+            "$verifierApi2Url/verification-session/create"
+        }
+    }
 
-        val requestBody = buildJsonObject {
+    /**
+     * Builds the session creation request body.
+     * When rpId is null, includes global signing config (clientId, key, x5c).
+     * When rpId is set, omits them so verifier-api2 resolves from the registered RP.
+     */
+    internal fun buildSessionRequestBody(dcqlQuery: JsonObject, rpId: String?): JsonObject {
+        return buildJsonObject {
             put("flow_type", "cross_device")
             putJsonObject("core_flow") {
                 put("signed_request", true)
-                put("clientId", clientId)
-                putJsonObject("key") {
-                    put("type", "jwk")
-                    put("jwk", signingKey)
-                }
-                putJsonArray("x5c") {
-                    x5c.forEach { add(it) }
-                }
                 put("dcql_query", dcqlQuery)
+                if (rpId == null) {
+                    // Fallback: use global verifier config
+                    put("clientId", clientId)
+                    putJsonObject("key") {
+                        put("type", "jwk")
+                        put("jwk", signingKey)
+                    }
+                    putJsonArray("x5c") {
+                        x5c.forEach { add(it) }
+                    }
+                }
+                // When rpId is set, verifier-api2 resolves key/x5c from the registered RP
             }
         }
+    }
 
+    suspend fun createSession(dcqlQuery: JsonObject, rpId: String? = null): VerificationSessionResponse {
+        logger.info { "Creating verifier-api2 session with DCQL query${rpId?.let { " (rpId=$it)" } ?: " (global config)"}" }
+        logger.debug { "DCQL Query: $dcqlQuery" }
+
+        val requestBody = buildSessionRequestBody(dcqlQuery, rpId)
+        val url = buildSessionUrl(rpId)
+
+        logger.debug { "Request URL: $url" }
         logger.debug { "Request body: $requestBody" }
 
-        val response = httpClient.post("$verifierApi2Url/verification-session/create") {
+        val response = httpClient.post(url) {
             contentType(ContentType.Application.Json)
             setBody(requestBody)
         }
@@ -117,7 +146,7 @@ object Verifier2Client {
         if (!response.status.isSuccess()) {
             val errorBody = response.bodyAsText()
             logger.error { "Failed to create verifier-api2 session: ${response.status} - $errorBody" }
-            throw RuntimeException("Failed to create verification session: ${response.status}")
+            throw RuntimeException("Failed to create verification session: ${response.status} - $errorBody")
         }
 
         val sessionResponse = response.body<VerificationSessionResponse>()
@@ -142,6 +171,53 @@ object Verifier2Client {
         }
 
         return response.body()
+    }
+
+    /**
+     * Lists all registered RPs from verifier-api2's RP Registrar.
+     * Used for self-healing when an RP ID becomes stale.
+     */
+    suspend fun listRegisteredRps(): List<JsonObject> {
+        val response = httpClient.get("$verifierApi2Url/admin/rp")
+
+        if (!response.status.isSuccess()) {
+            logger.warn { "Failed to list registered RPs: ${response.status}" }
+            return emptyList()
+        }
+
+        return try {
+            val body = response.body<JsonArray>()
+            body.filterIsInstance<JsonObject>()
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to parse RP list response" }
+            emptyList()
+        }
+    }
+
+    /**
+     * Resolves an RP ID by matching the domain in the registered RPs.
+     * Looks for active RPs whose clientId contains the given domain.
+     *
+     * @param domain The domain to search for (e.g., "rp.theaustraliahack.com")
+     * @return The RP ID if found, null otherwise
+     */
+    suspend fun resolveRpIdByDomain(domain: String): String? {
+        val rps = listRegisteredRps()
+        for (rp in rps) {
+            val status = (rp["status"] as? JsonPrimitive)?.content
+            if (status != "ACTIVE") continue
+
+            val rpClientId = (rp["clientId"] as? JsonPrimitive)?.content
+            val rpDomain = (rp["domain"] as? JsonPrimitive)?.content
+            val rpId = (rp["id"] as? JsonPrimitive)?.content
+
+            if (rpId != null && (rpDomain == domain || rpClientId?.contains(domain) == true)) {
+                logger.info { "Resolved domain '$domain' to RP ID: $rpId" }
+                return rpId
+            }
+        }
+        logger.warn { "No active RP found for domain: $domain" }
+        return null
     }
 
     // Default values from environment - these match verifier2.theaustraliahack.com configuration

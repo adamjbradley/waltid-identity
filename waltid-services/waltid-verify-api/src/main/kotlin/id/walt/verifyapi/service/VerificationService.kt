@@ -1,5 +1,6 @@
 package id.walt.verifyapi.service
 
+import id.walt.verifyapi.db.VerifyOrganizations
 import id.walt.verifyapi.routes.VerificationResponse
 import id.walt.verifyapi.session.ResponseMode
 import id.walt.verifyapi.session.SessionManager
@@ -15,6 +16,11 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
+import java.time.Instant
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
@@ -63,17 +69,47 @@ object VerificationService {
 
         logger.info { "Found template '${template.name}' for verification (type: ${template.templateType})" }
 
-        // 2. Create session on verifier-api2 with signed JAR request
+        // 2. Look up the organization's registered RP ID (if any)
+        val rpId = transaction {
+            VerifyOrganizations.selectAll()
+                .where { VerifyOrganizations.id eq organizationId }
+                .singleOrNull()
+                ?.get(VerifyOrganizations.rpId)
+        }
+
+        if (rpId != null) {
+            logger.info { "Organization $organizationId is linked to registered RP: $rpId" }
+        }
+
+        // 3. Create session on verifier-api2 with signed JAR request
+        //    Self-healing: if "Unknown RP" error, resolve correct RP by domain and retry
         val verifierSession = try {
-            Verifier2Client.createSession(template.dcqlQuery)
+            Verifier2Client.createSession(template.dcqlQuery, rpId)
         } catch (e: Exception) {
-            logger.error(e) { "Failed to create verifier-api2 session" }
-            throw RuntimeException("Failed to create verification session: ${e.message}", e)
+            if (rpId != null && e.message?.contains("Unknown RP") == true) {
+                logger.warn { "RP $rpId not found in verifier-api2, attempting self-healing resolution..." }
+                val resolvedRpId = resolveAndUpdateRpId(organizationId, rpId)
+                if (resolvedRpId != null) {
+                    logger.info { "Self-healed RP ID: $rpId -> $resolvedRpId, retrying session creation" }
+                    try {
+                        Verifier2Client.createSession(template.dcqlQuery, resolvedRpId)
+                    } catch (retryEx: Exception) {
+                        logger.error(retryEx) { "Failed to create verifier-api2 session after self-healing" }
+                        throw RuntimeException("Failed to create verification session: ${retryEx.message}", retryEx)
+                    }
+                } else {
+                    logger.error(e) { "Self-healing failed: could not resolve RP for organization $organizationId" }
+                    throw RuntimeException("Failed to create verification session: ${e.message}", e)
+                }
+            } else {
+                logger.error(e) { "Failed to create verifier-api2 session" }
+                throw RuntimeException("Failed to create verification session: ${e.message}", e)
+            }
         }
 
         logger.info { "Created verifier-api2 session: ${verifierSession.sessionId}" }
 
-        // 3. Create our internal session and link to verifier-api2 session
+        // 4. Create our internal session and link to verifier-api2 session
         val session = SessionManager.createSession(
             organizationId = organizationId,
             templateName = templateName,
@@ -84,11 +120,11 @@ object VerificationService {
 
         logger.info { "Created verify-api session ${session.id} linked to verifier-api2 session ${verifierSession.sessionId}" }
 
-        // 4. Extract QR code data from the verifier-api2 response
+        // 5. Extract QR code data from the verifier-api2 response
         // The bootstrapAuthorizationRequestUrl is the OpenID4VP URL for QR codes
         val qrCodeData = verifierSession.bootstrapAuthorizationRequestUrl
 
-        // 5. Generate EUDI wallet deep link
+        // 6. Generate EUDI wallet deep link
         // Convert openid4vp:// to eudi-openid4vp:// for EUDI wallet
         val deepLink = qrCodeData.replace("openid4vp://", "eudi-openid4vp://")
 
@@ -271,6 +307,28 @@ object VerificationService {
             is JsonArray -> value.toString()
             else -> value.toString()
         }
+    }
+
+    /**
+     * Resolves the correct RP ID from verifier-api2 by domain and updates the organization's DB record.
+     * Used for self-healing when the stored RP ID becomes stale (e.g., after RP re-registration).
+     */
+    private suspend fun resolveAndUpdateRpId(organizationId: UUID, staleRpId: String): String? {
+        // Try to resolve by well-known RP domain
+        val rpDomain = System.getenv("RP_DOMAIN") ?: "rp.theaustraliahack.com"
+        val resolvedRpId = Verifier2Client.resolveRpIdByDomain(rpDomain) ?: return null
+
+        if (resolvedRpId == staleRpId) return null // Same ID, not a stale reference
+
+        // Update the organization's RP ID in the database
+        transaction {
+            VerifyOrganizations.update({ VerifyOrganizations.id eq organizationId }) {
+                it[rpId] = resolvedRpId
+                it[updatedAt] = Instant.now()
+            }
+        }
+        logger.info { "Updated organization $organizationId rpId: $staleRpId -> $resolvedRpId" }
+        return resolvedRpId
     }
 
     data class SessionStatus(

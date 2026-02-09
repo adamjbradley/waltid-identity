@@ -12,6 +12,7 @@ import id.walt.openid4vp.verifier.config.ClientMetadataHopliteDecoder
 import id.walt.openid4vp.verifier.rp.RelyingPartyStore
 import id.walt.openid4vp.verifier.rp.RpRegistrarConfig
 import id.walt.openid4vp.verifier.rp.rpAdminRoutes
+import id.walt.openid4vp.verifier.rp.rpPublicRoutes
 import id.walt.openid4vp.verifier.trust.trustAdminRoutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +69,8 @@ fun Application.verifierModule(withPlugins: Boolean = true) {
     if (withPlugins) {
         configurePlugins()
     }
-    verifierApi();
+    verifierApi()
+    rpPublicRoutes();
     { trustAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.trustListFeature;
     { rpAdminRoutes() } whenFeature OSSVerifier2FeatureCatalog.rpRegistrarFeature
 }

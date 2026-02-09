@@ -12,6 +12,7 @@ import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.time.Instant
 import kotlin.time.ExperimentalTime
 
@@ -228,7 +229,19 @@ private fun seedSandboxOrganization() {
             .singleOrNull()
 
         if (existingOrg != null) {
-            logger.info { "Sandbox organization already exists, skipping seed" }
+            // Sync rp_id from env var if it changed (prevents stale RP references after re-registration)
+            val sandboxRpIdEnv = System.getenv("RP_THEAUSTRALIAHACK_ID")
+            val currentRpId = existingOrg[VerifyOrganizations.rpId]
+            if (sandboxRpIdEnv != null && sandboxRpIdEnv != currentRpId) {
+                val orgId = existingOrg[VerifyOrganizations.id]
+                VerifyOrganizations.update({ VerifyOrganizations.id eq orgId }) {
+                    it[rpId] = sandboxRpIdEnv
+                    it[updatedAt] = Instant.now()
+                }
+                logger.info { "Updated sandbox organization rp_id: $currentRpId -> $sandboxRpIdEnv" }
+            } else {
+                logger.info { "Sandbox organization already exists (rpId=$currentRpId), no sync needed" }
+            }
             return@transaction
         }
 
@@ -237,13 +250,20 @@ private fun seedSandboxOrganization() {
 
         // Create sandbox organization
         val orgId = java.util.UUID.randomUUID()
+        val sandboxRpId = System.getenv("RP_THEAUSTRALIAHACK_ID")
         VerifyOrganizations.insert {
             it[id] = orgId
             it[name] = "Sandbox Demo"
             it[billingEmail] = "sandbox@demo.example.com"
             it[plan] = "sandbox"
+            if (sandboxRpId != null) {
+                it[rpId] = sandboxRpId
+            }
             it[createdAt] = now
             it[updatedAt] = now
+        }
+        if (sandboxRpId != null) {
+            logger.info { "Sandbox organization linked to registered RP: $sandboxRpId" }
         }
 
         // Create sandbox test API key
