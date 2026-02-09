@@ -305,6 +305,7 @@ Add `etsi-trusted-issuer` to verification sessions to require issuer trust valid
 
 - **Full guide:** [`docs/trust-lists/README.md`](docs/trust-lists/README.md)
 
+
 ## OpenID Federation
 
 The verifier-api2 and wallet-api support OpenID Federation as a trust source for validating issuers and verifiers via hierarchical entity statement chains.

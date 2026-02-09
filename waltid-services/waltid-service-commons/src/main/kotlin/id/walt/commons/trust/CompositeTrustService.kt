@@ -5,6 +5,10 @@ import id.walt.credentials.formats.DigitalCredential
 import id.walt.etsi.tsl.EtsiTrustListProvider
 import id.walt.etsi.tsl.EtsiTrustListService
 import id.walt.etsi.tsl.config.TslConfig
+import id.walt.federation.OpenIdFederationProvider
+import id.walt.federation.OpenIdFederationService
+import id.walt.federation.models.FederationConfig
+import id.walt.federation.models.TrustAnchor
 import id.walt.trust.*
 import id.walt.trust.models.TrustServiceList
 import id.walt.trust.models.TrustServiceProvider
@@ -16,12 +20,14 @@ private val log = noCoLogger("CompositeTrustService")
 
 class CompositeTrustService(
     private val config: TrustListConfig,
-    etsiServiceProvider: EtsiTrustListProvider? = null
+    etsiServiceProvider: EtsiTrustListProvider? = null,
+    private val federationProvider: OpenIdFederationProvider? = null
 ) : TrustService {
+
+    private val httpClient = HttpClient(OkHttp)
 
     private val etsiService: EtsiTrustListProvider by lazy {
         etsiServiceProvider ?: run {
-            val httpClient = HttpClient(OkHttp)
             val tslConfig = TslConfig(
                 lotlUrl = config.etsi.lotlUrl,
                 cacheTtlHours = config.etsi.cacheTtlHours,
@@ -32,9 +38,20 @@ class CompositeTrustService(
         }
     }
 
+    private val federationService: OpenIdFederationProvider by lazy {
+        federationProvider ?: OpenIdFederationService(
+            FederationConfig(
+                trustAnchors = config.openidFederation.trustAnchors.map { TrustAnchor(entityId = it) },
+                maxChainDepth = config.openidFederation.maxChainDepth,
+                cacheTtlSeconds = config.openidFederation.cacheTtlSeconds
+            ),
+            httpClient
+        )
+    }
+
     private val enabledSources = mutableMapOf(
         TrustSource.ETSI_TL to true,
-        TrustSource.OPENID_FEDERATION to config.openidFederation.trustAnchors.isNotEmpty()
+        TrustSource.OPENID_FEDERATION to (config.openidFederation.enabled && config.openidFederation.trustAnchors.isNotEmpty())
     )
 
     override suspend fun validateIssuer(credential: DigitalCredential): TrustValidationResult {
@@ -71,6 +88,26 @@ class CompositeTrustService(
             }
         }
 
+        // Try OpenID Federation
+        if (enabledSources[TrustSource.OPENID_FEDERATION] == true) {
+            try {
+                val chain = federationService.buildTrustChain(issuer)
+                if (chain != null && chain.valid) {
+                    return TrustValidationResult(
+                        trusted = true,
+                        source = TrustSource.OPENID_FEDERATION,
+                        providerName = chain.trustAnchorId,
+                        details = mapOf(
+                            "trustAnchorId" to chain.trustAnchorId,
+                            "chainDepth" to chain.depth.toString()
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                log.warn { "OpenID Federation validation failed for $issuer: ${e.message}" }
+            }
+        }
+
         return TrustValidationResult(trusted = false)
     }
 
@@ -99,6 +136,26 @@ class CompositeTrustService(
                 }
             } catch (e: Exception) {
                 log.warn { "ETSI TL verifier validation failed for $clientId: ${e.message}" }
+            }
+        }
+
+        // Try OpenID Federation
+        if (enabledSources[TrustSource.OPENID_FEDERATION] == true) {
+            try {
+                val chain = federationService.buildTrustChain(clientId)
+                if (chain != null && chain.valid) {
+                    return TrustValidationResult(
+                        trusted = true,
+                        source = TrustSource.OPENID_FEDERATION,
+                        providerName = chain.trustAnchorId,
+                        details = mapOf(
+                            "trustAnchorId" to chain.trustAnchorId,
+                            "chainDepth" to chain.depth.toString()
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                log.warn { "OpenID Federation verifier validation failed for $clientId: ${e.message}" }
             }
         }
 
@@ -131,10 +188,19 @@ class CompositeTrustService(
             entryCount = etsiEntryCount
         )
 
+        val fedEnabled = enabledSources[TrustSource.OPENID_FEDERATION] == true
+        val fedHealthy = if (fedEnabled) {
+            try {
+                federationService.isHealthy()
+            } catch (_: Exception) {
+                false
+            }
+        } else false
+
         sources[TrustSource.OPENID_FEDERATION] = TrustSourceStatus(
-            enabled = enabledSources[TrustSource.OPENID_FEDERATION] == true,
-            healthy = true,
-            entryCount = 0
+            enabled = fedEnabled,
+            healthy = fedHealthy,
+            entryCount = if (fedEnabled) config.openidFederation.trustAnchors.size else 0
         )
 
         return TrustServiceStatus(
