@@ -5,8 +5,8 @@ import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class EtsiTrustListServiceTest {
@@ -110,6 +110,48 @@ class EtsiTrustListServiceTest {
         assertFalse(service.isHealthy())
         val providers = service.getAllTrustedProviders()
         assertTrue(providers.isEmpty())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test getCachedLotl returns null before refresh`() {
+        val config = TslConfig(
+            lotlUrl = "https://invalid.example.com/nonexistent-lotl.xml",
+            validateSignatures = false
+        )
+        val httpClient = HttpClient(CIO)
+        val service = EtsiTrustListService(config, httpClient)
+
+        assertNull(service.getCachedLotl())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test getCachedMemberStateTls returns empty map before refresh`() {
+        val config = TslConfig(
+            lotlUrl = "https://invalid.example.com/nonexistent-lotl.xml",
+            validateSignatures = false
+        )
+        val httpClient = HttpClient(CIO)
+        val service = EtsiTrustListService(config, httpClient)
+
+        assertTrue(service.getCachedMemberStateTls().isEmpty())
+
+        httpClient.close()
+    }
+
+    @Test
+    fun `test getCachedMemberStateTl returns null for unknown country`() {
+        val config = TslConfig(
+            lotlUrl = "https://invalid.example.com/nonexistent-lotl.xml",
+            validateSignatures = false
+        )
+        val httpClient = HttpClient(CIO)
+        val service = EtsiTrustListService(config, httpClient)
+
+        assertNull(service.getCachedMemberStateTl("XX"))
 
         httpClient.close()
     }
