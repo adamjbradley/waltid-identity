@@ -35,6 +35,8 @@ services:
         required: false
     # PWA (Payment Wallet Attestation) environment variables are loaded from .env.local
     # To enable: echo "PWA_ENABLED=true" >> .env.local
+    environment:
+      ISSUER_REGISTRAR_ENABLED: ${ISSUER_REGISTRAR_ENABLED:-false}
     volumes:
       - ./issuer-api/config:/waltid-issuer-api/config
 

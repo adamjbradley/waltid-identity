@@ -372,6 +372,46 @@ openidFederation {
 
 - **Overview:** [`docs/trust-lists/openid-federation.md`](docs/trust-lists/openid-federation.md)
 
+## Issuer Registrar (Multi-Tenant Issuance)
+
+The issuer-api supports multi-tenant credential issuance, allowing multiple organizations to share one deployment with independent keys, certificates, and credential catalogs.
+
+**IMPORTANT: Issuer Registrar is DISABLED by default.** Zero impact on existing flows when disabled.
+
+### Default State
+
+| Location | Default | Notes |
+|----------|---------|-------|
+| `config/issuer-registrar.conf` | `storageDir = "config/issuer-tenants"` | Base config |
+| `docker-compose.yaml` | `${ISSUER_REGISTRAR_ENABLED:-false}` | Defaults to `false` |
+
+### Enable Issuer Registrar
+
+```bash
+# In docker-compose/.env
+ISSUER_REGISTRAR_ENABLED=true
+
+docker compose --profile identity up -d issuer-api
+
+# Verify
+curl http://localhost:7002/admin/issuer
+```
+
+### Key Endpoints
+
+- **List issuers:** `GET http://localhost:7002/admin/issuer`
+- **Register issuer:** `POST http://localhost:7002/admin/issuer`
+- **Generate certs:** `POST http://localhost:7002/admin/issuer/{id}/certificate/generate`
+- **Set credentials:** `PUT http://localhost:7002/admin/issuer/{id}/credentials`
+- **Tenant metadata:** `GET http://localhost:7002/issuers/{id}/draft13/.well-known/openid-credential-issuer`
+- **Tenant issuance:** `POST http://localhost:7002/issuers/{id}/openid4vc/mdoc/issue`
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ISSUER_REGISTRAR_ENABLED` | `false` | Enable multi-tenant issuance (must be explicitly set to `true`) |
+
 ## Platform-Specific Builds
 
 ```bash
