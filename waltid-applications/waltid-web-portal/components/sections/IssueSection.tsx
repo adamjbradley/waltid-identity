@@ -65,6 +65,8 @@ export default function IssueSection() {
   }
 
   async function handleIssue() {
+    const issuerId = params.issuerId as string | undefined;
+
     if (checkCallbackUrlParameter()) {
       const offer = await getOfferUrl(
         credentialsToIssue,
@@ -75,7 +77,8 @@ export default function IssueSection() {
         undefined, // authenticationMethod
         undefined, // vpRequestValue
         undefined, // vpProfile
-        hasEudiFormat && useServerKeys
+        hasEudiFormat && useServerKeys,
+        issuerId
       );
       sendToWebWallet(
         decodeURI(params.callback!.toString()),
@@ -95,6 +98,9 @@ export default function IssueSection() {
       }
       if (hasEudiFormat && useServerKeys) {
         url = url + `&useServerKeys=true`;
+      }
+      if (issuerId) {
+        url = url + `&issuerId=${issuerId}`;
       }
 
       await router.push(url);

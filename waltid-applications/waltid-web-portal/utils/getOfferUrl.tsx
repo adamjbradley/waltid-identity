@@ -9,10 +9,13 @@ const getOfferUrl = async (
   authenticationMethod?: string,
   vpRequestValue?: string,
   vpProfile?: string,
-  useServerKeys?: boolean
+  useServerKeys?: boolean,
+  issuerId?: string
 ) => {
+  // When issuerId is provided, use tenant-scoped URLs
+  const basePath = issuerId ? `/issuers/${issuerId}` : '';
   const data = await fetch(
-    `${NEXT_PUBLIC_ISSUER}/draft13/.well-known/openid-credential-issuer`
+    `${NEXT_PUBLIC_ISSUER}${basePath}/draft13/.well-known/openid-credential-issuer`
   ).then((data) => {
     return data.json();
   });
@@ -246,7 +249,7 @@ const getOfferUrl = async (
 
   const issueUrl =
     NEXT_PUBLIC_ISSUER +
-    `/openid4vc/${issueEndpoint}/${payload.length > 1 ? 'issueBatch' : 'issue'}`;
+    `${basePath}/openid4vc/${issueEndpoint}/${payload.length > 1 ? 'issueBatch' : 'issue'}`;
   return axios.post(issueUrl, payload.length > 1 ? payload : payload[0]);
 };
 

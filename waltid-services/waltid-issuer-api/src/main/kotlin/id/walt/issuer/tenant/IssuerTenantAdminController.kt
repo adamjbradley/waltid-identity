@@ -308,7 +308,7 @@ fun Application.issuerTenantAdminRoutes() {
                     }
 
                     val response = buildJsonObject {
-                        putJsonArray("x5c") { tenant.x5Chain!!.forEach { add(JsonPrimitive(it)) } }
+                        putJsonArray("x5c") { tenant.x5Chain.forEach { add(JsonPrimitive(it)) } }
                         put("issuerKey", tenant.issuerKey)
                         put("iacaCertificate", Json.encodeToJsonElement(tenant.iacaCertificate!!))
                         put("signerCertificate", Json.encodeToJsonElement(tenant.signerCertificate!!))

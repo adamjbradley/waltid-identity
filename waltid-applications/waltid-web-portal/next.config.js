@@ -9,7 +9,8 @@ const nextConfig = {
     NEXT_PUBLIC_VERIFIER2_CLIENT_ID: process.env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID ?? "",
     NEXT_PUBLIC_VERIFIER2_SIGNING_KEY: process.env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY ?? "",
     NEXT_PUBLIC_VERIFIER2_X5C: process.env.NEXT_PUBLIC_VERIFIER2_X5C ?? "",
-    NEXT_PUBLIC_WALLET: process.env.NEXT_PUBLIC_WALLET ?? "https://wallet.walt.id"
+    NEXT_PUBLIC_WALLET: process.env.NEXT_PUBLIC_WALLET ?? "https://wallet.walt.id",
+    NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED: process.env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? "false"
   },
 }
 

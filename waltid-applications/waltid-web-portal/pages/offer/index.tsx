@@ -55,7 +55,8 @@ export default function Offer() {
           router.query.authenticationMethod as string,
           router.query.vpRequestValue as string,
           router.query.vpProfile as string,
-          router.query.useServerKeys === 'true'
+          router.query.useServerKeys === 'true',
+          router.query.issuerId as string | undefined
         );
         setOfferURL(response.data);
         setLoading(false);
