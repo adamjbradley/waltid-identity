@@ -43,6 +43,11 @@ object IssuerTenantRegistry {
 
     fun providerCount(): Int = providers.size
 
+    fun resetForTesting() {
+        providers.clear()
+        tenantTokenKeys.clear()
+    }
+
     private fun createProviderForTenant(tenant: IssuerTenant): CIProvider {
         val globalBaseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl
         val tenantBaseUrl = "$globalBaseUrl/issuers/${tenant.id}"

@@ -225,12 +225,18 @@ fun Application.issuerTenantAdminRoutes() {
                         country = tenant.country
                     )
 
+                    // Wrap ciTokenKey in {"type":"jwk","jwk":{...}} format for KeyManager.resolveSerializedKey
+                    val wrappedCiTokenKey = JsonObject(mapOf(
+                        "type" to JsonPrimitive("jwk"),
+                        "jwk" to generated.ciTokenKeyJwk
+                    )).toString()
+
                     val updated = tenant.copy(
                         issuerKey = generated.issuerKeyJwk,
                         x5Chain = generated.x5Chain,
                         iacaCertificate = generated.iacaCertInfo,
                         signerCertificate = generated.signerCertInfo,
-                        ciTokenKey = generated.ciTokenKeyJwk.toString(),
+                        ciTokenKey = wrappedCiTokenKey,
                         updatedAt = java.time.Instant.now().toString()
                     )
                     store.save(updated)
@@ -267,12 +273,20 @@ fun Application.issuerTenantAdminRoutes() {
                             IssuerCertificateService.extractCertInfo(iacaCert)
                         } else null
 
+                        // Wrap ciTokenKey in {"type":"jwk","jwk":{...}} format for KeyManager.resolveSerializedKey
+                        val wrappedCiTokenKey = req.ciTokenKeyJwk?.let { jwk ->
+                            JsonObject(mapOf(
+                                "type" to JsonPrimitive("jwk"),
+                                "jwk" to jwk
+                            )).toString()
+                        } ?: tenant.ciTokenKey
+
                         val updated = tenant.copy(
                             issuerKey = req.issuerKeyJwk,
                             x5Chain = req.x5Chain,
                             iacaCertificate = iacaCertInfo,
                             signerCertificate = signerCertInfo,
-                            ciTokenKey = req.ciTokenKeyJwk?.toString() ?: tenant.ciTokenKey,
+                            ciTokenKey = wrappedCiTokenKey,
                             updatedAt = java.time.Instant.now().toString()
                         )
                         store.save(updated)
