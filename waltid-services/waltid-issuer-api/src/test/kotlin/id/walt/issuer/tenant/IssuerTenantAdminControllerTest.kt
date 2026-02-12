@@ -622,6 +622,177 @@ class IssuerTenantAdminControllerTest {
         assertTrue(response.bodyAsText().contains("Cannot reactivate"))
     }
 
+    // ===== LOTL / TSL Endpoint Tests =====
+
+    @Test
+    fun `GET lotl xml returns LOTL with country pointers`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register 2 AU issuers + 1 IN issuer, generate certs for each
+        val au1 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer One", country = "AU", domain = "au1.example.com"))
+        }
+        val au1Id = Json.parseToJsonElement(au1.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au1Id/certificate/generate")
+
+        val au2 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer Two", country = "AU", domain = "au2.example.com"))
+        }
+        val au2Id = Json.parseToJsonElement(au2.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au2Id/certificate/generate")
+
+        val india = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "India Issuer", country = "IN", domain = "in.example.com"))
+        }
+        val inId = Json.parseToJsonElement(india.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$inId/certificate/generate")
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("TrustServiceStatusList"), "Should be valid TSL XML")
+        assertTrue(body.contains("PointersToOtherTSL"), "Should contain pointers section")
+        assertTrue(body.contains("tsl/AU.xml"), "Should have AU country pointer")
+        assertTrue(body.contains("tsl/IN.xml"), "Should have IN country pointer")
+        assertTrue(body.contains("List of Trusted Lists"), "Should have LOTL title")
+    }
+
+    @Test
+    fun `GET lotl xml returns empty pointers when no issuers have certs`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register an issuer without generating certs
+        client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson())
+        }
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("TrustServiceStatusList"), "Should be valid TSL XML")
+        assertTrue(body.contains("PointersToOtherTSL"), "Should contain pointers section")
+        assertTrue(!body.contains("OtherTSLPointer"), "Should have no country pointers")
+    }
+
+    @Test
+    fun `GET lotl xml returns 503 when feature disabled`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
+    @Test
+    fun `GET tsl country xml returns providers for that country`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register 2 AU issuers with certs
+        val au1 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer One", country = "AU", domain = "au1.example.com"))
+        }
+        val au1Id = Json.parseToJsonElement(au1.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au1Id/certificate/generate")
+
+        val au2 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer Two", country = "AU", domain = "au2.example.com"))
+        }
+        val au2Id = Json.parseToJsonElement(au2.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au2Id/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("TrustServiceStatusList"), "Should be valid TSL XML")
+        assertTrue(body.contains("AU Issuer One"), "Should contain first AU issuer")
+        assertTrue(body.contains("AU Issuer Two"), "Should contain second AU issuer")
+        assertTrue(body.contains("X509Certificate"), "Should contain certificate data")
+        assertTrue(body.contains("SchemeTerritory>AU"), "Should have AU territory")
+    }
+
+    @Test
+    fun `GET tsl country xml is case insensitive`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/au.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyAsText().contains("AU Issuer"))
+    }
+
+    @Test
+    fun `GET tsl country xml returns 404 for unknown country`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val response = client.get("/admin/issuer/tsl/ZZ.xml")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
+    fun `GET tsl country xml excludes suspended issuers`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register 2 AU issuers with certs
+        val au1 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Active", country = "AU", domain = "au-active.example.com"))
+        }
+        val au1Id = Json.parseToJsonElement(au1.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au1Id/certificate/generate")
+
+        val au2 = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Suspended", country = "AU", domain = "au-suspended.example.com"))
+        }
+        val au2Id = Json.parseToJsonElement(au2.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$au2Id/certificate/generate")
+
+        // Suspend second issuer
+        client.put("/admin/issuer/$au2Id") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"status":"SUSPENDED"}""")
+        }
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("AU Active"), "Should contain active issuer")
+        assertTrue(!body.contains("AU Suspended"), "Should NOT contain suspended issuer")
+    }
+
+    @Test
+    fun `GET tsl country xml returns 503 when feature disabled`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+    }
+
     // ===== Summary Response Tests =====
 
     @Test

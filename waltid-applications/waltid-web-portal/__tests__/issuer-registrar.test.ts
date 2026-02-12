@@ -209,3 +209,31 @@ describe('Issuer Registrar - next.config.js feature flag plumbing', () => {
     expect(config!.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED).toBe('false');
   });
 });
+
+describe('RP Registrar - next.config.js feature flag', () => {
+  it('should expose NEXT_PUBLIC_RP_REGISTRAR_ENABLED in publicRuntimeConfig', () => {
+    const config = nextConfig.publicRuntimeConfig;
+    expect(config).toBeDefined();
+    expect('NEXT_PUBLIC_RP_REGISTRAR_ENABLED' in config!).toBe(true);
+  });
+
+  it('should default to "false" when env var is not set', () => {
+    const config = nextConfig.publicRuntimeConfig;
+    expect(config!.NEXT_PUBLIC_RP_REGISTRAR_ENABLED).toBe('false');
+  });
+});
+
+describe('RP Registrar - Docker Compose Configuration', () => {
+  const dockerComposePath = path.resolve(__dirname, '../../../docker-compose/docker-compose.yaml');
+
+  let dockerComposeContent: string;
+
+  beforeAll(() => {
+    dockerComposeContent = fs.readFileSync(dockerComposePath, 'utf-8');
+  });
+
+  it('should pass NEXT_PUBLIC_RP_REGISTRAR_ENABLED to web-portal service', () => {
+    expect(dockerComposeContent).toContain('NEXT_PUBLIC_RP_REGISTRAR_ENABLED');
+    expect(dockerComposeContent).toMatch(/NEXT_PUBLIC_RP_REGISTRAR_ENABLED.*\$\{RP_REGISTRAR_ENABLED:-false\}/);
+  });
+});

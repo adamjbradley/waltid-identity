@@ -16,6 +16,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -133,6 +136,114 @@ fun Application.issuerTenantAdminRoutes() {
 
                 store.save(tenant)
                 call.respond(HttpStatusCode.Created, tenant.toDetail())
+            }
+
+            // -- Trust Service List (TSL) endpoints --
+
+            get("lotl.xml") {
+                val store = IssuerTenantStore.instanceOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Issuer Registrar feature is not enabled")
+                    )
+
+                val baseUrl = call.request.headers["X-Forwarded-Proto"]?.let { proto ->
+                    call.request.headers["X-Forwarded-Host"]?.let { host -> "$proto://$host" }
+                } ?: call.request.local.let { "${it.scheme}://${it.serverHost}:${it.serverPort}" }
+
+                val now = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
+
+                // Group ACTIVE tenants with certs by country
+                val countriesWithIssuers = store.list()
+                    .filter { it.status == IssuerTenantStatus.ACTIVE && it.x5Chain != null }
+                    .groupBy { it.country.uppercase() }
+                    .keys.sorted()
+
+                val pointers = countriesWithIssuers.joinToString("\n") { country ->
+                    """      <OtherTSLPointer>
+        <TSLLocation>${escapeXml(baseUrl)}/admin/issuer/tsl/${escapeXml(country)}.xml</TSLLocation>
+        <AdditionalInformation>
+          <SchemeTerritory>${escapeXml(country)}</SchemeTerritory>
+          <MimeType>application/vnd.etsi.tsl+xml</MimeType>
+        </AdditionalInformation>
+      </OtherTSLPointer>"""
+                }
+
+                val xml = """<?xml version="1.0" encoding="UTF-8"?>
+<TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#">
+  <SchemeInformation>
+    <SchemeOperatorName><Name xml:lang="en">Issuer Registrar List of Trusted Lists</Name></SchemeOperatorName>
+    <SchemeTerritory>XX</SchemeTerritory>
+    <ListIssueDateTime>$now</ListIssueDateTime>
+    <PointersToOtherTSL>
+$pointers
+    </PointersToOtherTSL>
+  </SchemeInformation>
+</TrustServiceStatusList>"""
+
+                call.respondText(xml, ContentType.Application.Xml)
+            }
+
+            get("tsl/{country}.xml") {
+                val store = IssuerTenantStore.instanceOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Issuer Registrar feature is not enabled")
+                    )
+
+                val country = call.parameters["country"]!!.uppercase()
+                val now = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
+
+                val issuers = store.list()
+                    .filter { it.status == IssuerTenantStatus.ACTIVE && it.x5Chain != null && it.country.uppercase() == country }
+
+                if (issuers.isEmpty()) {
+                    return@get call.respond(
+                        HttpStatusCode.NotFound,
+                        mapOf("error" to "No active issuers found for country: $country")
+                    )
+                }
+
+                val providers = issuers.joinToString("\n") { tenant ->
+                    val iacaCertBase64 = if (tenant.x5Chain!!.size > 1) tenant.x5Chain[1] else tenant.x5Chain[0]
+                    val subjectDn = tenant.iacaCertificate?.subject ?: tenant.legalName
+                    val statusStart = tenant.iacaCertificate?.notBefore ?: tenant.createdAt
+                    """    <TrustServiceProvider>
+      <TSPInformation>
+        <TSPName><Name xml:lang="en">${escapeXml(tenant.legalName)}</Name></TSPName>
+      </TSPInformation>
+      <TSPServices>
+        <TSPService>
+          <ServiceInformation>
+            <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+            <ServiceName><Name xml:lang="en">${escapeXml(tenant.legalName)} Credential Issuing Service</Name></ServiceName>
+            <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+            <StatusStartingTime>$statusStart</StatusStartingTime>
+            <ServiceDigitalIdentity>
+              <DigitalId>
+                <X509Certificate>$iacaCertBase64</X509Certificate>
+                <X509SubjectName>${escapeXml(subjectDn)}</X509SubjectName>
+              </DigitalId>
+            </ServiceDigitalIdentity>
+          </ServiceInformation>
+        </TSPService>
+      </TSPServices>
+    </TrustServiceProvider>"""
+                }
+
+                val xml = """<?xml version="1.0" encoding="UTF-8"?>
+<TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#">
+  <SchemeInformation>
+    <SchemeOperatorName><Name xml:lang="en">$country Trusted Issuers</Name></SchemeOperatorName>
+    <SchemeTerritory>$country</SchemeTerritory>
+    <ListIssueDateTime>$now</ListIssueDateTime>
+  </SchemeInformation>
+  <TrustServiceProviderList>
+$providers
+  </TrustServiceProviderList>
+</TrustServiceStatusList>"""
+
+                call.respondText(xml, ContentType.Application.Xml)
             }
 
             route("{id}") {
@@ -358,6 +469,15 @@ fun Application.issuerTenantAdminRoutes() {
         }
     }
 }
+
+// -- XML helpers --
+
+private fun escapeXml(text: String): String = text
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
+    .replace("\"", "&quot;")
+    .replace("'", "&apos;")
 
 // -- Extension functions --
 
