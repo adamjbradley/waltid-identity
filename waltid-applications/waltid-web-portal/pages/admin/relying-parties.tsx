@@ -13,6 +13,8 @@ import {
   TrashIcon,
   KeyIcon,
   DocumentArrowDownIcon,
+  ClipboardDocumentIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import AdminNav from '@/components/walt/nav/AdminNav';
 
@@ -471,6 +473,7 @@ export default function RelyingParties() {
                               <RpDetailPanel
                                 detail={rpDetail[rp.id]}
                                 formatDate={formatDate}
+                                apiBase={apiBase}
                                 onGenerateCert={() =>
                                   handleGenerateCert(rp.id)
                                 }
@@ -744,6 +747,7 @@ export default function RelyingParties() {
 function RpDetailPanel({
   detail,
   formatDate,
+  apiBase,
   onGenerateCert,
   onToggleStatus,
   onDelete,
@@ -753,6 +757,7 @@ function RpDetailPanel({
 }: {
   detail: RpDetail;
   formatDate: (d?: string) => string;
+  apiBase: string;
   onGenerateCert: () => void;
   onToggleStatus: () => void;
   onDelete: () => void;
@@ -760,8 +765,74 @@ function RpDetailPanel({
   deletingRp: boolean;
   togglingStatus: boolean;
 }) {
+  const [verifyCopied, setVerifyCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleCopyVerifyLink = () => {
+    const verifyUrl = `${window.location.origin}/verify?rpId=${detail.id}`;
+    navigator.clipboard.writeText(verifyUrl).then(() => {
+      setVerifyCopied(true);
+      setTimeout(() => setVerifyCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  const handleDownloadCert = async () => {
+    if (!apiBase) return;
+    setDownloading(true);
+    try {
+      const response = await axios.get(`${apiBase}/admin/rp/${detail.id}/certificate/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${detail.domain}-cert.pem`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Failed to download certificate:', e);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div>
+      {/* Quick Actions */}
+      {detail.status === 'ACTIVE' && (
+        <div className="mb-5 flex flex-wrap gap-2">
+          <a
+            href={`/verify?rpId=${detail.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+            data-testid="verify-as-rp"
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            Verify as this RP
+          </a>
+          <button
+            onClick={handleCopyVerifyLink}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            data-testid="copy-verify-link"
+          >
+            <ClipboardDocumentIcon className="w-4 h-4" />
+            {verifyCopied ? 'Copied!' : 'Copy Verify Link'}
+          </button>
+          {detail.certificate && (
+            <button
+              onClick={handleDownloadCert}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              data-testid="download-cert"
+            >
+              <DocumentArrowDownIcon className="w-4 h-4" />
+              {downloading ? 'Downloading...' : 'Download Certificate'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Info grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-5">
         <InfoRow label="Client ID" value={detail.clientId} mono />

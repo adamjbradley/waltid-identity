@@ -275,6 +275,91 @@ describe('IssueSection - Tenant Dropdown Logic', () => {
   });
 });
 
+describe('RP Admin - Action Buttons Logic', () => {
+  it('should construct verify URL with rpId', () => {
+    const rpId = 'rp-abc-123';
+    const verifyUrl = `/verify?rpId=${rpId}`;
+    expect(verifyUrl).toBe('/verify?rpId=rp-abc-123');
+  });
+
+  it('should construct verify link for clipboard', () => {
+    const origin = 'http://localhost:7102';
+    const rpId = 'rp-abc-123';
+    const verifyUrl = `${origin}/verify?rpId=${rpId}`;
+    expect(verifyUrl).toBe('http://localhost:7102/verify?rpId=rp-abc-123');
+  });
+
+  it('should construct certificate download URL', () => {
+    const apiBase = 'http://localhost:7004';
+    const rpId = 'rp-abc-123';
+    const certUrl = `${apiBase}/admin/rp/${rpId}/certificate/download`;
+    expect(certUrl).toBe('http://localhost:7004/admin/rp/rp-abc-123/certificate/download');
+  });
+});
+
+describe('VerificationSection - RP Tenant Dropdown Logic', () => {
+  it('should filter RP tenants to ACTIVE with certificates', () => {
+    const tenants = [
+      { id: '1', legalName: 'Active RP', domain: 'rp.example.com', country: 'AU', status: 'ACTIVE', hasCertificate: true },
+      { id: '2', legalName: 'No Cert RP', domain: 'rp2.example.com', country: 'AU', status: 'ACTIVE', hasCertificate: false },
+      { id: '3', legalName: 'Suspended RP', domain: 'rp3.example.com', country: 'IN', status: 'SUSPENDED', hasCertificate: true },
+    ];
+    const filtered = tenants.filter(t => t.status === 'ACTIVE' && t.hasCertificate);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].legalName).toBe('Active RP');
+  });
+
+  it('should append rpId to verify URL params when selected', () => {
+    const selectedRpId = 'rp-123';
+    const params = new URLSearchParams();
+    params.append('ids', 'BankId');
+    params.append('format', 'DC+SD-JWT (EUDI)');
+    if (selectedRpId) {
+      params.append('rpId', selectedRpId);
+    }
+    const url = `/verify?${params.toString()}`;
+    expect(url).toContain('rpId=rp-123');
+  });
+
+  it('should not append rpId when empty', () => {
+    const selectedRpId = '';
+    const params = new URLSearchParams();
+    params.append('ids', 'BankId');
+    if (selectedRpId) {
+      params.append('rpId', selectedRpId);
+    }
+    expect(params.toString()).not.toContain('rpId');
+  });
+});
+
+describe('Verify Page - RP-Aware Signing Config Logic', () => {
+  it('should prefer RP signing config when rpId is present', () => {
+    const rpId = 'rp-123';
+    const rpConfig = { clientId: 'x509_san_dns:rp.example.com', key: { kty: 'EC' }, x5c: ['certdata'] };
+    const envConfig = { clientId: 'default-client', key: { kty: 'EC' }, x5c: ['default-cert'] };
+
+    // Simulating the logic: if rpId is present and RP config was fetched, use it
+    const signingConfig = rpId ? rpConfig : envConfig;
+    expect(signingConfig.clientId).toBe('x509_san_dns:rp.example.com');
+  });
+
+  it('should fall back to env config when no rpId', () => {
+    const rpId: string | undefined = undefined;
+    const rpConfig = null;
+    const envConfig = { clientId: 'default-client', key: { kty: 'EC' }, x5c: ['default-cert'] };
+
+    const signingConfig = rpId && rpConfig ? rpConfig : envConfig;
+    expect(signingConfig.clientId).toBe('default-client');
+  });
+
+  it('should construct correct RP detail URL for signing config fetch', () => {
+    const verifier2Url = 'http://localhost:7004';
+    const rpId = 'rp-abc-123';
+    const rpDetailUrl = `${verifier2Url}/admin/rp/${rpId}`;
+    expect(rpDetailUrl).toBe('http://localhost:7004/admin/rp/rp-abc-123');
+  });
+});
+
 describe('Homepage - Multi-Tenant Banner Logic', () => {
   it('should show banner when issuer registrar is enabled', () => {
     const issuerEnabled = true;

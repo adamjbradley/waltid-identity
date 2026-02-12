@@ -69,21 +69,45 @@ export default function Verification() {
 
           const dcqlQuery = buildDcqlQuery(credentials, credFormat);
 
-          // Build signing config from environment variables if available
+          // Build signing config - prefer RP-specific config when rpId is present
           let signingConfig: VerificationSigningConfig | undefined;
-          const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
-          const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
-          const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
+          const rpId = router.query.rpId?.toString();
 
-          if (clientId && signingKeyJson && x5c) {
+          if (rpId && verifier2Url) {
             try {
-              signingConfig = {
-                clientId,
-                key: JSON.parse(signingKeyJson),
-                x5c: [x5c],
-              };
+              const rpDetail = await axios.get(`${verifier2Url}/admin/rp/${rpId}`);
+              const certResponse = await axios.get(`${verifier2Url}/admin/rp/${rpId}/certificate/download`, {
+                transformResponse: [(data: string) => data],
+              });
+              const rpData = rpDetail.data;
+              if (rpData.x5c && rpData.x5c.length > 0) {
+                signingConfig = {
+                  clientId: rpData.clientId,
+                  key: JSON.parse(certResponse.data),
+                  x5c: rpData.x5c,
+                };
+              }
             } catch (e) {
-              console.warn('Failed to parse verifier signing config:', e);
+              console.warn('Failed to fetch RP signing config, falling back to env:', e);
+            }
+          }
+
+          // Fall back to environment variables if no RP config
+          if (!signingConfig) {
+            const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
+            const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
+            const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
+
+            if (clientId && signingKeyJson && x5c) {
+              try {
+                signingConfig = {
+                  clientId,
+                  key: JSON.parse(signingKeyJson),
+                  x5c: [x5c],
+                };
+              } catch (e) {
+                console.warn('Failed to parse verifier signing config:', e);
+              }
             }
           }
 
