@@ -4,7 +4,7 @@ import { PORTAL_URL } from './helpers';
 test.describe('Admin Issuers Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${PORTAL_URL}/admin/issuers`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
   });
 
   test('displays Issuer Registrar heading', async ({ page }) => {
@@ -43,13 +43,13 @@ test.describe('Admin Issuers Page', () => {
     await firstIssuerRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Certificate section should show Subject and Fingerprint
-    const subjectLabel = page.getByText('Subject', { exact: false });
+    const subjectLabel = page.getByText('Subject', { exact: false }).first();
     await expect(subjectLabel).toBeVisible({ timeout: 10_000 });
 
-    const fingerprintLabel = page.getByText('Fingerprint', { exact: false });
+    const fingerprintLabel = page.getByText('Fingerprint', { exact: false }).first();
     await expect(fingerprintLabel).toBeVisible({ timeout: 10_000 });
   });
 
@@ -60,7 +60,7 @@ test.describe('Admin Issuers Page', () => {
     await firstIssuerRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Look for "IACA" or "Root" certificate section
     const iacaSection = page.getByText(/IACA|Root/i).first();
@@ -74,7 +74,7 @@ test.describe('Admin Issuers Page', () => {
     await firstIssuerRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Look for a link/button containing "Issue"
     const issueLink = page.locator('button, a', { hasText: /Issue/i }).first();
@@ -88,7 +88,7 @@ test.describe('Admin Issuers Page', () => {
     await firstIssuerRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Find the "View Metadata" link
     const metadataLink = page.locator('a', { hasText: /View Metadata/i });

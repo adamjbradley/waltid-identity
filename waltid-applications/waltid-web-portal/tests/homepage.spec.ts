@@ -4,7 +4,7 @@ import { PORTAL_URL } from './helpers';
 test.describe('Homepage', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(PORTAL_URL);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
   });
 
   test('displays portal title', async ({ page }) => {

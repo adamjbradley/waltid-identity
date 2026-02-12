@@ -4,7 +4,7 @@ import { PORTAL_URL } from './helpers';
 test.describe('Admin Relying Parties Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${PORTAL_URL}/admin/relying-parties`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
   });
 
   test('displays RP Registrar heading', async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Detail section should show Client ID with x509_san_dns: prefix
     const clientIdLabel = page.getByText('Client ID', { exact: false });
@@ -49,7 +49,7 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Compliance fields should be visible
     const privacyPolicy = page.getByText('Privacy Policy', { exact: false });
@@ -69,7 +69,7 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Look for the "Verify as this RP" link
     const verifyLink = page.locator('a, button', { hasText: /Verify/i }).first();
@@ -83,13 +83,13 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Certificate section should show Subject and Expires
-    const subjectLabel = page.getByText('Subject', { exact: false });
+    const subjectLabel = page.getByText('Subject', { exact: false }).first();
     await expect(subjectLabel).toBeVisible({ timeout: 10_000 });
 
-    const expiresLabel = page.getByText('Expires', { exact: false });
+    const expiresLabel = page.getByText('Expires', { exact: false }).first();
     await expect(expiresLabel).toBeVisible({ timeout: 10_000 });
   });
 
@@ -100,7 +100,7 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Look for the "Download Certificate" button
     const downloadButton = page.locator('[data-testid="download-cert"]');
@@ -117,7 +117,7 @@ test.describe('Admin Relying Parties Page', () => {
     await firstRpRow.click();
 
     // Wait for detail to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // The clientId value should match the x509_san_dns:* pattern
     const clientIdValue = page.locator('dd', { hasText: /^x509_san_dns:/ });

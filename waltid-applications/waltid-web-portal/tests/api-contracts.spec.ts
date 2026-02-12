@@ -194,9 +194,14 @@ test.describe('API Contracts', () => {
     const status: TrustStatus = await getTrustStatus(request);
 
     expect(status).toHaveProperty('sources');
-    expect(status.sources).toHaveProperty('ETSI_TL');
 
-    const etsiSource = status.sources['ETSI_TL'];
+    // Trust status key may be 'etsi_tl' or 'ETSI_TL' depending on service version
+    const etsiKey = Object.keys(status.sources).find(
+      (k) => k.toLowerCase() === 'etsi_tl'
+    );
+    expect(etsiKey).toBeTruthy();
+
+    const etsiSource = status.sources[etsiKey!];
     expect(etsiSource).toHaveProperty('enabled');
     expect(etsiSource).toHaveProperty('entryCount');
     expect(etsiSource.enabled).toBe(true);

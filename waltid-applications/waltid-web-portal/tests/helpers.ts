@@ -114,12 +114,12 @@ export async function setupWalletAuth(request: APIRequestContext): Promise<{
 // ── Page Helpers ──────────────────────────────────────────────────
 
 export async function waitForPageReady(page: Page) {
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load');
 }
 
 export async function loginToWallet(page: Page) {
   await page.goto(`${WALLET_URL}`);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load');
 
   // Check if already logged in
   if (page.url().includes('/wallet/')) return;
