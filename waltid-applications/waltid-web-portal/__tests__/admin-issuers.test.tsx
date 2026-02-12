@@ -44,6 +44,8 @@ jest.mock('@heroicons/react/24/outline', () => ({
   DocumentTextIcon: (props: any) => <svg data-testid="document-text-icon" {...props} />,
   ShieldCheckIcon: (props: any) => <svg data-testid="shield-check-icon" {...props} />,
   HomeIcon: (props: any) => <svg data-testid="home-icon" {...props} />,
+  ClipboardDocumentIcon: (props: any) => <svg data-testid="clipboard-icon" {...props} />,
+  ArrowTopRightOnSquareIcon: (props: any) => <svg data-testid="external-link-icon" {...props} />,
 }));
 
 // Mock react-icons (used by Button component)
@@ -433,7 +435,7 @@ describe('Issuers Page - Detail Panel', () => {
     });
   });
 
-  it('shows credential configurations section', async () => {
+  it('shows credential configurations section with template picker and JSON editor', async () => {
     mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
 
     await act(async () => {
@@ -446,7 +448,8 @@ describe('Issuers Page - Detail Panel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('BankId')).toBeInTheDocument();
-      expect(screen.getByText('Edit Credential Configurations')).toBeInTheDocument();
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+      expect(screen.getByText('Edit as JSON')).toBeInTheDocument();
     });
   });
 
@@ -600,6 +603,173 @@ describe('Issuers Page - No Certificate State', () => {
     await waitFor(() => {
       expect(screen.getByText(/No certificates generated yet/)).toBeInTheDocument();
       expect(screen.getByText(/Generate IACA/)).toBeInTheDocument();
+    });
+  });
+});
+
+// ====================================================================
+// Template Picker (Task 4)
+// ====================================================================
+
+describe('Issuers Page - Template Picker', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerList });
+  });
+
+  it('shows "Add from Templates" button in credential section', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+  });
+
+  it('shows template categories when "Add from Templates" is clicked', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add from Templates'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('EUDI')).toBeInTheDocument();
+      expect(screen.getByText('Financial')).toBeInTheDocument();
+      expect(screen.getByText('Identity')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Edit as JSON" toggle', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit as JSON')).toBeInTheDocument();
+    });
+  });
+});
+
+// ====================================================================
+// Issuer Admin Action Buttons (Task 5)
+// ====================================================================
+
+describe('Issuers Page - Quick Action Buttons', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerList });
+  });
+
+  it('shows "Issue Credential" button for active issuer with credentials', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue Credential')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "View Metadata" link for active issuer with certificate', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('View Metadata')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Configure credentials first" when no credentials but has cert', async () => {
+    const detailNoCreds = {
+      ...mockIssuerDetail,
+      credentialConfigurations: {},
+    };
+    mockAxiosGet.mockResolvedValueOnce({ data: detailNoCreds });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Configure credentials first')).toBeInTheDocument();
+    });
+  });
+});
+
+// ====================================================================
+// Trust List URL Buttons (Task 6/11)
+// ====================================================================
+
+describe('Issuers Page - Trust List URL Buttons', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerList });
+  });
+
+  it('shows "Copy LOTL URL" button at page level', async () => {
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    expect(screen.getByText('Copy LOTL URL')).toBeInTheDocument();
+  });
+
+  it('shows "Copy AU TSL URL" button in issuer detail panel', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Copy AU TSL URL')).toBeInTheDocument();
     });
   });
 });

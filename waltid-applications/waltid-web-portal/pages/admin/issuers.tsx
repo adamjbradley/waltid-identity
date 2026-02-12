@@ -13,8 +13,11 @@ import {
   TrashIcon,
   KeyIcon,
   DocumentTextIcon,
+  ClipboardDocumentIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import AdminNav from '@/components/walt/nav/AdminNav';
+import { credentialTemplates, getTemplatesByCategory, CredentialTemplate } from '@/types/credentialTemplates';
 
 // -- Interfaces --
 
@@ -113,6 +116,10 @@ export default function Issuers() {
   const [editingCredentials, setEditingCredentials] = useState<string | null>(null);
   const [credentialConfigJson, setCredentialConfigJson] = useState('');
   const [credentialError, setCredentialError] = useState<string | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState<Record<string, boolean>>({});
+
+  // Trust list URL state
+  const [lotlCopied, setLotlCopied] = useState(false);
 
   const apiBase = env.NEXT_PUBLIC_ISSUER;
 
@@ -329,18 +336,33 @@ export default function Issuers() {
               Manage multi-tenant credential issuers with independent keys and catalogs
             </p>
           </div>
-          <Button
-            onClick={fetchIssuerList}
-            loading={loading}
-            disabled={!!error}
-            size="sm"
-            color="secondary"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowPathIcon className="w-4 h-4" />
-              Refresh
-            </div>
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const url = `${apiBase}/admin/issuer/lotl.xml`;
+                navigator.clipboard.writeText(url);
+                setLotlCopied(true);
+                setTimeout(() => setLotlCopied(false), 2000);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              title="Copy LOTL URL for verifier trust list configuration"
+            >
+              <ClipboardDocumentIcon className="w-4 h-4" />
+              {lotlCopied ? 'Copied!' : 'Copy LOTL URL'}
+            </button>
+            <Button
+              onClick={fetchIssuerList}
+              loading={loading}
+              disabled={!!error}
+              size="sm"
+              color="secondary"
+            >
+              <div className="flex items-center gap-2">
+                <ArrowPathIcon className="w-4 h-4" />
+                Refresh
+              </div>
+            </Button>
+          </div>
         </div>
 
         {/* Error Display */}
@@ -466,7 +488,9 @@ export default function Issuers() {
                               </div>
                             ) : issuerDetail[issuer.id] ? (
                               <IssuerDetailPanel
+                                issuer={issuer}
                                 detail={issuerDetail[issuer.id]}
+                                apiBase={apiBase!}
                                 formatDate={formatDate}
                                 onGenerateCert={() => handleGenerateCert(issuer.id)}
                                 onToggleStatus={() => handleToggleStatus(issuer.id, issuer.status)}
@@ -475,6 +499,8 @@ export default function Issuers() {
                                 deletingIssuer={deletingIssuer === issuer.id}
                                 togglingStatus={togglingStatus === issuer.id}
                                 editingCredentials={editingCredentials === issuer.id}
+                                showTemplatePicker={showTemplatePicker[issuer.id] || false}
+                                onToggleTemplatePicker={() => setShowTemplatePicker(prev => ({ ...prev, [issuer.id]: !prev[issuer.id] }))}
                                 onEditCredentials={() => {
                                   setEditingCredentials(issuer.id);
                                   setCredentialConfigJson(
@@ -619,7 +645,9 @@ export default function Issuers() {
 // -- Issuer Detail Panel --
 
 function IssuerDetailPanel({
+  issuer,
   detail,
+  apiBase,
   formatDate,
   onGenerateCert,
   onToggleStatus,
@@ -628,6 +656,8 @@ function IssuerDetailPanel({
   deletingIssuer,
   togglingStatus,
   editingCredentials,
+  showTemplatePicker,
+  onToggleTemplatePicker,
   onEditCredentials,
   onCancelEditCredentials,
   onSaveCredentials,
@@ -635,7 +665,9 @@ function IssuerDetailPanel({
   onCredentialConfigChange,
   credentialError,
 }: {
+  issuer: IssuerSummary;
   detail: IssuerDetail;
+  apiBase: string;
   formatDate: (d?: string) => string;
   onGenerateCert: () => void;
   onToggleStatus: () => void;
@@ -644,6 +676,8 @@ function IssuerDetailPanel({
   deletingIssuer: boolean;
   togglingStatus: boolean;
   editingCredentials: boolean;
+  showTemplatePicker: boolean;
+  onToggleTemplatePicker: () => void;
   onEditCredentials: () => void;
   onCancelEditCredentials: () => void;
   onSaveCredentials: () => void;
@@ -651,6 +685,38 @@ function IssuerDetailPanel({
   onCredentialConfigChange: (v: string) => void;
   credentialError: string | null;
 }) {
+  const [tslCopied, setTslCopied] = useState(false);
+
+  const isTemplateInCatalog = (template: CredentialTemplate): boolean => {
+    return Object.keys(detail.credentialConfigurations).includes(template.id);
+  };
+
+  const handleAddTemplate = (template: CredentialTemplate) => {
+    const current = editingCredentials
+      ? JSON.parse(credentialConfigJson)
+      : detail.credentialConfigurations;
+    const updated = { ...current, ...template.config };
+    onCredentialConfigChange(JSON.stringify(updated, null, 2));
+    if (!editingCredentials) {
+      onEditCredentials();
+      // Re-set the JSON after entering edit mode
+      setTimeout(() => onCredentialConfigChange(JSON.stringify(updated, null, 2)), 0);
+    }
+  };
+
+  const handleRemoveCredential = (configKey: string) => {
+    const current = editingCredentials
+      ? JSON.parse(credentialConfigJson)
+      : detail.credentialConfigurations;
+    const updated = { ...current };
+    delete updated[configKey];
+    onCredentialConfigChange(JSON.stringify(updated, null, 2));
+    if (!editingCredentials) {
+      onEditCredentials();
+      setTimeout(() => onCredentialConfigChange(JSON.stringify(updated, null, 2)), 0);
+    }
+  };
+
   return (
     <div>
       {/* Info grid */}
@@ -667,6 +733,51 @@ function IssuerDetailPanel({
         )}
         <InfoRow label="Created" value={formatDate(detail.createdAt)} />
         <InfoRow label="Updated" value={formatDate(detail.updatedAt)} />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {detail.status === 'ACTIVE' && detail.x5Chain && Object.keys(detail.credentialConfigurations).length > 0 ? (
+          <button
+            onClick={() => {
+              const credIds = Object.keys(detail.credentialConfigurations).join(',');
+              window.location.href = `/credentials?ids=${credIds}&issuerId=${issuer.id}&mode=issuance`;
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Issue Credential
+          </button>
+        ) : detail.status === 'ACTIVE' && detail.x5Chain ? (
+          <span className="text-sm text-amber-600">Configure credentials first</span>
+        ) : null}
+
+        {detail.status === 'ACTIVE' && detail.x5Chain && (
+          <a
+            href={`${apiBase}/issuers/${issuer.id}/draft13/.well-known/openid-credential-issuer`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-600 text-sm font-medium rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            View Metadata
+          </a>
+        )}
+
+        {detail.status === 'ACTIVE' && detail.x5Chain && (
+          <button
+            onClick={() => {
+              const url = `${apiBase}/admin/issuer/tsl/${detail.country}.xml`;
+              navigator.clipboard.writeText(url);
+              setTslCopied(true);
+              setTimeout(() => setTslCopied(false), 2000);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            title={`Copy TSL URL for ${detail.country} issuers`}
+          >
+            <ClipboardDocumentIcon className="w-4 h-4" />
+            {tslCopied ? 'Copied!' : `Copy ${detail.country} TSL URL`}
+          </button>
+        )}
       </div>
 
       {/* Certificate section */}
@@ -734,15 +845,88 @@ function IssuerDetailPanel({
 
       {/* Credential Configurations */}
       <div className="mb-5 border border-gray-200 rounded-lg bg-white p-4">
-        <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <DocumentTextIcon className="w-4 h-4" />
-          Credential Configurations
-          <span className="text-xs text-gray-400 font-normal">
-            ({Object.keys(detail.credentialConfigurations).length} configured)
-          </span>
-        </h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <DocumentTextIcon className="w-4 h-4" />
+            Credential Configurations
+            <span className="text-xs text-gray-400 font-normal">
+              ({Object.keys(detail.credentialConfigurations).length} configured)
+            </span>
+          </h4>
+          <div className="flex gap-2">
+            <button
+              onClick={onToggleTemplatePicker}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              {showTemplatePicker ? 'Hide Templates' : 'Add from Templates'}
+            </button>
+            <button
+              onClick={onEditCredentials}
+              className="text-xs text-gray-500 hover:text-gray-700 font-medium transition-colors"
+            >
+              Edit as JSON
+            </button>
+          </div>
+        </div>
 
-        {editingCredentials ? (
+        {/* Current credentials as cards */}
+        {Object.keys(detail.credentialConfigurations).length > 0 && !editingCredentials && (
+          <div className="mb-3 space-y-1.5">
+            {Object.entries(detail.credentialConfigurations).map(([key, config]) => (
+              <div key={key} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-gray-700">{key}</span>
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                    {(config as any)?.format || 'unknown'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleRemoveCredential(key)}
+                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {Object.keys(detail.credentialConfigurations).length === 0 && !editingCredentials && !showTemplatePicker && (
+          <p className="text-sm text-gray-500 mb-3">
+            No credential configurations set. Click &ldquo;Add from Templates&rdquo; to get started.
+          </p>
+        )}
+
+        {/* Template picker */}
+        {showTemplatePicker && !editingCredentials && (
+          <div className="mt-3 p-3 border border-blue-200 rounded-lg bg-blue-50/50 space-y-4">
+            {(['EUDI', 'Financial', 'Identity'] as const).map(category => (
+              <div key={category}>
+                <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">{category}</h5>
+                <div className="grid grid-cols-2 gap-2">
+                  {getTemplatesByCategory(category).map(template => (
+                    <button
+                      key={template.id}
+                      disabled={isTemplateInCatalog(template)}
+                      onClick={() => handleAddTemplate(template)}
+                      className={`text-left p-2 rounded-lg border text-xs transition-colors ${
+                        isTemplateInCatalog(template)
+                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
+                      }`}
+                    >
+                      <span className="font-medium">{template.name}</span>
+                      <span className="block text-gray-400 mt-0.5">{template.format}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* JSON editor (advanced mode) */}
+        {editingCredentials && (
           <div className="space-y-3">
             <textarea
               value={credentialConfigJson}
@@ -770,31 +954,6 @@ function IssuerDetailPanel({
                 Cancel
               </button>
             </div>
-          </div>
-        ) : (
-          <div>
-            {Object.keys(detail.credentialConfigurations).length === 0 ? (
-              <p className="text-sm text-gray-500 mb-3">
-                No credential configurations set. Add credential types this issuer can issue.
-              </p>
-            ) : (
-              <div className="mb-3 space-y-1">
-                {Object.entries(detail.credentialConfigurations).map(([key, config]) => (
-                  <div key={key} className="flex items-center gap-2 text-sm">
-                    <span className="font-mono text-xs text-gray-700">{key}</span>
-                    <span className="text-xs text-gray-400">
-                      ({(config as any)?.format || 'unknown format'})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={onEditCredentials}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-            >
-              Edit Credential Configurations
-            </button>
           </div>
         )}
       </div>
