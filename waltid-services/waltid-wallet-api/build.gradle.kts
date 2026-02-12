@@ -89,6 +89,7 @@ dependencies {
     implementation(project(":waltid-libraries:waltid-did"))
     implementation(project(":waltid-libraries:credentials:waltid-verification-policies"))
     implementation(project(":waltid-libraries:credentials:waltid-dif-definitions-parser"))
+    implementation(project(":waltid-libraries:credentials:waltid-dcql"))
 
     implementation(project(":waltid-libraries:auth:waltid-ktor-authnz"))
 
