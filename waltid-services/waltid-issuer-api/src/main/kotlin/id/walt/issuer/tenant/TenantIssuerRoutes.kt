@@ -11,6 +11,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.klogging.noCoLogger
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -91,8 +93,17 @@ fun Application.tenantIssuerRoutes() {
  * Cascade: request → tenant → (global would throw at issuance time)
  */
 private fun enrichRequestWithTenantKeys(request: IssuanceRequest, tenant: IssuerTenant): IssuanceRequest {
+    // Wrap raw JWK in {"type":"jwk","jwk":{...}} format expected by KeyManager
+    val wrappedKey = if (request.issuerKey != null) null else tenant.issuerKey?.let { rawJwk ->
+        if (rawJwk.containsKey("type")) rawJwk  // Already wrapped
+        else buildJsonObject {
+            put("type", JsonPrimitive("jwk"))
+            put("jwk", rawJwk)
+        }
+    }
+
     return request.copy(
-        issuerKey = request.issuerKey ?: tenant.issuerKey,
+        issuerKey = request.issuerKey ?: wrappedKey,
         x5Chain = request.x5Chain ?: tenant.x5Chain?.map { certBase64 ->
             // Convert base64 DER to PEM-style string that X509CertUtils can parse
             val derBytes = java.util.Base64.getDecoder().decode(certBase64)
