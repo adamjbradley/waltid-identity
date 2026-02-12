@@ -4,7 +4,11 @@ package id.walt.webwallet.service
 
 import id.walt.commons.config.ConfigManager
 import id.walt.commons.featureflag.FeatureManager.whenFeature
+import id.walt.dcql.DcqlMatcher
+import id.walt.dcql.RawDcqlCredential
+import id.walt.dcql.models.DcqlQuery
 import id.walt.definitionparser.PresentationDefinitionParser
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.webwallet.FeatureCatalog
 import id.walt.webwallet.config.OidcConfiguration
@@ -255,5 +259,42 @@ object WalletServiceManager {
             result
         }
         return matches
+    }
+
+    suspend fun matchCredentialsForDcqlQuery(
+        walletId: Uuid,
+        dcqlQuery: DcqlQuery
+    ): List<WalletCredential> {
+        val allCredentials = credentialService.list(walletId, CredentialFilterObject.default)
+
+        val dcqlCredentials = allCredentials.mapNotNull { cred ->
+            val parsedDoc = cred.parsedDocument ?: return@mapNotNull null
+            val formatStr = when (cred.format) {
+                CredentialFormat.sd_jwt_dc -> "dc+sd-jwt"
+                CredentialFormat.sd_jwt_vc -> "dc+sd-jwt" // treat vc+sd-jwt as dc+sd-jwt for DCQL matching
+                CredentialFormat.mso_mdoc -> "mso_mdoc"
+                CredentialFormat.jwt_vc_json -> "jwt_vc_json"
+                else -> cred.format.value
+            }
+
+            RawDcqlCredential(
+                id = cred.id,
+                format = formatStr,
+                data = parsedDoc,
+                disclosures = null,
+                originalCredential = cred
+            )
+        }
+
+        val matchResult = DcqlMatcher.matchWithoutClaims(dcqlQuery, dcqlCredentials)
+
+        return matchResult.getOrElse {
+            logger.warn { "DCQL matching failed: ${it.message}" }
+            emptyMap()
+        }.flatMap { (_, dcqlCreds) ->
+            dcqlCreds.mapNotNull { dcqlCred ->
+                (dcqlCred as? RawDcqlCredential)?.originalCredential as? WalletCredential
+            }
+        }.distinctBy { it.id }
     }
 }
