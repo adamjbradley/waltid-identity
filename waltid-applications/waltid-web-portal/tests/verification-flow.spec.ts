@@ -69,7 +69,7 @@ test.describe('Verification Flow', () => {
 
   test('verify navigates to verify page', async ({ page }) => {
     // Click the Verify button
-    const verifyButton = page.getByRole('button', { name: /^Verify$/i });
+    const verifyButton = page.getByRole('button', { name: /^Verify$/i }).last();
     await expect(verifyButton).toBeVisible();
     await verifyButton.click();
 

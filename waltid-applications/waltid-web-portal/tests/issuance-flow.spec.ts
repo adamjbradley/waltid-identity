@@ -82,7 +82,7 @@ test.describe('Issuance Flow', () => {
     await dropdown.selectOption(firstTenantValue!);
 
     // Click the Issue button
-    const issueButton = page.getByRole('button', { name: /^Issue$/i });
+    const issueButton = page.getByRole('button', { name: /^Issue$/i }).last();
     await expect(issueButton).toBeVisible();
     await issueButton.click();
 
@@ -102,7 +102,7 @@ test.describe('Issuance Flow', () => {
     await expect(dropdown).toHaveValue('');
 
     // Click the Issue button
-    const issueButton = page.getByRole('button', { name: /^Issue$/i });
+    const issueButton = page.getByRole('button', { name: /^Issue$/i }).last();
     await expect(issueButton).toBeVisible();
     await issueButton.click();
 

@@ -56,9 +56,8 @@ export default function VerificationSection() {
 
   const params = router.query;
 
-  const idsToIssue = (params as unknown as { ids: string }).ids?.split(',')
-    ? (params as unknown as { ids: string }).ids?.split(',')
-    : [(params as unknown as { ids: string }).ids];
+  const idsParam = (params as unknown as { ids: string }).ids;
+  const idsToIssue = idsParam ? idsParam.split(',') : [];
   const [credentialsToIssue, setCredentialsToIssue] = useState<
     AvailableCredential[]
   >([]);
