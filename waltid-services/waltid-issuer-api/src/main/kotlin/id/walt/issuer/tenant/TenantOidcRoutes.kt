@@ -50,11 +50,19 @@ fun Application.tenantOidcRoutes() {
             route("{standardVersion}") {
 
                 get(".well-known/openid-credential-issuer") {
-                    val (_, provider) = resolveTenantProvider(call) ?: return@get
+                    val (tenant, provider) = resolveTenantProvider(call) ?: return@get
                     val metadata = provider.getMetadataByVersion(
                         standardVersion = call.parameters["standardVersion"]
                     )
-                    call.respond(metadata.toJSON())
+                    // Inject tenant display info (OpenID4VCI spec §11.2.3)
+                    val metadataMap = metadata.toJSON().toMutableMap()
+                    metadataMap["display"] = buildJsonArray {
+                        addJsonObject {
+                            put("name", tenant.legalName)
+                            put("locale", "en")
+                        }
+                    }
+                    call.respond(JsonObject(metadataMap))
                 }
 
                 get(".well-known/openid-configuration") {

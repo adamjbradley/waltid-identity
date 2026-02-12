@@ -43,7 +43,7 @@ export default function IssueSection() {
   const [useServerKeys, setUseServerKeys] = useState<boolean>(true);
 
   // Multi-tenant issuer selection
-  const issuerRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const issuerRegistrarEnabled = (env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
   const [tenants, setTenants] = useState<IssuerTenantSummary[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [tenantCredentialKeys, setTenantCredentialKeys] = useState<string[]>([]);
@@ -153,6 +153,10 @@ export default function IssueSection() {
       }
       if (issuerId) {
         url = url + `&issuerId=${issuerId}`;
+        const tenant = tenants.find((t) => t.id === issuerId);
+        if (tenant) {
+          url = url + `&issuerName=${encodeURIComponent(tenant.legalName)}`;
+        }
       }
 
       await router.push(url);

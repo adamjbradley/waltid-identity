@@ -118,8 +118,18 @@
               :key="credential"
             >
               <div class="text-black-800">{{ credential.name }}</div>
-              <div v-if="issuerHost" class="text-sm text-gray-400">
-                from {{ issuerHost }}
+              <div data-testid="issuer-identity">
+                <template v-if="mtWalletEnabled && (issuerDisplayName || issuerHintName)">
+                  <div class="text-sm text-gray-700">
+                    from <span class="font-semibold">{{ issuerDisplayName || issuerHintName }}</span>
+                  </div>
+                  <div class="text-xs text-gray-400">{{ issuerHintDomain || issuerHost }}</div>
+                </template>
+                <template v-else>
+                  <div v-if="issuerHost" class="text-sm text-gray-400">
+                    from {{ issuerHost }}
+                  </div>
+                </template>
               </div>
               <hr class="my-2 border-gray-200" />
             </div>
@@ -132,12 +142,14 @@
         class="fixed sm:relative bottom-0 w-full p-4 bg-white shadow-md sm:shadow-none sm:flex sm:justify-end sm:gap-4"
       >
         <button
+          data-testid="accept-credential"
           @click="acceptCredential"
           class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl"
         >
           Accept
         </button>
         <button
+          data-testid="decline-credential"
           @click="navigateTo(`/wallet/${walletId}`)"
           class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl"
         >
@@ -149,7 +161,7 @@
 </template>
 
 <script lang="ts" setup>
-import {ref} from "vue";
+import {computed, ref} from "vue";
 import {useTitle} from "@vueuse/core";
 import CenterMain from "@waltid-web-wallet/components/CenterMain.vue";
 import LoadingIndicator from "@waltid-web-wallet/components/loading/LoadingIndicator.vue";
@@ -172,7 +184,17 @@ const {
   issuerHost,
   credentialCount,
   groupedCredentialTypes,
+  issuerDisplayName,
+  mtWalletEnabled,
 } = await useIssuance(query);
+
+// Portal hint params — ONLY read when MT enabled
+const issuerHintName = computed(() =>
+  mtWalletEnabled.value ? (route.query.issuerName as string || '') : ''
+);
+const issuerHintDomain = computed(() =>
+  mtWalletEnabled.value ? (route.query.issuerDomain as string || '') : ''
+);
 
 if (query.accept) {
   immediateAccept.value = true;

@@ -275,12 +275,14 @@ export interface VerificationSessionRequest {
     key?: VerificationSigningConfig['key'];
     x5c?: string[];
     dcql_query: DcqlQuery;
+    policies?: Record<string, Record<string, never>>;
   };
 }
 
 export function buildVerificationSessionRequest(
   dcqlQuery: DcqlQuery,
-  signingConfig?: VerificationSigningConfig
+  signingConfig?: VerificationSigningConfig,
+  policies: string[] = []
 ): VerificationSessionRequest {
   const coreFlow: VerificationSessionRequest['core_flow'] = {
     signed_request: true,
@@ -292,6 +294,11 @@ export function buildVerificationSessionRequest(
     coreFlow.clientId = signingConfig.clientId;
     coreFlow.key = signingConfig.key;
     coreFlow.x5c = signingConfig.x5c;
+  }
+
+  // Add verification policies if provided
+  if (policies.length > 0) {
+    coreFlow.policies = Object.fromEntries(policies.map(p => [p, {}]));
   }
 
   return {

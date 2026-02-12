@@ -27,6 +27,7 @@ export default function Verification() {
   const [error, setError] = useState<string | null>(null);
   const [usedApi2, setUsedApi2] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [rpHintName, setRpHintName] = useState<string>('');
 
   // Detect mobile device on mount (client-side only)
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function Verification() {
                 transformResponse: [(data: string) => data],
               });
               const rpData = rpDetail.data;
+              if (rpData.legalName) setRpHintName(rpData.legalName);
               if (rpData.x5c && rpData.x5c.length > 0) {
                 signingConfig = {
                   clientId: rpData.clientId,
@@ -111,7 +113,7 @@ export default function Verification() {
             }
           }
 
-          const requestBody = buildVerificationSessionRequest(dcqlQuery, signingConfig);
+          const requestBody = buildVerificationSessionRequest(dcqlQuery, signingConfig, vps);
 
           const response = await axios.post(
             `${verifier2Url}/verification-session/create`,
@@ -227,12 +229,17 @@ export default function Verification() {
   }
 
   function openWebWallet() {
+    // Pass RP hints when rpId is present (implies RP registrar enabled)
+    const metadata: Record<string, string> = {};
+    if (rpHintName) metadata.rpName = rpHintName;
+
     sendToWebWallet(
       env.NEXT_PUBLIC_WALLET
         ? env.NEXT_PUBLIC_WALLET
         : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_WALLET,
       'api/siop/initiatePresentation',
-      verifyURL
+      verifyURL,
+      Object.keys(metadata).length > 0 ? metadata : undefined
     );
   }
 

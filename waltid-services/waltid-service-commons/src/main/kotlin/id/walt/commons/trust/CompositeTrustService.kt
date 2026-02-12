@@ -283,6 +283,15 @@ class CompositeTrustService(
         return etsiService.getCustomTslUrls()
     }
 
+    suspend fun refresh() {
+        if (enabledSources[TrustSource.ETSI_TL] == true) {
+            etsiService.refresh()
+        }
+        if (enabledSources[TrustSource.OPENID_FEDERATION] == true) {
+            federationService.refresh()
+        }
+    }
+
     suspend fun initWithCacheAndRefresh(scope: CoroutineScope) {
         if (enabledSources[TrustSource.ETSI_TL] == true) {
             (etsiService as? EtsiTrustListService)?.initWithCacheAndRefresh(scope)

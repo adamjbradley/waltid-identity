@@ -16,6 +16,7 @@ services:
     extra_hosts:
       - "$SERVICE_HOST:host-gateway"
       - "waltid.enterprise.localhost:host-gateway"
+      - "issuer.theaustraliahack.com:host-gateway"
     volumes:
       - ./wallet-api/config:/waltid-wallet-api/config
       - ./wallet-api/data:/waltid-wallet-api/data
@@ -68,6 +69,9 @@ services:
       - caddy
     env_file:
       - .env
+    extra_hosts:
+      - "$SERVICE_HOST:host-gateway"
+      - "issuer.theaustraliahack.com:host-gateway"
     environment:
       RP_REGISTRAR_ENABLED: ${RP_REGISTRAR_ENABLED:-false}
     volumes:
@@ -91,6 +95,7 @@ services:
     environment:
       NUXT_PUBLIC_ISSUER_CALLBACK_URL: "http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT"
       NUXT_PUBLIC_DEV_WALLET_URL: "http://$SERVICE_HOST:$DEV_WALLET_FRONTEND_PORT"
+      NUXT_PUBLIC_MT_WALLET_ENABLED: "${MT_WALLET_ENABLED:-false}"
       PORT: $DEMO_WALLET_FRONTEND_PORT
 
   waltid-dev-wallet:
@@ -109,6 +114,7 @@ services:
     environment:
       NUXT_PUBLIC_ISSUER_CALLBACK_URL: "http://$SERVICE_HOST:$DEV_WALLET_FRONTEND_PORT"
       NUXT_PUBLIC_DEMO_WALLET_URL: "http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT"
+      NUXT_PUBLIC_MT_WALLET_ENABLED: "${MT_WALLET_ENABLED:-false}"
       PORT: $DEV_WALLET_FRONTEND_PORT
 
   web-portal:

@@ -1,8 +1,9 @@
 import {createError, navigateTo, useLazyAsyncData} from "nuxt/app";
 import {useCurrentWallet} from "./accountWallet.ts";
 import {decodeRequest} from "./siop-requests.ts";
-import {type Ref, ref, watch} from "vue";
+import {computed, type Ref, ref, watch} from "vue";
 import {groupBy} from "./groupings.ts";
+import {useMtWallet} from "./mtWallet.ts";
 
 export async function useIssuance(query: any) {
     const currentWallet = useCurrentWallet()
@@ -48,9 +49,12 @@ export async function useIssuance(query: any) {
         issuerHost = issuer;
     }
 
+    const { mtWalletEnabled } = useMtWallet();
+
     const credential_issuer: {
         credential_configurations_supported: Array<{ types: Array<String>; }>; // Draft13
         credentials_supported?: Array<{ id: string; types: Array<String> }>; // Draft11
+        display?: Array<{ name?: string; locale?: string; logo?: { uri?: string } }>;
     } = await $fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveIssuerOpenIDMetadata?issuer=${issuer}`)
 
 
@@ -104,6 +108,12 @@ export async function useIssuance(query: any) {
         (c: { name: string }) => c.name,
     );
 
+    // Extract issuer display name from OpenID metadata — ONLY when MT enabled
+    const issuerDisplayName = computed(() => {
+        if (!mtWalletEnabled.value) return '';
+        return credential_issuer.display?.[0]?.name || '';
+    });
+
     const failed = ref(false);
     const failMessage = ref("Unknown error occurred.");
     async function acceptCredential() {
@@ -142,6 +152,8 @@ export async function useIssuance(query: any) {
         credentialTypes,
         credentialCount,
         groupedCredentialTypes,
-        issuerHost
+        issuerHost,
+        issuerDisplayName,
+        mtWalletEnabled
     }
 }

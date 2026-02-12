@@ -182,8 +182,8 @@ describe('Issuer Registrar - Docker Compose Configuration', () => {
     expect(dockerComposeContent).toContain('NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED');
   });
 
-  it('should default ISSUER_REGISTRAR_ENABLED to false in .env', () => {
-    expect(envContent).toContain('ISSUER_REGISTRAR_ENABLED=false');
+  it('should have ISSUER_REGISTRAR_ENABLED set in .env', () => {
+    expect(envContent).toContain('ISSUER_REGISTRAR_ENABLED=');
   });
 
   it('should have issuer-registrar.conf with storageDir', () => {

@@ -1,0 +1,56 @@
+{
+    "id": "c86a547f-d29f-4da3-b76d-f77c3f804174",
+    "legalName": "GlobalPay Corp",
+    "country": "SG",
+    "domain": "globalpay.sg",
+    "contactEmail": "admin@globalpay.sg",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "Hud5pX57lyMRLasp-ZJlGPBkNeBQlxk6d9N3Pl6wmIM",
+        "y": "azaw1yH-1tHclP16a_Q1Qg5Ny_JkNwTAVRHvFB_cpgE",
+        "d": "ky624vZFfeKe0TVZN_xUdpjfD9mbqRiYKw12I8bPytY"
+    },
+    "x5Chain": [
+        "MIIByTCCAW+gAwIBAgIUHUJe3i8SIiauafY6vY4XSWCpf6owCgYIKoZIzj0EAwIwKzEcMBoGA1UEAwwTR2xvYmFsUGF5IENvcnAgSUFDQTELMAkGA1UEBhMCU0cwHhcNMjYwMjEyMDAxMjI2WhcNMjcwMjEyMDAxMjI2WjA2MScwJQYDVQQDDB5HbG9iYWxQYXkgQ29ycCBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAlNHMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHud5pX57lyMRLasp+ZJlGPBkNeBQlxk6d9N3Pl6wmINrNrDXIf7W0dyU/Xpr9DVCDk3L8mQ3BMBVEe8UH9ymAaNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFAp6LDSMpYAfZbj0mxqra3T9nOofMB8GA1UdIwQYMBaAFKcsIgBnriMI4DCqTN17uG5Ft7+ZMAoGCCqGSM49BAMCA0gAMEUCIHT1ANDbs4ZRTIMg8i8xCQiDRzcod40h4XqY38NAGFkiAiEA1eJCjTkyMOF08QajrKar8JDlhU0LC/mIddE2EPwyOcU=",
+        "MIIBvDCCAWGgAwIBAgIUOLuf05AyibWDO3+71rBaeYkdeTkwCgYIKoZIzj0EAwIwKzEcMBoGA1UEAwwTR2xvYmFsUGF5IENvcnAgSUFDQTELMAkGA1UEBhMCU0cwHhcNMjYwMjEyMDAxMjI2WhcNMzEwMjExMDAxMjI2WjArMRwwGgYDVQQDDBNHbG9iYWxQYXkgQ29ycCBJQUNBMQswCQYDVQQGEwJTRzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABPrKrH8hvuIUHN52MPoAgTU8inftD8QKnfdaqvGuUSBKGdWSMjJFrmUcIXdiZrKEXMTkmQDDdBsgE6/LbLY1tEKjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBSnLCIAZ64jCOAwqkzde7huRbe/mTAfBgNVHSMEGDAWgBSnLCIAZ64jCOAwqkzde7huRbe/mTAKBggqhkjOPQQDAgNJADBGAiEAugGfG/nNyp0ThSY4V/tdR6XxYdLLJ1fmx9vM0EX4FgQCIQDD9S0SiGM3StFVQOR7LCybUOI9tQlM2bdn9Qx75Tdhnw=="
+    ],
+    "iacaCertificate": {
+        "subject": "C=SG,CN=GlobalPay Corp IACA",
+        "issuer": "C=SG,CN=GlobalPay Corp IACA",
+        "notBefore": "2026-02-12T00:12:26Z",
+        "notAfter": "2031-02-11T00:12:26Z",
+        "serialNumber": "38bb9fd3903289b5833b7fbbd6b05a79891d7939",
+        "fingerprint": "68:55:3C:63:36:B9:E9:9F:9F:0F:6D:7D:2F:C9:26:90:C3:F9:70:96:BD:B4:47:9D:B2:0A:B0:AF:2F:19:54:EF"
+    },
+    "signerCertificate": {
+        "subject": "C=SG,CN=GlobalPay Corp Document Signer",
+        "issuer": "C=SG,CN=GlobalPay Corp IACA",
+        "notBefore": "2026-02-12T00:12:26Z",
+        "notAfter": "2027-02-12T00:12:26Z",
+        "serialNumber": "1d425ede2f122226ae69f63abd8e174960a97faa",
+        "fingerprint": "21:1B:56:79:87:47:85:7A:9D:85:C1:A6:47:93:A2:25:18:FB:BE:63:5B:9B:4F:B2:A8:1A:D7:9E:0F:C5:EB:ED"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"mjTRamUvOZy0kzzvUoJwmEBExIPXRrJu23d94kwhQqk\",\"y\":\"xjfezVQUKiH8l3vjuOu2BttfRXUTcPjPQ-3zCAtFmps\",\"d\":\"aw1N4JQbM5X1CrVAo9dO_C1vVLnAekjSi8muyy1WbtA\"}}",
+    "credentialConfigurations": {
+        "PayrollCert": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:globalpay:payroll:1",
+            "cryptographic_binding_methods_supported": [
+                "jwk"
+            ],
+            "credential_signing_alg_values_supported": [
+                "ES256"
+            ],
+            "proof_types_supported": {
+                "jwt": {
+                    "proof_signing_alg_values_supported": [
+                        "ES256"
+                    ]
+                }
+            }
+        }
+    },
+    "createdAt": "2026-02-12T00:12:26.784589966Z",
+    "updatedAt": "2026-02-12T00:12:26.908973341Z"
+}

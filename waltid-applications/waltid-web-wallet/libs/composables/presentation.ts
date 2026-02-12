@@ -3,6 +3,7 @@ import {useCurrentWallet} from "./accountWallet.ts";
 import {computed, type Ref, ref, watch} from "vue";
 import {decodeRequest} from "./siop-requests.ts";
 import {navigateTo} from "nuxt/app";
+import {useMtWallet} from "./mtWallet.ts";
 
 export async function usePresentation(query: any) {
   const index = ref(0);
@@ -38,6 +39,26 @@ export async function usePresentation(query: any) {
       presentationParams.get("redirect_uri") ??
       "",
   ).host;
+
+  const { mtWalletEnabled } = useMtWallet();
+
+  // Extract client_id — ONLY when MT enabled
+  const clientId = computed(() => {
+    if (!mtWalletEnabled.value) return '';
+    return presentationParams.get('client_id') || '';
+  });
+
+  // Parse RP domain from x509_san_dns:{domain} — ONLY when MT enabled
+  const rpDomain = computed(() => {
+    if (!mtWalletEnabled.value) return '';
+    const cid = presentationParams.get('client_id') || '';
+    if (cid.startsWith('x509_san_dns:')) return cid.substring('x509_san_dns:'.length);
+    if (cid.startsWith('x509_san_uri:')) {
+      try { return new URL(cid.substring('x509_san_uri:'.length)).host; } catch { return ''; }
+    }
+    return '';
+  });
+
   const presentationDefinition = presentationParams.get(
     "presentation_definition",
   ) as string;
@@ -174,6 +195,9 @@ export async function usePresentation(query: any) {
   return {
     currentWallet,
     verifierHost,
+    clientId,
+    rpDomain,
+    mtWalletEnabled,
     presentationDefinition,
     matchedCredentials,
     selectedCredentialIds,

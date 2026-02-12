@@ -2,23 +2,23 @@ import CustomCredentialModal from "@/components/walt/modal/CustomCredentialModal
 import {MagnifyingGlassIcon, Cog6ToothIcon} from "@heroicons/react/24/outline";
 import Credential from "@/components/walt/credential/Credential";
 import {AvailableCredential} from "@/types/credentials";
-import {CredentialsContext} from "@/pages/_app";
+import {CredentialsContext, EnvContext} from "@/pages/_app";
 import {Inter} from "next/font/google";
 import React, {useState} from "react";
 import {useRouter} from "next/router";
-import nextConfig from "@/next.config";
 
 const inter = Inter({ subsets: ['latin'] });
 
 export default function Home() {
   const [AvailableCredentials] = React.useContext(CredentialsContext);
+  const env = React.useContext(EnvContext);
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [modalVisible, setModalVisible] = useState(false);
 
-  const issuerRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
-  const rpRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const issuerRegistrarEnabled = (env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const rpRegistrarEnabled = (env.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
   const hasMtMode = issuerRegistrarEnabled || rpRegistrarEnabled;
 
   const credentials = !searchTerm

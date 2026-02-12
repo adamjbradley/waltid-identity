@@ -26,13 +26,14 @@ export default function VerificationSection() {
   const [AvailableCredentials] = useContext(CredentialsContext);
 
   // RP registrar state
-  const rpRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const rpRegistrarEnabled = (env.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
   const [rpTenants, setRpTenants] = useState<RpTenantSummary[]>([]);
   const [selectedRpId, setSelectedRpId] = useState<string>('');
 
   const [signaturePolicy, setSignaturePolicy] = useState<boolean>(true);
   const [expiredPolicy, setExpiredPolicy] = useState<boolean>(true);
   const [notBeforePolicy, setNotBeforePolicy] = useState<boolean>(true);
+  const [trustPolicy, setTrustPolicy] = useState<boolean>(true);
   const [webhookPolicy, setWebhookPolicy] = useState<boolean>(false);
   const [webhook, setWebhook] = useState<string>('');
 
@@ -85,6 +86,9 @@ export default function VerificationSection() {
     }
     if (notBeforePolicy) {
       vps.push('not-before');
+    }
+    if (trustPolicy) {
+      vps.push('etsi-trusted-issuer');
     }
     if (webhookPolicy) {
       if (webhook.length == 0) {
@@ -183,6 +187,11 @@ export default function VerificationSection() {
             name="Not Before Policy"
             value={notBeforePolicy}
             onChange={setNotBeforePolicy}
+          />
+          <PolicyListItem
+            name="EUDI Trust List"
+            value={trustPolicy}
+            onChange={setTrustPolicy}
           />
           <div className="sm:flex justify-between">
             <PolicyListItem

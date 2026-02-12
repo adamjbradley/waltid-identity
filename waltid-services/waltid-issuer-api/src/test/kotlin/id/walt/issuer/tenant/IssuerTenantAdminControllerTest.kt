@@ -13,7 +13,11 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayInputStream
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Document
+import org.w3c.dom.NodeList
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -46,6 +50,15 @@ class IssuerTenantAdminControllerTest {
 
     private fun enableStore() {
         IssuerTenantStore.init(tempDir.absolutePath)
+    }
+
+    private fun parseXml(xml: String): Document {
+        val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+        return factory.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray()))
+    }
+
+    private fun Document.getElementsByTagNameNS(localName: String): NodeList {
+        return this.getElementsByTagNameNS("*", localName)
     }
 
     // ===== Feature Disabled Tests (503) =====
@@ -818,5 +831,211 @@ class IssuerTenantAdminControllerTest {
         // After cert generation
         val listAfter = client.get("/admin/issuer")
         assertTrue(listAfter.bodyAsText().contains("\"hasCertificate\":true"))
+    }
+
+    // ===== LOTL XML Structure Tests =====
+
+    @Test
+    fun `LOTL has correct root element and namespace`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register an issuer with cert
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val doc = parseXml(response.bodyAsText())
+        assertEquals("TrustServiceStatusList", doc.documentElement.localName)
+        assertEquals("http://uri.etsi.org/02231/v2#", doc.documentElement.namespaceURI)
+    }
+
+    @Test
+    fun `LOTL contains SchemeInformation`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        val schemeInfo = doc.getElementsByTagNameNS("SchemeInformation")
+        assertTrue(schemeInfo.length > 0, "Should contain SchemeInformation element")
+
+        val operatorName = doc.getElementsByTagNameNS("SchemeOperatorName")
+        assertTrue(operatorName.length > 0, "Should contain SchemeOperatorName")
+
+        val listIssueDate = doc.getElementsByTagNameNS("ListIssueDateTime")
+        assertTrue(listIssueDate.length > 0, "Should contain ListIssueDateTime")
+    }
+
+    @Test
+    fun `LOTL pointers have TSLLocation with xml suffix`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        val tslLocations = doc.getElementsByTagNameNS("TSLLocation")
+        assertTrue(tslLocations.length > 0, "Should have at least one TSLLocation")
+        for (i in 0 until tslLocations.length) {
+            val url = tslLocations.item(i).textContent
+            assertTrue(url.endsWith(".xml"), "TSLLocation should end with .xml: $url")
+        }
+    }
+
+    @Test
+    fun `LOTL pointers have SchemeTerritory matching registered countries`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        // Register AU and IN issuers
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val india = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "IN Issuer", country = "IN", domain = "in.example.com"))
+        }
+        val inId = Json.parseToJsonElement(india.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$inId/certificate/generate")
+
+        val response = client.get("/admin/issuer/lotl.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        // Find SchemeTerritory elements within pointer section
+        val territories = doc.getElementsByTagNameNS("SchemeTerritory")
+        val countrySet = mutableSetOf<String>()
+        for (i in 0 until territories.length) {
+            countrySet.add(territories.item(i).textContent.trim())
+        }
+        assertTrue(countrySet.contains("AU"), "Should have AU territory")
+        assertTrue(countrySet.contains("IN"), "Should have IN territory")
+    }
+
+    // ===== TSL XML Structure Tests =====
+
+    @Test
+    fun `TSL has correct root element`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val doc = parseXml(response.bodyAsText())
+        assertEquals("TrustServiceStatusList", doc.documentElement.localName)
+        assertEquals("http://uri.etsi.org/02231/v2#", doc.documentElement.namespaceURI)
+    }
+
+    @Test
+    fun `TSL contains TrustServiceProvider entries`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        val providers = doc.getElementsByTagNameNS("TrustServiceProvider")
+        assertTrue(providers.length > 0, "Should have at least one TrustServiceProvider")
+
+        val tspNames = doc.getElementsByTagNameNS("TSPName")
+        assertTrue(tspNames.length > 0, "Each provider should have TSPName")
+
+        val tspServices = doc.getElementsByTagNameNS("TSPServices")
+        assertTrue(tspServices.length > 0, "Each provider should have TSPServices")
+    }
+
+    @Test
+    fun `TSL X509Certificate is valid Base64`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        val certs = doc.getElementsByTagNameNS("X509Certificate")
+        assertTrue(certs.length > 0, "Should contain X509Certificate elements")
+        for (i in 0 until certs.length) {
+            val certContent = certs.item(i).textContent.trim()
+            assertTrue(certContent.isNotBlank(), "Certificate content should not be blank")
+            // Verify it's valid Base64
+            val decoded = java.util.Base64.getDecoder().decode(certContent)
+            assertTrue(decoded.isNotEmpty(), "Should decode to non-empty byte array")
+        }
+    }
+
+    @Test
+    fun `TSL has X509SubjectName for each provider`() = testApplication {
+        install(ContentNegotiation) { json() }
+        application { issuerTenantAdminRoutes() }
+        enableStore()
+
+        val au = client.post("/admin/issuer") {
+            contentType(ContentType.Application.Json)
+            setBody(createIssuerJson(legalName = "AU Issuer", country = "AU", domain = "au.example.com"))
+        }
+        val auId = Json.parseToJsonElement(au.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+        client.post("/admin/issuer/$auId/certificate/generate")
+
+        val response = client.get("/admin/issuer/tsl/AU.xml")
+        val doc = parseXml(response.bodyAsText())
+
+        val subjectNames = doc.getElementsByTagNameNS("X509SubjectName")
+        assertTrue(subjectNames.length > 0, "Should have X509SubjectName elements")
+        for (i in 0 until subjectNames.length) {
+            val name = subjectNames.item(i).textContent.trim()
+            assertTrue(name.isNotBlank(), "X509SubjectName should not be blank")
+        }
     }
 }

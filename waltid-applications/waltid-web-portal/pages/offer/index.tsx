@@ -87,12 +87,21 @@ export default function Offer() {
   }
 
   function openWebWallet() {
+    // Pass issuer tenant hints when issuerId is present (implies registrar enabled)
+    const issuerId = router.query.issuerId as string | undefined;
+    const metadata: Record<string, string> = {};
+    if (issuerId) {
+      const issuerName = router.query.issuerName as string | undefined;
+      if (issuerName) metadata.issuerName = issuerName;
+    }
+
     sendToWebWallet(
       env.NEXT_PUBLIC_WALLET
         ? env.NEXT_PUBLIC_WALLET
         : (nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_WALLET as string),
       'api/siop/initiateIssuance',
-      offerURL
+      offerURL,
+      Object.keys(metadata).length > 0 ? metadata : undefined
     );
   }
 

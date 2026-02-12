@@ -69,6 +69,9 @@ waltid-identity/
 # Integration and E2E tests
 ./gradlew :waltid-services:waltid-integration-tests:test
 ./gradlew :waltid-services:waltid-e2e-tests:test
+
+# Portal tests (Next.js web portal)
+cd waltid-applications/waltid-web-portal && npx jest --no-coverage
 ```
 
 ## Docker Compose
@@ -405,12 +408,106 @@ curl http://localhost:7002/admin/issuer
 - **Set credentials:** `PUT http://localhost:7002/admin/issuer/{id}/credentials`
 - **Tenant metadata:** `GET http://localhost:7002/issuers/{id}/draft13/.well-known/openid-credential-issuer`
 - **Tenant issuance:** `POST http://localhost:7002/issuers/{id}/openid4vc/mdoc/issue`
+- **LOTL XML:** `GET http://localhost:7002/admin/issuer/lotl.xml`
+- **Country TSL XML:** `GET http://localhost:7002/admin/issuer/tsl/{CC}.xml`
+
+### Portal Features
+
+- **Admin page:** `http://localhost:7102/admin/issuers` — tenant management, certificate generation, credential configuration
+- **Template picker:** Pre-built credential templates (EUDI, Financial, Identity categories)
+- **Trust list URLs:** Copy LOTL/TSL URLs from issuer detail panel
+- **Tenant issuance dropdown:** Select issuer tenant in the portal issuance flow
 
 ### Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `ISSUER_REGISTRAR_ENABLED` | `false` | Enable multi-tenant issuance (must be explicitly set to `true`) |
+
+### Documentation
+
+- **Architecture:** [`docs/issuer-registrar/README.md`](docs/issuer-registrar/README.md)
+- **Portal guide:** [`docs/issuer-registrar/portal-guide.md`](docs/issuer-registrar/portal-guide.md)
+- **Cross-border trust:** [`docs/issuer-registrar/cross-border-trust.md`](docs/issuer-registrar/cross-border-trust.md)
+
+## RP Registrar (Multi-Tenant Verification)
+
+The verifier-api2 supports multi-tenant verification, allowing multiple relying parties to share one deployment with independent X.509 certificates, client identifiers, and compliance metadata.
+
+**IMPORTANT: RP Registrar is DISABLED by default.** Zero impact on existing flows when disabled.
+
+### Default State
+
+| Location | Default | Notes |
+|----------|---------|-------|
+| `docker-compose/.env` | `RP_REGISTRAR_ENABLED=false` | Feature flag |
+
+### Enable RP Registrar
+
+```bash
+# In docker-compose/.env
+RP_REGISTRAR_ENABLED=true
+
+docker compose --profile identity up -d verifier-api2
+
+# Verify
+curl http://localhost:7004/admin/rp
+```
+
+### Key Endpoints
+
+- **List RPs:** `GET http://localhost:7004/admin/rp`
+- **Register RP:** `POST http://localhost:7004/admin/rp`
+- **Get RP detail:** `GET http://localhost:7004/admin/rp/{id}`
+- **Generate cert:** `POST http://localhost:7004/admin/rp/{id}/certificate/generate`
+- **Download cert:** `GET http://localhost:7004/admin/rp/{id}/certificate/download`
+- **Change status:** `PUT http://localhost:7004/admin/rp/{id}/status`
+
+### Portal Features
+
+- **Admin page:** `http://localhost:7102/admin/relying-parties` — RP management, certificate generation
+- **Verification dropdown:** Select RP identity in the portal verification flow (`rpId` parameter)
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `RP_REGISTRAR_ENABLED` | `false` | Enable multi-tenant verification (must be explicitly set to `true`) |
+
+### Documentation
+
+- **Overview:** [`docs/rp-registrar/README.md`](docs/rp-registrar/README.md)
+- **Portal guide:** [`docs/rp-registrar/portal-guide.md`](docs/rp-registrar/portal-guide.md)
+
+## Multi-Tenant Wallet Awareness
+
+The demo wallet supports multi-tenant (MT) issuer/verifier identity display, gated by `MT_WALLET_ENABLED`.
+
+**IMPORTANT: MT Wallet is DISABLED by default.** When disabled, the wallet behaves exactly as the standard single-tenant experience -- no code paths change.
+
+### Quick Reference
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `MT_WALLET_ENABLED` | `false` | Enable MT issuer/verifier identity in wallet |
+
+### Feature Flags Summary
+
+All feature flags follow the same pattern: defined in `docker-compose/.env`, mapped to container env vars in `docker-compose.yaml`, default to `false`.
+
+| Flag | Controls | Default |
+|------|----------|---------|
+| `TRUST_LISTS_ENABLED` | ETSI trust list validation (verifier + wallet) | `false` |
+| `OPENID_FEDERATION_ENABLED` | OpenID Federation trust source | `false` |
+| `ISSUER_REGISTRAR_ENABLED` | Multi-tenant issuer onboarding (portal + issuer-api) | `false` |
+| `RP_REGISTRAR_ENABLED` | Relying party onboarding (portal + verifier-api2) | `false` |
+| `MT_WALLET_ENABLED` | MT issuer/verifier identity in wallet | `false` |
+| `VERIFY_API_ENABLED` | Verify API service | `false` |
+| `PWA_ENABLED` | Payment Wallet Attestation | `false` |
+
+### Documentation
+
+- **Full guide:** [`docs/mt-wallet/README.md`](docs/mt-wallet/README.md)
 
 ## Platform-Specific Builds
 

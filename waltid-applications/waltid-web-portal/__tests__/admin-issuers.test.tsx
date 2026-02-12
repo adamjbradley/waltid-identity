@@ -677,6 +677,189 @@ describe('Issuers Page - Template Picker', () => {
 });
 
 // ====================================================================
+// Template Picker Interactions (Task 4 additions)
+// ====================================================================
+
+describe('Issuers Page - Template Picker Interactions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerList });
+  });
+
+  it('adds a template to credentials when clicking a template card', async () => {
+    const detailEmpty = {
+      ...mockIssuerDetail,
+      credentialConfigurations: {},
+    };
+    mockAxiosGet.mockResolvedValueOnce({ data: detailEmpty });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+
+    // Open template picker
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add from Templates'));
+    });
+
+    // Click a template to add it
+    await act(async () => {
+      fireEvent.click(screen.getByText('EU Personal ID (mDoc)'));
+    });
+
+    // Should switch to JSON editor with the template config
+    await waitFor(() => {
+      const textarea = document.querySelector('textarea');
+      expect(textarea).toBeInTheDocument();
+      expect(textarea?.value).toContain('eu.europa.ec.eudi.pid.1');
+      expect(textarea?.value).toContain('mso_mdoc');
+    });
+  });
+
+  it('shows template as disabled when already in catalog', async () => {
+    // Detail that already has an EUDI PID credential
+    const detailWithPid = {
+      ...mockIssuerDetail,
+      credentialConfigurations: {
+        'eu.europa.ec.eudi.pid.1': { format: 'mso_mdoc', doctype: 'eu.europa.ec.eudi.pid.1' },
+      },
+    };
+    mockAxiosGet.mockResolvedValueOnce({ data: detailWithPid });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+
+    // Open template picker
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add from Templates'));
+    });
+
+    // The PID mDoc template button should be disabled
+    await waitFor(() => {
+      const pidButton = screen.getByText('EU Personal ID (mDoc)').closest('button');
+      expect(pidButton).toBeDisabled();
+    });
+  });
+
+  it('removes a credential from the catalog when clicking Remove', async () => {
+    const detailWithCred = {
+      ...mockIssuerDetail,
+      credentialConfigurations: {
+        BankId: ['VerifiableCredential', 'BankId'],
+        'eu.europa.ec.eudi.pid.1': { format: 'mso_mdoc' },
+      },
+    };
+    mockAxiosGet.mockResolvedValueOnce({ data: detailWithCred });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    // Should show both credential config cards with Remove buttons
+    await waitFor(() => {
+      const removeButtons = screen.getAllByText('Remove');
+      expect(removeButtons.length).toBe(2);
+    });
+
+    // Click first Remove button
+    await act(async () => {
+      const removeButtons = screen.getAllByText('Remove');
+      fireEvent.click(removeButtons[0]);
+    });
+
+    // Should switch to JSON editor with one credential removed
+    await waitFor(() => {
+      const textarea = document.querySelector('textarea');
+      expect(textarea).toBeInTheDocument();
+    });
+  });
+
+  it('shows template category badges (EUDI, Financial, Identity)', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add from Templates'));
+    });
+
+    // Verify all category sections have template cards
+    await waitFor(() => {
+      // EUDI templates
+      expect(screen.getByText('EU Personal ID (mDoc)')).toBeInTheDocument();
+      expect(screen.getByText('Mobile Driving License')).toBeInTheDocument();
+      expect(screen.getByText('EU Personal ID (SD-JWT)')).toBeInTheDocument();
+      // Financial templates
+      expect(screen.getByText('Bank ID')).toBeInTheDocument();
+      expect(screen.getByText('Payment Wallet Attestation')).toBeInTheDocument();
+      // Identity templates
+      expect(screen.getByText('National ID')).toBeInTheDocument();
+      expect(screen.getByText('Passport')).toBeInTheDocument();
+      expect(screen.getByText('Residence Permit')).toBeInTheDocument();
+    });
+  });
+
+  it('shows format for each template card', async () => {
+    mockAxiosGet.mockResolvedValueOnce({ data: mockIssuerDetail });
+
+    await act(async () => {
+      renderWithEnv(<Issuers />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Alpha Bank'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Add from Templates')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add from Templates'));
+    });
+
+    // Verify format labels are shown on template cards
+    await waitFor(() => {
+      const msoMdocLabels = screen.getAllByText('mso_mdoc');
+      expect(msoMdocLabels.length).toBeGreaterThanOrEqual(2); // PID mDoc + mDL
+      const sdJwtLabels = screen.getAllByText('dc+sd-jwt');
+      expect(sdJwtLabels.length).toBeGreaterThanOrEqual(1); // PID SD-JWT + PWA
+    });
+  });
+});
+
+// ====================================================================
 // Issuer Admin Action Buttons (Task 5)
 // ====================================================================
 
