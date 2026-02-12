@@ -6,6 +6,7 @@ import {CredentialsContext} from "@/pages/_app";
 import {Inter} from "next/font/google";
 import React, {useState} from "react";
 import {useRouter} from "next/router";
+import nextConfig from "@/next.config";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,6 +16,10 @@ export default function Home() {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [modalVisible, setModalVisible] = useState(false);
+
+  const issuerRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const rpRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const hasMtMode = issuerRegistrarEnabled || rpRegistrarEnabled;
 
   const credentials = !searchTerm
     ? AvailableCredentials
@@ -49,6 +54,17 @@ export default function Home() {
           <Cog6ToothIcon className="w-4 h-4" />
           Admin
         </button>
+        {hasMtMode && (
+          <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700" data-testid="mt-banner">
+            <span className="font-medium">Multi-Tenant Mode</span>
+            {issuerRegistrarEnabled && (
+              <span className="px-2 py-0.5 bg-blue-100 rounded-full text-xs font-medium">Issuer Registrar</span>
+            )}
+            {rpRegistrarEnabled && (
+              <span className="px-2 py-0.5 bg-blue-100 rounded-full text-xs font-medium">RP Registrar</span>
+            )}
+          </div>
+        )}
       </div>
       <main className="flex flex-col items-center gap-5 justify-between mt-16 md:w-[740px] m-auto">
         <div className="flex flex-row gap-5 w-full px-5">

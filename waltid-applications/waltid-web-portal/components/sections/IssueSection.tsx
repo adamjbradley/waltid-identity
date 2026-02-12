@@ -6,12 +6,22 @@ import InputField from "@/components/walt/forms/Input";
 import Button from "@/components/walt/button/Button";
 import WaltIcon from "@/components/walt/logo/WaltIcon";
 import {CredentialsContext, EnvContext} from "@/pages/_app";
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import {useRouter} from "next/router";
 import {getOfferUrl} from "@/utils/getOfferUrl";
 import {sendToWebWallet} from "@/utils/sendToWebWallet";
 import nextConfig from "@/next.config";
-import {LockClosedIcon} from "@heroicons/react/24/outline";
+import {LockClosedIcon, BuildingLibraryIcon} from "@heroicons/react/24/outline";
+import axios from "axios";
+
+interface IssuerTenantSummary {
+  id: string;
+  legalName: string;
+  country: string;
+  status: string;
+  hasCertificate: boolean;
+  credentialCount: number;
+}
 
 export default function IssueSection() {
   const env = React.useContext(EnvContext);
@@ -32,6 +42,12 @@ export default function IssueSection() {
   );
   const [useServerKeys, setUseServerKeys] = useState<boolean>(true);
 
+  // Multi-tenant issuer selection
+  const issuerRegistrarEnabled = (nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const [tenants, setTenants] = useState<IssuerTenantSummary[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [tenantCredentialKeys, setTenantCredentialKeys] = useState<string[]>([]);
+
   const router = useRouter();
   const params = router.query;
 
@@ -46,6 +62,42 @@ export default function IssueSection() {
   const hasEudiFormat = credentialsToIssue.some(
     (cred) => cred.selectedFormat === 'mDoc (ISO 18013-5)'
   );
+
+  // Fetch tenants when issuer registrar is enabled
+  useEffect(() => {
+    if (!issuerRegistrarEnabled) return;
+    const apiBase = env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER;
+    if (!apiBase) return;
+    axios.get(`${apiBase}/admin/issuer`).then((res) => {
+      const active = (res.data as IssuerTenantSummary[]).filter(
+        (t) => t.status === 'ACTIVE' && t.hasCertificate
+      );
+      setTenants(active);
+      // If issuerId was passed via query param, pre-select it
+      const qIssuerId = params.issuerId as string | undefined;
+      if (qIssuerId && active.some((t) => t.id === qIssuerId)) {
+        setSelectedTenantId(qIssuerId);
+      }
+    }).catch(() => {});
+  }, [issuerRegistrarEnabled, env.NEXT_PUBLIC_ISSUER]);
+
+  // Fetch tenant credential keys when a tenant is selected
+  useEffect(() => {
+    if (!selectedTenantId || !issuerRegistrarEnabled) {
+      setTenantCredentialKeys([]);
+      return;
+    }
+    const apiBase = env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER;
+    if (!apiBase) return;
+    axios.get(`${apiBase}/admin/issuer/${selectedTenantId}`).then((res) => {
+      const configs = res.data?.credentialConfigurations;
+      if (configs && typeof configs === 'object') {
+        setTenantCredentialKeys(Object.keys(configs));
+      } else {
+        setTenantCredentialKeys([]);
+      }
+    }).catch(() => setTenantCredentialKeys([]));
+  }, [selectedTenantId, issuerRegistrarEnabled]);
 
   React.useEffect(() => {
     setCredentialsToIssue(
@@ -65,7 +117,7 @@ export default function IssueSection() {
   }
 
   async function handleIssue() {
-    const issuerId = params.issuerId as string | undefined;
+    const issuerId = selectedTenantId || (params.issuerId as string | undefined);
 
     if (checkCallbackUrlParameter()) {
       const offer = await getOfferUrl(
@@ -124,6 +176,34 @@ export default function IssueSection() {
       <p className="mt-3 text-gray-600">
         Adjust credential data, format and issuance security
       </p>
+
+      {issuerRegistrarEnabled && tenants.length > 0 && (
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <BuildingLibraryIcon className="w-5 h-5 text-blue-600" />
+            <label className="text-sm font-medium text-blue-800">Issuing as</label>
+          </div>
+          <select
+            data-testid="tenant-select"
+            value={selectedTenantId}
+            onChange={(e) => setSelectedTenantId(e.target.value)}
+            className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Default issuer (no tenant)</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.legalName} ({t.country})
+              </option>
+            ))}
+          </select>
+          {selectedTenantId && tenantCredentialKeys.length > 0 && (
+            <p className="mt-2 text-xs text-blue-600">
+              Tenant has {tenantCredentialKeys.length} credential configuration{tenantCredentialKeys.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
       <hr className="mt-8" />
       <h3 className="text-gray-500 text-left mt-2 font-semibold">
         Credential Configuration

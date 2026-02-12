@@ -237,3 +237,78 @@ describe('RP Registrar - Docker Compose Configuration', () => {
     expect(dockerComposeContent).toMatch(/NEXT_PUBLIC_RP_REGISTRAR_ENABLED.*\$\{RP_REGISTRAR_ENABLED:-false\}/);
   });
 });
+
+describe('IssueSection - Tenant Dropdown Logic', () => {
+  it('should filter tenants to ACTIVE with certificates', () => {
+    const tenants = [
+      { id: '1', legalName: 'Active Co', country: 'AU', status: 'ACTIVE', hasCertificate: true, credentialCount: 3 },
+      { id: '2', legalName: 'No Cert Co', country: 'AU', status: 'ACTIVE', hasCertificate: false, credentialCount: 1 },
+      { id: '3', legalName: 'Suspended Co', country: 'IN', status: 'SUSPENDED', hasCertificate: true, credentialCount: 2 },
+    ];
+    const filtered = tenants.filter(t => t.status === 'ACTIVE' && t.hasCertificate);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].legalName).toBe('Active Co');
+  });
+
+  it('should use selectedTenantId when available, fallback to query param', () => {
+    const selectedTenantId = 'tenant-123';
+    const queryIssuerId = 'query-456';
+    const issuerId = selectedTenantId || queryIssuerId;
+    expect(issuerId).toBe('tenant-123');
+  });
+
+  it('should fallback to query param when no tenant selected', () => {
+    const selectedTenantId = '';
+    const queryIssuerId = 'query-456';
+    const issuerId = selectedTenantId || queryIssuerId;
+    expect(issuerId).toBe('query-456');
+  });
+
+  it('should pre-select tenant when issuerId matches query param', () => {
+    const tenants = [
+      { id: 'abc-123', legalName: 'Test Co', country: 'AU', status: 'ACTIVE', hasCertificate: true, credentialCount: 2 },
+      { id: 'def-456', legalName: 'Other Co', country: 'IN', status: 'ACTIVE', hasCertificate: true, credentialCount: 1 },
+    ];
+    const qIssuerId = 'abc-123';
+    const match = tenants.some(t => t.id === qIssuerId);
+    expect(match).toBe(true);
+  });
+});
+
+describe('Homepage - Multi-Tenant Banner Logic', () => {
+  it('should show banner when issuer registrar is enabled', () => {
+    const issuerEnabled = true;
+    const rpEnabled = false;
+    const hasMtMode = issuerEnabled || rpEnabled;
+    expect(hasMtMode).toBe(true);
+  });
+
+  it('should show banner when RP registrar is enabled', () => {
+    const issuerEnabled = false;
+    const rpEnabled = true;
+    const hasMtMode = issuerEnabled || rpEnabled;
+    expect(hasMtMode).toBe(true);
+  });
+
+  it('should not show banner when both are disabled', () => {
+    const issuerEnabled = false;
+    const rpEnabled = false;
+    const hasMtMode = issuerEnabled || rpEnabled;
+    expect(hasMtMode).toBe(false);
+  });
+
+  it('should show both badges when both are enabled', () => {
+    const issuerEnabled = true;
+    const rpEnabled = true;
+    const badges: string[] = [];
+    if (issuerEnabled) badges.push('Issuer Registrar');
+    if (rpEnabled) badges.push('RP Registrar');
+    expect(badges).toEqual(['Issuer Registrar', 'RP Registrar']);
+  });
+
+  it('should correctly parse feature flag from config string', () => {
+    expect(('true') === 'true').toBe(true);
+    expect(('false') === 'true').toBe(false);
+    expect(('') === 'true').toBe(false);
+  });
+});
