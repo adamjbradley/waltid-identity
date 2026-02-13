@@ -167,7 +167,7 @@ fun Application.tenantOidcRoutes() {
                     }
 
                     try {
-                        val tokenResp = provider.processTokenRequest(tokenReq, dpopThumbprint)
+                        val tokenResp = provider.processTokenRequest(tokenReq, dpopThumbprint, tokenKey)
                         call.respond(tokenResp.toJSON())
                     } catch (exc: TokenError) {
                         log.error("Token error: ${exc.message}")

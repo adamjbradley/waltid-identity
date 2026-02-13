@@ -785,19 +785,23 @@ open class CIProvider(
         callbackUrl: String? = null,
         txCode: TxCode? = null,
         txCodeValue: String? = null,
-        standardVersion: OpenID4VCIVersion = OpenID4VCIVersion.DRAFT13
+        standardVersion: OpenID4VCIVersion = OpenID4VCIVersion.DRAFT13,
+        baseUrl: String? = null,
+        tokenKey: id.walt.crypto.keys.Key? = null,
     ): IssuanceSession = runBlocking {
         val sessionId = randomUUIDString()
+        val effectiveTokenKey = tokenKey ?: CI_TOKEN_KEY
 
         val credentialOfferBuilder = OidcIssuance.issuanceRequestsToCredentialOfferBuilder(
             issuanceRequests = issuanceRequests,
-            standardVersion = standardVersion
+            standardVersion = standardVersion,
+            baseUrl = baseUrl,
         )
 
         when (issuanceRequests[0].authenticationMethod) {
             AuthenticationMethod.PRE_AUTHORIZED -> {
                 credentialOfferBuilder.addPreAuthorizedCodeGrant(
-                    preAuthCode = OpenID4VC.generateAuthorizationCodeFor(sessionId, metadata.issuer!!, CI_TOKEN_KEY),
+                    preAuthCode = OpenID4VC.generateAuthorizationCodeFor(sessionId, metadata.issuer!!, effectiveTokenKey),
                     txCode = txCode
                 )
             }
@@ -940,11 +944,12 @@ open class CIProvider(
         return@runBlocking response
     }
 
-    fun processTokenRequest(tokenRequest: TokenRequest, dpopThumbprint: String? = null): TokenResponse = runBlocking {
+    fun processTokenRequest(tokenRequest: TokenRequest, dpopThumbprint: String? = null, tokenKey: id.walt.crypto.keys.Key? = null): TokenResponse = runBlocking {
+        val effectiveTokenKey = tokenKey ?: CI_TOKEN_KEY
         val payload = OpenID4VC.validateAndParseTokenRequest(
             tokenRequest = tokenRequest,
             issuer = metadata.issuer!!,
-            tokenKey = CI_TOKEN_KEY
+            tokenKey = effectiveTokenKey
         )
 
         val sessionId = payload[JWTClaims.Payload.subject]?.jsonPrimitive?.content ?: throw TokenError(
@@ -988,7 +993,7 @@ open class CIProvider(
             issuer = metadata.issuer!!,
             audience = TokenTarget.ACCESS,
             tokenId = null,
-            tokenKey = CI_TOKEN_KEY
+            tokenKey = effectiveTokenKey
         )
 
         // Build authorization_details for PWA (Payment Wallet Attestation) if enabled and session has funding sources

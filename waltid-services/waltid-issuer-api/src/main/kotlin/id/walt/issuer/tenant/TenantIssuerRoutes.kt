@@ -11,6 +11,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.klogging.noCoLogger
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Duration.Companion.minutes
@@ -37,7 +38,8 @@ fun Application.tenantIssuerRoutes() {
                         issuanceRequests = listOf(enriched),
                         credentialFormat = format,
                         callbackUrl = call.request.header("statusCallbackUri"),
-                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds
+                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds,
+                        tenant = tenant,
                     )
                     call.respond(HttpStatusCode.OK, offerUri)
                 }
@@ -58,7 +60,8 @@ fun Application.tenantIssuerRoutes() {
                         issuanceRequests = listOf(enriched),
                         credentialFormat = format,
                         callbackUrl = call.request.header("statusCallbackUri"),
-                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds
+                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds,
+                        tenant = tenant,
                     )
                     call.respond(HttpStatusCode.OK, offerUri)
                 }
@@ -79,7 +82,8 @@ fun Application.tenantIssuerRoutes() {
                         issuanceRequests = listOf(enriched),
                         credentialFormat = format,
                         callbackUrl = call.request.header("statusCallbackUri"),
-                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds
+                        sessionTtl = call.request.header("sessionTtl")?.toLongOrNull()?.seconds,
+                        tenant = tenant,
                     )
                     call.respond(HttpStatusCode.OK, offerUri)
                 }
@@ -105,9 +109,8 @@ private fun enrichRequestWithTenantKeys(request: IssuanceRequest, tenant: Issuer
     return request.copy(
         issuerKey = request.issuerKey ?: wrappedKey,
         x5Chain = request.x5Chain ?: tenant.x5Chain?.map { certBase64 ->
-            // Convert base64 DER to PEM-style string that X509CertUtils can parse
-            val derBytes = java.util.Base64.getDecoder().decode(certBase64)
-            String(derBytes, Charsets.ISO_8859_1)
+            // Wrap base64 DER in PEM format for X509CertUtils.parse()
+            "-----BEGIN CERTIFICATE-----\n${certBase64}\n-----END CERTIFICATE-----"
         },
         issuerDid = request.issuerDid ?: tenant.issuerDid
     )
@@ -122,6 +125,7 @@ private fun createTenantCredentialOfferUri(
     credentialFormat: CredentialFormat,
     callbackUrl: String? = null,
     sessionTtl: kotlin.time.Duration? = null,
+    tenant: IssuerTenant? = null,
 ): String {
     val expiresIn = 5.minutes
 
@@ -138,11 +142,16 @@ private fun createTenantCredentialOfferUri(
     overwrittenRequests.first().standardVersion
         ?: throw IllegalArgumentException("Attribute [standardVersion] is null")
 
+    // For tenant issuance, use tenant-scoped base URL and token key
+    val tenantTokenKey = tenant?.let { runBlocking { IssuerTenantRegistry.getTokenKey(it) } }
+
     val issuanceSession = provider.initializeCredentialOffer(
         issuanceRequests = overwrittenRequests,
         expiresIn = sessionTtl ?: expiresIn,
         callbackUrl = callbackUrl,
-        standardVersion = overwrittenRequests.first().standardVersion!!
+        standardVersion = overwrittenRequests.first().standardVersion!!,
+        baseUrl = provider.metadata.issuer,
+        tokenKey = tenantTokenKey,
     )
 
     val offerRequest = id.walt.oid4vc.requests.CredentialOfferRequest(
