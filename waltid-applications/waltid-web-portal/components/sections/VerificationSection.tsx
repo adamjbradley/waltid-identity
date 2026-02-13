@@ -33,6 +33,7 @@ export default function VerificationSection() {
   const [signaturePolicy, setSignaturePolicy] = useState<boolean>(true);
   const [expiredPolicy, setExpiredPolicy] = useState<boolean>(true);
   const [notBeforePolicy, setNotBeforePolicy] = useState<boolean>(true);
+  const [revocationPolicy, setRevocationPolicy] = useState<boolean>(true);
   const [trustPolicy, setTrustPolicy] = useState<boolean>(true);
   const [webhookPolicy, setWebhookPolicy] = useState<boolean>(false);
   const [webhook, setWebhook] = useState<string>('');
@@ -81,10 +82,13 @@ export default function VerificationSection() {
       vps.push('signature');
     }
     if (expiredPolicy) {
-      vps.push('expired');
+      vps.push('expiration');
     }
     if (notBeforePolicy) {
       vps.push('not-before');
+    }
+    if (revocationPolicy) {
+      vps.push('revoked-status-list');
     }
     if (trustPolicy) {
       vps.push('etsi-trusted-issuer');
@@ -186,6 +190,11 @@ export default function VerificationSection() {
             name="Not Before Policy"
             value={notBeforePolicy}
             onChange={setNotBeforePolicy}
+          />
+          <PolicyListItem
+            name="Revocation Policy"
+            value={revocationPolicy}
+            onChange={setRevocationPolicy}
           />
           <PolicyListItem
             name="EUDI Trust List"

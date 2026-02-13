@@ -137,7 +137,7 @@ export default function Verification() {
           if (state) {
             checkVerificationResult(verifier2Url, state, true).then((result) => {
               if (result) {
-                router.push(`/success/${state}`);
+                router.push(`/success/${state}?api2=true`);
               }
             });
           }

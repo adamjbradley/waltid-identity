@@ -275,7 +275,7 @@ export interface VerificationSessionRequest {
     key?: VerificationSigningConfig['key'];
     x5c?: string[];
     dcql_query: DcqlQuery;
-    policies?: Record<string, Record<string, never>>;
+    policies?: { vc_policies: Array<string | Record<string, any>> };
   };
 }
 
@@ -298,7 +298,32 @@ export function buildVerificationSessionRequest(
 
   // Add verification policies if provided
   if (policies.length > 0) {
-    coreFlow.policies = Object.fromEntries(policies.map(p => [p, {}]));
+    // Map portal policy names to verifier-api2 names
+    const policyNameMap: Record<string, string> = {
+      'expired': 'expiration',
+    };
+
+    // Complex policies that require object format (not in VerificationPolicyManager.simpleVerificationPolicies)
+    const complexPolicies = new Set(['etsi-trusted-issuer', 'allowed-issuer', 'schema', 'regex']);
+
+    const vcPolicies: Array<string | Record<string, any>> = [];
+    for (const p of policies) {
+      if (p.includes('=')) {
+        // Parameterized policy (e.g., "webhook=https://example.com")
+        const [name, ...rest] = p.split('=');
+        vcPolicies.push({ policy: name, url: rest.join('=') });
+      } else if (complexPolicies.has(p)) {
+        // Must be object format with "policy" discriminator
+        vcPolicies.push({ policy: p });
+      } else {
+        // Simple string policy — apply name mapping
+        vcPolicies.push(policyNameMap[p] || p);
+      }
+    }
+
+    if (vcPolicies.length > 0) {
+      coreFlow.policies = { vc_policies: vcPolicies };
+    }
   }
 
   return {

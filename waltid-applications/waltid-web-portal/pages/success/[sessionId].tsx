@@ -49,84 +49,157 @@ export default function Success() {
 
   useEffect(() => {
     if (!router.isReady) return;
-    axios
-      .get(
-        `${env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER}/openid4vc/session/${router.query.sessionId}`
-      )
-      .then((response) => {
-        let parsedToken = parseJwt(response.data.tokenResponse.vp_token);
-        let containsVP = !!parsedToken.vp?.verifiableCredential;
-        let vcs = containsVP
-          ? parsedToken.vp?.verifiableCredential
-          : [response.data.tokenResponse.vp_token];
+    const isApi2 = router.query.api2 === 'true';
 
-        setCredentials(
-          Array.isArray(vcs)
-            ? vcs.map((vc: string) => {
-              if (typeof vc !== 'string') {
-                console.error(
-                  'Invalid VC format: expected a string but got',
-                  vc
-                );
-                return vc;
+    if (isApi2) {
+      // Verifier API2 session response format
+      const verifier2Url = env.NEXT_PUBLIC_VERIFIER2 || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2;
+      if (!verifier2Url) return;
+
+      axios.get(`${verifier2Url}/verification-session/${router.query.sessionId}/info`)
+        .then((response) => {
+          const session = response.data;
+
+          // Extract credentials from presentedCredentials map
+          const creds: any[] = [];
+          if (session.presentedCredentials) {
+            for (const [, credList] of Object.entries(session.presentedCredentials) as [string, any[]][]) {
+              for (const cred of credList) {
+                const data = cred.credentialData || {};
+                // Build a credential object compatible with the display template
+                // SD-JWT credentials have flat claims (no credentialSubject wrapper)
+                const displayCred: any = {
+                  vct: data.vct,
+                  type: data.type,
+                  credentialSubject: {} as Record<string, string>,
+                };
+                // Pick user-facing claims from credentialData (skip internal fields)
+                const skipKeys = new Set(['iss', 'iat', 'nbf', 'exp', 'cnf', 'vct', 'type', '_sd', '_sd_alg']);
+                for (const [k, v] of Object.entries(data)) {
+                  if (!skipKeys.has(k) && (typeof v === 'string' || typeof v === 'boolean')) {
+                    displayCred.credentialSubject[k] = String(v);
+                  }
+                }
+                creds.push(displayCred);
               }
-              let split = vc.split('~');
-              let parsed = parseJwt(split[0]);
+            }
+          }
+          setCredentials(creds);
 
-              if (split.length === 1) return parsed.vc ? parsed.vc : parsed;
-              else {
-                let credentialWithSdJWTAttributes = { ...parsed };
-                split.slice(1).forEach((item) => {
-                  // If it is key binding jwt, skip
-                  if (item.split('.').length === 3) return;
+          if (creds.length > 0 && creds[0].vct) {
+            setVctName(creds[0].vct);
+          }
 
-                  let parsedItem = JSON.parse(
-                    Buffer.from(item, 'base64').toString()
-                  );
-                  credentialWithSdJWTAttributes.credentialSubject = {
-                    [parsedItem[1]]: parsedItem[2],
-                    ...credentialWithSdJWTAttributes.credentialSubject,
-                  };
-                  // credentialWithSdJWTAttributes.credentialSubject._sd.map((sdItem: string) => {
-                  //   if (sdItem === parsedItem[0]) {
-                  //     return `${parsedItem[1]}: ${parsedItem[2]}`
-                  //   }
-                  //   return sdItem;
-                  // })
+          // Transform api2 policy results into the display format
+          // policyResults state uses: Array<{ policyResults: Array<{ policy: string; is_success: boolean }> }>
+          // Index 0 = VP-level dummy, index 1+ = per-credential
+          const displayPolicies: Array<{ policyResults: Array<{ policy: string; is_success: boolean }> }> = [];
+
+          // VP-level policies (index 0 placeholder)
+          const vpPolicies: Array<{ policy: string; is_success: boolean }> = [];
+          if (session.policyResults?.vp_policies) {
+            for (const [, policiesMap] of Object.entries(session.policyResults.vp_policies) as [string, any][]) {
+              for (const [policyName, result] of Object.entries(policiesMap) as [string, any][]) {
+                vpPolicies.push({
+                  policy: policyName,
+                  is_success: result.success,
                 });
-                credentialWithSdJWTAttributes.type = parsed.vc?.type
-                return credentialWithSdJWTAttributes;
               }
-            })
-            : []
-        );
+            }
+          }
+          displayPolicies.push({ policyResults: vpPolicies });
 
-        setPolicyResults(() => {
-          if (containsVP) {
-            return response.data.policyResults.results;
-          } else {
-            //add a new entry to the policy results, since its start index +1
-            return [
-              {
-                policyResults: [
-                  {
-                    policy: 'New Policy',
-                    is_success: true,
-                  },
-                ],
-              },
-              ...response.data.policyResults.results,
-            ];
+          // VC-level policies (index 1+, one entry per credential)
+          const vcPolicies: Array<{ policy: string; is_success: boolean }> = [];
+          if (session.policyResults?.vc_policies) {
+            for (const result of session.policyResults.vc_policies) {
+              vcPolicies.push({
+                policy: result.policy?.policy || result.policy?.id || 'unknown',
+                is_success: result.success,
+              });
+            }
+          }
+          // One VC policy group per credential
+          for (let i = 0; i < Math.max(creds.length, 1); i++) {
+            displayPolicies.push({ policyResults: vcPolicies });
+          }
+
+          setPolicyResults(displayPolicies);
+        });
+    } else {
+      // Legacy verifier session response format
+      axios
+        .get(
+          `${env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER}/openid4vc/session/${router.query.sessionId}`
+        )
+        .then((response) => {
+          let parsedToken = parseJwt(response.data.tokenResponse.vp_token);
+          let containsVP = !!parsedToken.vp?.verifiableCredential;
+          let vcs = containsVP
+            ? parsedToken.vp?.verifiableCredential
+            : [response.data.tokenResponse.vp_token];
+
+          setCredentials(
+            Array.isArray(vcs)
+              ? vcs.map((vc: string) => {
+                if (typeof vc !== 'string') {
+                  console.error(
+                    'Invalid VC format: expected a string but got',
+                    vc
+                  );
+                  return vc;
+                }
+                let split = vc.split('~');
+                let parsed = parseJwt(split[0]);
+
+                if (split.length === 1) return parsed.vc ? parsed.vc : parsed;
+                else {
+                  let credentialWithSdJWTAttributes = { ...parsed };
+                  split.slice(1).forEach((item) => {
+                    // If it is key binding jwt, skip
+                    if (item.split('.').length === 3) return;
+
+                    let parsedItem = JSON.parse(
+                      Buffer.from(item, 'base64').toString()
+                    );
+                    credentialWithSdJWTAttributes.credentialSubject = {
+                      [parsedItem[1]]: parsedItem[2],
+                      ...credentialWithSdJWTAttributes.credentialSubject,
+                    };
+                  });
+                  credentialWithSdJWTAttributes.type = parsed.vc?.type
+                  return credentialWithSdJWTAttributes;
+                }
+              })
+              : []
+          );
+
+          setPolicyResults(() => {
+            if (containsVP) {
+              return response.data.policyResults.results;
+            } else {
+              return [
+                {
+                  policyResults: [
+                    {
+                      policy: 'New Policy',
+                      is_success: true,
+                    },
+                  ],
+                },
+                ...response.data.policyResults.results,
+              ];
+            }
+          });
+
+          if (!containsVP) {
+            const vct = parsedToken['vct'];
+            const vctUrl = new URL(vct);
+            const vctResolutionUrl = `${vctUrl.origin}/.well-known/vct${vctUrl.pathname}`;
+            fetchVctName(vctResolutionUrl).then((name) => setVctName(name));
           }
         });
-
-        if (!containsVP) {
-          const vct = parsedToken['vct'];
-          const vctUrl = new URL(vct);
-          const vctResolutionUrl = `${vctUrl.origin}/.well-known/vct${vctUrl.pathname}`;
-          fetchVctName(vctResolutionUrl).then((name) => setVctName(name));
-        }
-      });
+    }
   }, [router.isReady, env]);
 
   return (
