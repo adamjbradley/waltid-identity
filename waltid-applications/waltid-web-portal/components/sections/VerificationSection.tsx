@@ -1,6 +1,6 @@
 import RowCredential from "@/components/walt/credential/RowCredential";
 import PolicyListItem from "@/components/walt/policy/PolicyListItem";
-import {AvailableCredential} from "@/types/credentials";
+import {AvailableCredential, getDefaultFormatForCredential} from "@/types/credentials";
 import WaltIcon from "@/components/walt/logo/WaltIcon";
 import InputField from "@/components/walt/forms/Input";
 import Button from "@/components/walt/button/Button";
@@ -109,7 +109,7 @@ export default function VerificationSection() {
 
     params.append(
       'format',
-      (credentialsToIssue[0]?.selectedFormat ?? 'JWT + W3C VC') as string
+      (credentialsToIssue[0]?.selectedFormat ?? getDefaultFormatForCredential(credentialsToIssue[0]?.id || '')) as string
     );
     if (selectedRpId) {
       params.append('rpId', selectedRpId);

@@ -1,6 +1,6 @@
 import axios from "axios";
 import {v4 as uuidv4} from "uuid";
-import {AvailableCredential, CredentialFormats, DIDMethods, DIDMethodsConfig} from "@/types/credentials";
+import {AvailableCredential, CredentialFormats, DIDMethods, DIDMethodsConfig, getDefaultFormatForCredential} from "@/types/credentials";
 
 const getOfferUrl = async (
   credentials: Array<AvailableCredential>,
@@ -37,7 +37,7 @@ const getOfferUrl = async (
     credentials.map(async (c) => {
       c = {
         ...c,
-        selectedFormat: c.selectedFormat ?? CredentialFormats[0],
+        selectedFormat: c.selectedFormat ?? getDefaultFormatForCredential(c.id),
         selectedDID: c.selectedDID ?? DIDMethods[0],
       };
 
