@@ -505,7 +505,99 @@ class NonMTFlowTests(unittest.TestCase):
             f"PD verification failed: {json.dumps(session, indent=2)[:500]}",
         )
 
-    # -- Issue + DCQL Verify (added in Task 3) ------------------------------
+    # -- Issue + DCQL Verify ------------------------------------------------
+
+    def test_03_issue_sdjwt_for_dcql(self):
+        """Issue a second SD-JWT credential for DCQL verification."""
+        cred_data = {
+            "given_name": "Bob",
+            "family_name": "DcqlTest",
+            "birth_date": "1985-06-15",
+        }
+        offer_url = issue_sdjwt(cred_data, SELECTIVE_DISCLOSURE)
+        self.assertTrue(
+            offer_url.startswith("openid-credential-offer://"),
+            f"Unexpected offer URL: {offer_url}",
+        )
+
+        claim_offer(self.token, self.wallet_id, offer_url)
+
+        creds = list_credentials(self.token, self.wallet_id)
+        self.assertTrue(len(creds) >= 2, "Expected at least 2 credentials")
+        if isinstance(creds, list) and isinstance(creds[0], dict):
+            self.__class__.credential_ids.append(creds[0].get("id", creds[0]))
+        else:
+            self.__class__.credential_ids.append(creds[0])
+
+    def test_04_verify_via_dcql(self):
+        """Verify a held credential via DCQL (modern verifier)."""
+        self.assertTrue(len(self.credential_ids) >= 2, "No credential to verify")
+
+        dcql_query = {
+            "credentials": [
+                {
+                    "id": "TestCred",
+                    "format": "dc+sd-jwt",
+                    "meta": {
+                        "vct_values": [
+                            f"http://{ISSUER_API}/draft13/identity_credential"
+                        ]
+                    },
+                    "claims": [
+                        {"path": ["family_name"]},
+                        {"path": ["given_name"]},
+                    ],
+                }
+            ]
+        }
+
+        bootstrap_url, session_id = create_dcql_verification(dcql_query)
+        self.assertTrue(session_id, "No session_id from DCQL verification")
+        self.assertTrue(bootstrap_url, "No bootstrap URL")
+
+        # Wallet resolves the presentation request
+        resolved = resolve_presentation(self.token, self.wallet_id, bootstrap_url)
+        self.assertTrue(resolved, "Empty resolved presentation")
+        resolved_str = resolved.strip().strip('"')
+
+        # DCQL path should NOT have presentation_definition
+        resolved_params = parse_url_params(resolved_str)
+        self.assertNotIn(
+            "presentation_definition",
+            resolved_params,
+            "DCQL flow should not contain presentation_definition",
+        )
+
+        # Match credentials via DCQL
+        matched = match_credentials_dcql(self.token, self.wallet_id, dcql_query)
+        matched_list = matched if isinstance(matched, list) else [matched]
+        self.assertTrue(len(matched_list) >= 1, "No credentials matched DCQL")
+
+        # Extract credential IDs
+        cred_ids_to_present = []
+        for m in matched_list:
+            if isinstance(m, dict) and "id" in m:
+                cred_ids_to_present.append(m["id"])
+            elif isinstance(m, str):
+                cred_ids_to_present.append(m)
+        if not cred_ids_to_present:
+            cred_ids_to_present = self.credential_ids[-1:]
+
+        # Present credentials
+        result = present_credentials(
+            self.token, self.wallet_id, self.did, resolved_str, cred_ids_to_present
+        )
+
+        time.sleep(1)
+
+        # Check session result
+        session = get_dcql_session_info(session_id)
+        status = session.get("status", "")
+        self.assertEqual(
+            status,
+            "SUCCESSFUL",
+            f"DCQL verification not successful: {json.dumps(session, indent=2)[:500]}",
+        )
 
 
 # ---------------------------------------------------------------------------
