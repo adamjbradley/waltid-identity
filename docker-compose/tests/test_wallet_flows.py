@@ -413,6 +413,101 @@ def delete_issuer_tenant(issuer_id):
     return status, body
 
 
+# ===========================================================================
+# Non-MT Flow Tests
+# ===========================================================================
+
+
+class NonMTFlowTests(unittest.TestCase):
+    """Test non-multi-tenant issuance with PD and DCQL verification."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.run_id = uuid.uuid4().hex[:8]
+        cls.email = f"nonmt-{cls.run_id}@test.com"
+        cls.password = "testpass123"
+        register_user(cls.email, cls.password, f"NonMT-{cls.run_id}")
+        cls.token = login_user(cls.email, cls.password)
+        cls.wallet_id = get_wallet_id(cls.token)
+        cls.did = get_default_did(cls.token, cls.wallet_id)
+        cls.credential_ids = []
+
+    # -- Issue + PD Verify --------------------------------------------------
+
+    def test_01_issue_sdjwt_and_hold(self):
+        """Issue an SD-JWT credential via the non-MT issuer and claim it."""
+        offer_url = issue_sdjwt(CREDENTIAL_DATA, SELECTIVE_DISCLOSURE)
+        self.assertTrue(
+            offer_url.startswith("openid-credential-offer://"),
+            f"Unexpected offer URL: {offer_url}",
+        )
+
+        claim_offer(self.token, self.wallet_id, offer_url)
+
+        creds = list_credentials(self.token, self.wallet_id)
+        self.assertTrue(len(creds) >= 1, "No credentials in wallet after claiming")
+        # Store the most recent credential ID
+        if isinstance(creds, list) and isinstance(creds[0], dict):
+            self.__class__.credential_ids.append(creds[0].get("id", creds[0]))
+        else:
+            self.__class__.credential_ids.append(creds[0])
+
+    def test_02_verify_via_presentation_definition(self):
+        """Verify a held credential via PD (legacy verifier)."""
+        self.assertTrue(len(self.credential_ids) >= 1, "No credential to verify")
+
+        # Create PD verification session
+        request_credentials = [{"format": "vc+sd-jwt", "type": "VerifiableCredential"}]
+        verify_url, session_id = create_pd_verification(request_credentials)
+        self.assertTrue(session_id, "No session_id from PD verification")
+
+        # Wallet resolves the presentation request
+        resolved = resolve_presentation(self.token, self.wallet_id, verify_url)
+        self.assertTrue(resolved, "Empty resolved presentation")
+
+        # Parse the resolved URL to extract presentation_definition
+        resolved_str = resolved.strip().strip('"')
+        resolved_params = parse_url_params(resolved_str)
+        self.assertIn(
+            "presentation_definition",
+            resolved_params,
+            f"No presentation_definition in resolved URL params: {list(resolved_params.keys())}",
+        )
+
+        # Match credentials
+        pd_json = json.loads(resolved_params["presentation_definition"])
+        matched = match_credentials_pd(self.token, self.wallet_id, pd_json)
+        matched_list = matched if isinstance(matched, list) else [matched]
+        self.assertTrue(len(matched_list) >= 1, "No credentials matched PD")
+
+        # Extract credential IDs from matched results
+        cred_ids_to_present = []
+        for m in matched_list:
+            if isinstance(m, dict) and "id" in m:
+                cred_ids_to_present.append(m["id"])
+            elif isinstance(m, str):
+                cred_ids_to_present.append(m)
+        if not cred_ids_to_present:
+            cred_ids_to_present = self.credential_ids[:1]
+
+        # Present credentials
+        result = present_credentials(
+            self.token, self.wallet_id, self.did, resolved_str, cred_ids_to_present
+        )
+
+        # Allow a moment for async processing
+        time.sleep(1)
+
+        # Check session result
+        session = get_pd_session_result(session_id)
+        self.assertTrue(
+            session.get("verificationResult", False),
+            f"PD verification failed: {json.dumps(session, indent=2)[:500]}",
+        )
+
+    # -- Issue + DCQL Verify (added in Task 3) ------------------------------
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
