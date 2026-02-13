@@ -70,7 +70,7 @@
         "AcmeJWT": {
             "format": "jwt_vc_json",
             "cryptographic_binding_methods_supported": [
-                "did"
+                "jwk"
             ],
             "credential_signing_alg_values_supported": [
                 "ES256"
@@ -81,15 +81,26 @@
                         "ES256"
                     ]
                 }
-            },
-            "credentialDefinition": {
-                "type": [
-                    "VerifiableCredential",
-                    "AcmeJWTCredential"
-                ]
+            }
+        },
+        "IndianPID": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:eudi:pid:1",
+            "cryptographic_binding_methods_supported": [
+                "jwk"
+            ],
+            "credential_signing_alg_values_supported": [
+                "ES256"
+            ],
+            "proof_types_supported": {
+                "jwt": {
+                    "proof_signing_alg_values_supported": [
+                        "ES256"
+                    ]
+                }
             }
         }
     },
     "createdAt": "2026-02-12T00:02:17.926452212Z",
-    "updatedAt": "2026-02-12T00:07:50.395941505Z"
+    "updatedAt": "2026-02-12T07:09:38.054643969Z"
 }
