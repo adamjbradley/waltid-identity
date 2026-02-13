@@ -33,74 +33,19 @@
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"mX8gTnJEP43Il4-t68jZ6P9f-H-SzpW91oBCk2j96_A\",\"y\":\"HVnLYvKRDzfm2_YH4sS-R-nQpB1ORRomLuQUc4hqjSY\",\"d\":\"T8MOauC4j06OMAnoHUPkNzxnv0O6bD9lmbfVa8IeILI\"}}",
     "credentialConfigurations": {
-        "BankId": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:acmebank:bankid:1",
-            "cryptographic_binding_methods_supported": [
-                "jwk"
-            ],
-            "credential_signing_alg_values_supported": [
-                "ES256"
-            ],
-            "proof_types_supported": {
-                "jwt": {
-                    "proof_signing_alg_values_supported": [
-                        "ES256"
-                    ]
-                }
+        "credentials": [
+            {
+                "configId": "urn:eudi:pid:1",
+                "format": "dc+sd-jwt",
+                "vct": "urn:eudi:pid:1"
+            },
+            {
+                "configId": "org.iso.18013.5.1.mDL",
+                "format": "mso_mdoc",
+                "doctype": "org.iso.18013.5.1.mDL"
             }
-        },
-        "AcmeMDL": {
-            "format": "mso_mdoc",
-            "doctype": "org.iso.18013.5.1.mDL",
-            "cryptographic_binding_methods_supported": [
-                "cose_key"
-            ],
-            "credential_signing_alg_values_supported": [
-                "ES256"
-            ],
-            "proof_types_supported": {
-                "cwt": {
-                    "proof_signing_alg_values_supported": [
-                        "ES256"
-                    ]
-                }
-            }
-        },
-        "AcmeJWT": {
-            "format": "jwt_vc_json",
-            "cryptographic_binding_methods_supported": [
-                "jwk"
-            ],
-            "credential_signing_alg_values_supported": [
-                "ES256"
-            ],
-            "proof_types_supported": {
-                "jwt": {
-                    "proof_signing_alg_values_supported": [
-                        "ES256"
-                    ]
-                }
-            }
-        },
-        "IndianPID": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:eudi:pid:1",
-            "cryptographic_binding_methods_supported": [
-                "jwk"
-            ],
-            "credential_signing_alg_values_supported": [
-                "ES256"
-            ],
-            "proof_types_supported": {
-                "jwt": {
-                    "proof_signing_alg_values_supported": [
-                        "ES256"
-                    ]
-                }
-            }
-        }
+        ]
     },
     "createdAt": "2026-02-12T00:02:17.926452212Z",
-    "updatedAt": "2026-02-12T07:09:38.054643969Z"
+    "updatedAt": "2026-02-13T04:57:22.290092343Z"
 }

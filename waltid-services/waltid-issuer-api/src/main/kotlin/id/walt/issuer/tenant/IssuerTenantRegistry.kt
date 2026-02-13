@@ -7,14 +7,11 @@ import id.walt.issuer.config.CredentialTypeConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.issuance.CIProvider
 import id.walt.oid4vc.OpenID4VCIVersion
-import id.walt.oid4vc.data.CredentialSupported
+import id.walt.oid4vc.data.*
 import id.walt.oid4vc.providers.CredentialIssuerConfig
 import io.klogging.noCoLogger
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 import java.util.concurrent.ConcurrentHashMap
 
 object IssuerTenantRegistry {
@@ -80,8 +77,48 @@ object IssuerTenantRegistry {
     ): Map<String, CredentialSupported> {
         if (configs.isEmpty()) return emptyMap()
 
-        // Reuse CredentialTypeConfig's parse logic
+        // Handle legacy format: {"credentials": [{configId, format, vct, claims}]}
+        val credentialsArray = configs["credentials"]
+        if (credentialsArray is JsonArray && configs.size == 1) {
+            return parseLegacyCredentialArray(credentialsArray)
+        }
+
+        // Standard format: {configId: CredentialSupportedJsonObject}
         val typeConfig = CredentialTypeConfig(supportedCredentialTypes = configs)
         return typeConfig.parse()
+    }
+
+    private fun parseLegacyCredentialArray(credentials: JsonArray): Map<String, CredentialSupported> {
+        val result = mutableMapOf<String, CredentialSupported>()
+        for (element in credentials) {
+            if (element !is JsonObject) continue
+            val obj = element.jsonObject
+            val configId = obj["configId"]?.jsonPrimitive?.contentOrNull ?: continue
+            val formatStr = obj["format"]?.jsonPrimitive?.contentOrNull ?: continue
+            val credFormat = CredentialFormat.fromValue(formatStr) ?: continue
+            val vct = obj["vct"]?.jsonPrimitive?.contentOrNull
+            val docType = obj["docType"]?.jsonPrimitive?.contentOrNull
+                ?: obj["doctype"]?.jsonPrimitive?.contentOrNull
+
+            val isSdJwt = credFormat == CredentialFormat.sd_jwt_vc || credFormat == CredentialFormat.sd_jwt_dc
+            val isMdoc = credFormat == CredentialFormat.mso_mdoc
+
+            result[configId] = CredentialSupported(
+                format = credFormat,
+                cryptographicBindingMethodsSupported = when {
+                    isSdJwt -> setOf("jwk")
+                    isMdoc -> setOf("cose_key")
+                    else -> setOf("did")
+                },
+                credentialSigningAlgValuesSupported = setOf(CredSignAlgValues.Named("ES256")),
+                proofTypesSupported = mapOf(
+                    ProofType.jwt to ProofTypeMetadata(setOf("ES256"))
+                ),
+                vct = if (isSdJwt) vct else null,
+                docType = if (isMdoc) (docType ?: configId) else null,
+            )
+            log.info("Parsed legacy credential config: $configId (format=$formatStr, vct=$vct)")
+        }
+        return result
     }
 }

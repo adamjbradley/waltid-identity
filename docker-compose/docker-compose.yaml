@@ -16,7 +16,6 @@ services:
     extra_hosts:
       - "$SERVICE_HOST:host-gateway"
       - "waltid.enterprise.localhost:host-gateway"
-      - "issuer.theaustraliahack.com:host-gateway"
     volumes:
       - ./wallet-api/config:/waltid-wallet-api/config
       - ./wallet-api/data:/waltid-wallet-api/data
@@ -142,9 +141,11 @@ services:
       - caddy
     environment:
       NEXT_PUBLIC_VC_REPO: "${VC_REPO_EXTERNAL_URL:-http://$SERVICE_HOST:$VC_REPO_PORT}"
-      NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_URL:-http://$SERVICE_HOST:$ISSUER_API_PORT}"
-      NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API_PORT}"
-      NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API2_PORT}"
+      # Portal uses HTTPS URLs for browser-facing calls (via ngrok)
+      # These override ISSUER/VERIFIER_EXTERNAL_URL which are now Docker-internal
+      NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_HTTPS_URL:-https://issuer.theaustraliahack.com}"
+      NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_HTTPS_URL:-https://verifier.theaustraliahack.com}"
+      NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_HTTPS_URL:-https://verifier2.theaustraliahack.com}"
       NEXT_PUBLIC_WALLET: "${WALLET_EXTERNAL_URL:-http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT}"
       NEXT_PUBLIC_VERIFIER2_CLIENT_ID: "${NEXT_PUBLIC_VERIFIER2_CLIENT_ID:-}"
       NEXT_PUBLIC_VERIFIER2_SIGNING_KEY: "${NEXT_PUBLIC_VERIFIER2_SIGNING_KEY:-}"

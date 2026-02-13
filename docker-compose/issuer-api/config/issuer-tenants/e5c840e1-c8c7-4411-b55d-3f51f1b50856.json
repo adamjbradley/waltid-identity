@@ -1,0 +1,51 @@
+{
+    "id": "e5c840e1-c8c7-4411-b55d-3f51f1b50856",
+    "legalName": "ANTS France",
+    "country": "FR",
+    "domain": "ants.gouv.fr",
+    "contactEmail": "admin@ants.gouv.fr",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "2T3DU__HYSDZ7JyjZokdSBiD-HpiebU5bIq2-SKXPTI",
+        "y": "9B_otAxJmlebgjCEJxUr4ggsN-JNalJspZxMbjDhpr0",
+        "d": "MF-Eiioj0dXg7r-VPq9ZpaoUXmAiPWrW0v0eNxN8LKY"
+    },
+    "x5Chain": [
+        "MIIBwzCCAWqgAwIBAgIVAJqm9iEHqs/naeDz6HrePQrsqyMxMAoGCCqGSM49BAMCMCgxGTAXBgNVBAMMEEFOVFMgRnJhbmNlIElBQ0ExCzAJBgNVBAYTAkZSMB4XDTI2MDIxMzA0NTcyMloXDTI3MDIxMzA0NTcyMlowMzEkMCIGA1UEAwwbQU5UUyBGcmFuY2UgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJGUjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNk9w1P/x2Eg2eyco2aJHUgYg/h6Ynm1OWyKtvkilz0y9B/otAxJmlebgjCEJxUr4ggsN+JNalJspZxMbjDhpr2jZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBQZt6st75VzpYUZWyGMxO0ttKGWVTAfBgNVHSMEGDAWgBSfiIE4HNvCWsCUkZ1CQQhEJmljVzAKBggqhkjOPQQDAgNHADBEAiAMp9HBGjTNGPqiQhcNzVq2JmgCV3gfujRDVy1wmfX5SgIgDzE53ywrqJ16zFsibrLz5Pi4bdY3Y0NNYBsHk1sNCEk=",
+        "MIIBtjCCAVygAwIBAgIVAMoFMIergs2VTZJK8OHZH6S7LEEMMAoGCCqGSM49BAMCMCgxGTAXBgNVBAMMEEFOVFMgRnJhbmNlIElBQ0ExCzAJBgNVBAYTAkZSMB4XDTI2MDIxMzA0NTcyMloXDTMxMDIxMjA0NTcyMlowKDEZMBcGA1UEAwwQQU5UUyBGcmFuY2UgSUFDQTELMAkGA1UEBhMCRlIwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARfY2wE+8ofhYCnZW+hvbBA4da271e7Vbc9bTHLQ6ZLUuRzkWq08ng5NA5iehByGgGSeH69Hjby5IJiLdbIGowYo2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUn4iBOBzbwlrAlJGdQkEIRCZpY1cwHwYDVR0jBBgwFoAUn4iBOBzbwlrAlJGdQkEIRCZpY1cwCgYIKoZIzj0EAwIDSAAwRQIgclNdIU2yfyoaO2tzu8ttmXgjCJF6n+5BlniGD6ugLx8CIQC6qMcrJoJrxoBXXPgy/svaLWJtnaYQVQ4z3647087tuw=="
+    ],
+    "iacaCertificate": {
+        "subject": "C=FR,CN=ANTS France IACA",
+        "issuer": "C=FR,CN=ANTS France IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2031-02-12T04:57:22Z",
+        "serialNumber": "ca053087ab82cd954d924af0e1d91fa4bb2c410c",
+        "fingerprint": "C5:54:FA:D9:35:51:3D:16:7C:34:E6:78:52:3E:21:C0:F0:9A:99:C0:98:39:69:D8:C3:7F:C5:60:99:86:51:A5"
+    },
+    "signerCertificate": {
+        "subject": "C=FR,CN=ANTS France Document Signer",
+        "issuer": "C=FR,CN=ANTS France IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2027-02-13T04:57:22Z",
+        "serialNumber": "9aa6f62107aacfe769e0f3e87ade3d0aecab2331",
+        "fingerprint": "B7:06:45:07:D6:E6:72:25:9F:E6:5A:D4:95:0E:92:EB:46:CA:C9:6C:81:8E:1C:C2:A2:44:BA:21:AB:B6:21:74"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MfAYc1LBWeI4C-Kx2TOKRvb7L1R60RSQbfMaWDe9nOc\",\"y\":\"iJb9DOwaDadzAccHXgFvcRfVy24ixTmhfUsoyc9azGY\",\"d\":\"BUhuwnWHoeo6RuPebgitx72g5O69q80ZivKh72csnvU\"}}",
+    "credentialConfigurations": {
+        "credentials": [
+            {
+                "configId": "urn:eudi:pid:1",
+                "format": "dc+sd-jwt",
+                "vct": "urn:eudi:pid:1"
+            },
+            {
+                "configId": "org.iso.18013.5.1.mDL",
+                "format": "mso_mdoc",
+                "doctype": "org.iso.18013.5.1.mDL"
+            }
+        ]
+    },
+    "createdAt": "2026-02-13T04:57:22.217218635Z",
+    "updatedAt": "2026-02-13T04:57:22.256705051Z"
+}

@@ -52,6 +52,8 @@ jest.mock('@heroicons/react/24/outline', () => ({
   BuildingOfficeIcon: (props: any) => <svg data-testid="building-office-icon" {...props} />,
   MagnifyingGlassIcon: (props: any) => <svg data-testid="search-icon" {...props} />,
   Cog6ToothIcon: (props: any) => <svg data-testid="cog-icon" {...props} />,
+  GlobeAltIcon: (props: any) => <svg data-testid="globe-icon" {...props} />,
+  ArrowLeftIcon: (props: any) => <svg data-testid="arrow-left-icon" {...props} />,
 }));
 
 jest.mock('react-icons/tb', () => ({
@@ -260,8 +262,11 @@ describe('IssueSection', () => {
   describe('Feature flag on', () => {
     const issuerEnv = { NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED: 'true' };
 
-    it('renders tenant dropdown when tenants are returned', async () => {
-      mockAxiosGet.mockResolvedValueOnce({ data: mockTenantList });
+    it('renders tenant dropdown when tenants are returned with matching credentials', async () => {
+      // List tenants, then detail fetch for Active Bank (only ACTIVE+hasCert tenant)
+      mockAxiosGet
+        .mockResolvedValueOnce({ data: mockTenantList })
+        .mockResolvedValueOnce({ data: { credentialConfigurations: { '1': { format: 'jwt_vc_json' } } } });
 
       await act(async () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
@@ -284,8 +289,11 @@ describe('IssueSection', () => {
       });
     });
 
-    it('shows only ACTIVE tenants with certificates', async () => {
-      mockAxiosGet.mockResolvedValueOnce({ data: mockTenantList });
+    it('shows only ACTIVE tenants with certificates and matching credentials', async () => {
+      // List tenants, then detail fetch for Active Bank
+      mockAxiosGet
+        .mockResolvedValueOnce({ data: mockTenantList })
+        .mockResolvedValueOnce({ data: { credentialConfigurations: { '1': { format: 'jwt_vc_json' } } } });
 
       await act(async () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
@@ -298,9 +306,9 @@ describe('IssueSection', () => {
       const select = screen.getByTestId('tenant-select');
       const options = select.querySelectorAll('option');
 
-      // Default + Active Bank only (Suspended Corp filtered, No Cert Inc filtered)
+      // "Select an issuer..." + Active Bank only (Suspended Corp filtered, No Cert Inc filtered)
       expect(options).toHaveLength(2);
-      expect(options[0].textContent).toBe('Default issuer (no tenant)');
+      expect(options[0].textContent).toBe('Select an issuer...');
       expect(options[1].textContent).toBe('Active Bank (AU)');
     });
   });
@@ -310,9 +318,10 @@ describe('IssueSection', () => {
     const issuerEnv = { NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED: 'true' };
 
     it('selecting a tenant changes the select value', async () => {
+      // List tenants, then detail fetch for Active Bank with matching credential
       mockAxiosGet
         .mockResolvedValueOnce({ data: mockTenantList })
-        .mockResolvedValueOnce({ data: { credentialConfigurations: {} } });
+        .mockResolvedValueOnce({ data: { credentialConfigurations: { '1': { format: 'jwt_vc_json' } } } });
 
       await act(async () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
@@ -330,8 +339,10 @@ describe('IssueSection', () => {
       expect(select.value).toBe('t-1');
     });
 
-    it('has a Default issuer option with empty value', async () => {
-      mockAxiosGet.mockResolvedValueOnce({ data: mockTenantList });
+    it('has a placeholder option with empty value', async () => {
+      mockAxiosGet
+        .mockResolvedValueOnce({ data: mockTenantList })
+        .mockResolvedValueOnce({ data: { credentialConfigurations: { '1': { format: 'jwt_vc_json' } } } });
 
       await act(async () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
@@ -341,29 +352,18 @@ describe('IssueSection', () => {
         expect(screen.getByTestId('tenant-select')).toBeInTheDocument();
       });
 
-      const defaultOption = screen.getByText('Default issuer (no tenant)') as HTMLOptionElement;
+      const defaultOption = screen.getByText('Select an issuer...') as HTMLOptionElement;
       expect(defaultOption.value).toBe('');
     });
 
-    it('selecting a tenant fetches the detail API', async () => {
-      // First call: list tenants; second call: tenant detail
+    it('detail API is fetched during initial tenant load', async () => {
+      // The detail API is now batch-fetched during the initial tenant load
       mockAxiosGet
         .mockResolvedValueOnce({ data: mockTenantList })
-        .mockResolvedValueOnce({
-          data: { credentialConfigurations: { 'pid-mdoc': {}, 'mdl': {} } },
-        });
+        .mockResolvedValueOnce({ data: { credentialConfigurations: { '1': {} } } });
 
       await act(async () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('tenant-select')).toBeInTheDocument();
-      });
-
-      const select = screen.getByTestId('tenant-select') as HTMLSelectElement;
-      await act(async () => {
-        fireEvent.change(select, { target: { value: 't-1' } });
       });
 
       await waitFor(() => {
@@ -372,10 +372,11 @@ describe('IssueSection', () => {
     });
 
     it('selecting a tenant shows the credential count', async () => {
+      // Active Bank has 2 credential configs that include '1' (matching the test credential)
       mockAxiosGet
         .mockResolvedValueOnce({ data: mockTenantList })
         .mockResolvedValueOnce({
-          data: { credentialConfigurations: { 'pid-mdoc': {}, 'mdl': {} } },
+          data: { credentialConfigurations: { '1': {}, 'mdl': {} } },
         });
 
       await act(async () => {
@@ -413,7 +414,7 @@ describe('IssueSection', () => {
       expect(screen.queryByTestId('tenant-select')).not.toBeInTheDocument();
     });
 
-    it('shows no dropdown when API returns empty array', async () => {
+    it('shows empty state when API returns empty array', async () => {
       mockAxiosGet.mockResolvedValueOnce({ data: [] });
 
       await act(async () => {
@@ -424,10 +425,13 @@ describe('IssueSection', () => {
         expect(mockAxiosGet).toHaveBeenCalled();
       });
 
+      // Dropdown not shown, but the issuer section is visible with loading message
       expect(screen.queryByTestId('tenant-select')).not.toBeInTheDocument();
+      expect(screen.getByText('Loading issuers...')).toBeInTheDocument();
     });
 
     it('handles detail fetch error without crashing', async () => {
+      // Detail fetch fails — tenant has no matching credentials, so no dropdown
       mockAxiosGet
         .mockResolvedValueOnce({ data: mockTenantList })
         .mockRejectedValueOnce(new Error('Detail error'));
@@ -436,21 +440,13 @@ describe('IssueSection', () => {
         renderWithProviders(<IssueSection />, { env: issuerEnv });
       });
 
-      await waitFor(() => {
-        expect(screen.getByTestId('tenant-select')).toBeInTheDocument();
-      });
-
-      const select = screen.getByTestId('tenant-select') as HTMLSelectElement;
-      await act(async () => {
-        fireEvent.change(select, { target: { value: 't-1' } });
-      });
-
-      // Should not crash — dropdown still present
+      // Should not crash — the detail API was called
       await waitFor(() => {
         expect(mockAxiosGet).toHaveBeenCalledWith('http://localhost:7002/admin/issuer/t-1');
       });
 
-      expect(screen.getByTestId('tenant-select')).toBeInTheDocument();
+      // No matching credentials so "No issuers available" message shown
+      expect(screen.getByText('No issuers available for this credential')).toBeInTheDocument();
     });
   });
 });

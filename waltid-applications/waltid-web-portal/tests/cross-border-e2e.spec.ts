@@ -1,3 +1,14 @@
+/**
+ * Cross-Border E2E Test: Issue → Hold → Verify with ETSI Trust Policies
+ *
+ * Prerequisites:
+ * - Docker compose running from worktree (ISSUER_REGISTRAR_ENABLED=true, TRUST_LISTS_ENABLED=true)
+ * - Issuer-api baseUrl set to Docker-internal hostname (http://issuer-api:7002) so the
+ *   wallet container can reach it. The test resolves credential_offer_uri via localhost.
+ * - Custom TSLs imported for tenant issuer countries (e.g. IN, SG) using Docker-internal URLs
+ *   (http://issuer-api:7002/admin/issuer/tsl/{CC}.xml)
+ * - At least one foreign issuer tenant with PID credential (dc+sd-jwt, urn:eudi:pid:1)
+ */
 import { test, expect } from '@playwright/test';
 import {
   PORTAL_URL,
@@ -20,23 +31,20 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
     token = auth.token;
   });
 
-  test('issue from foreign issuer, hold in wallet, verify with trust policies', async ({ page, request }) => {
+  test('issue via portal, hold in wallet, verify via portal with trust policies', async ({ page, request }) => {
     // ── Step 1: Find an active foreign issuer with PID credential ──
     const issuers = await getActiveIssuers(request);
     const foreignIssuers = issuers.filter(i => i.country !== 'AU');
     expect(foreignIssuers.length, 'Need at least one active foreign issuer').toBeGreaterThan(0);
 
-    // Find a foreign issuer that has a dc+sd-jwt credential with VCT urn:eudi:pid:1
-    let foreignIssuer = null;
-    let pidConfigId = '';
+    let foreignIssuer: typeof issuers[0] | null = null;
     for (const issuer of foreignIssuers) {
       const detail = await getIssuerDetail(request, issuer.id);
       const configs = detail.credentialConfigurations || {};
-      for (const [key, config] of Object.entries(configs)) {
-        const c = config as any;
+      const credList = (configs as any).credentials || Object.values(configs);
+      for (const c of credList as any[]) {
         if (c.format === 'dc+sd-jwt' && c.vct === 'urn:eudi:pid:1') {
           foreignIssuer = issuer;
-          pidConfigId = key;
           break;
         }
       }
@@ -44,66 +52,105 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
     }
     expect(foreignIssuer, 'Need a foreign issuer with PID (dc+sd-jwt, urn:eudi:pid:1)').toBeTruthy();
 
-    // ── Step 2: Issue credential via issuer API directly ──────────
-    // Use the tenant-scoped sdjwt issuance endpoint
-    const issuancePayload = {
-      credentialConfigurationId: pidConfigId,
-      credentialData: {
-        family_name: 'Test',
-        given_name: 'CrossBorder',
-        birth_date: '1990-01-15',
-        issuance_date: new Date().toISOString().split('T')[0],
-        expiry_date: '2030-12-31',
-        issuing_authority: foreignIssuer!.legalName,
-        issuing_country: foreignIssuer!.country,
-      },
-      mapping: {
-        iat: '<timestamp-seconds>',
-        nbf: '<timestamp-seconds>',
-        exp: '<timestamp-in-seconds:365d>',
-      },
-      selectiveDisclosure: {
-        fields: {
-          family_name: { sd: true },
-          given_name: { sd: true },
-          birth_date: { sd: true },
-        },
-      },
-    };
-
-    const issueRes = await request.post(
-      `${ISSUER_API}/issuers/${foreignIssuer!.id}/openid4vc/sdjwt/issue`,
-      {
-        headers: { 'Content-Type': 'application/json' },
-        data: issuancePayload,
-      }
+    // ── Step 2: Navigate portal to issuance with tenant pre-selected ──
+    await page.goto(
+      `${PORTAL_URL}/credentials?ids=urn:eudi:pid:1&mode=issuance&issuerId=${foreignIssuer!.id}`
     );
-    expect(issueRes.ok(), `Issuer API should create offer: ${issueRes.status()}`).toBeTruthy();
-    const offerUrl = (await issueRes.text()).replace(/^"|"$/g, '');
+    await page.waitForLoadState('load');
+
+    // Verify the EUDI badge is visible (confirms DC+SD-JWT format)
+    await page.locator('.bg-blue-100:text("EUDI")').waitFor({ state: 'visible', timeout: 10_000 });
+
+    // Verify the tenant dropdown shows the foreign issuer
+    const tenantSelect = page.locator('[data-testid="tenant-select"]');
+    if (await tenantSelect.isVisible()) {
+      const selectedValue = await tenantSelect.inputValue();
+      expect(selectedValue).toBe(foreignIssuer!.id);
+    }
+
+    // ── Step 3: Click Issue and capture offer URL from the offer page ──
+    let offerUrl = '';
+    page.on('response', async resp => {
+      try {
+        if (resp.request().method() === 'POST' && resp.url().includes('/issue') && resp.ok()) {
+          const text = await resp.text();
+          // The offer URL is returned as a quoted string
+          const cleaned = text.replace(/^"|"$/g, '');
+          if (cleaned.includes('credential_offer')) {
+            offerUrl = cleaned;
+          }
+        }
+      } catch (_) { /* response body may be consumed */ }
+    });
+
+    // The page has two "Issue" buttons: the mode toggle (top) and the action button (bottom).
+    // Target the action button — it has the primary bg color class.
+    const issueButton = page.getByRole('button', { name: /^Issue$/i }).last();
+    await expect(issueButton).toBeEnabled({ timeout: 5_000 });
+    await issueButton.click();
+
+    // Wait for offer page to load
+    await page.waitForURL(/\/offer/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Claim Your Credential' })).toBeVisible({ timeout: 10_000 });
+
+    // Wait for QR / offer URL to be ready — the "Copy offer URL" link appears immediately,
+    // but "Open in EUDI Wallet" only appears when the EUDI-format offer is generated.
+    // Try EUDI button first, fall back to Copy offer URL.
+    const copyLink = page.getByText('Copy offer URL');
+    await copyLink.waitFor({ state: 'visible', timeout: 30_000 });
+    await page.waitForTimeout(2_000);
+
+    // Grab offer URL from clipboard or response interception
+    if (!offerUrl) {
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+      await copyLink.click();
+      await page.waitForTimeout(500);
+      offerUrl = await page.evaluate(() => navigator.clipboard.readText());
+    }
+
+    expect(offerUrl, 'Should have a credential offer URL from the portal').toBeTruthy();
     expect(offerUrl).toContain('credential_offer');
 
-    // ── Step 3: Claim credential in wallet via API ──────────────
+    // ── Step 4: Claim credential in wallet via API ──────────────
+    // The issuer-api baseUrl uses the Docker-internal hostname (issuer-api:7002)
+    // so the wallet container can reach it. The credential_offer_uri also uses this
+    // hostname, which the test runner (host) can't resolve directly.
+    // Resolve the offer via localhost and send inline to the wallet.
+    let walletOfferUrl = offerUrl;
+    const uriMatch = offerUrl.match(/credential_offer_uri=([^&]+)/);
+    if (uriMatch) {
+      const credOfferUri = decodeURIComponent(uriMatch[1]);
+      const localUri = credOfferUri.replace(/http:\/\/issuer-api:7002/, ISSUER_API);
+      const offerRes = await request.get(localUri);
+      if (offerRes.ok()) {
+        const offerJson = await offerRes.text();
+        walletOfferUrl = `openid-credential-offer://?credential_offer=${encodeURIComponent(offerJson)}`;
+      }
+    }
+
     const claimRes = await request.post(
       `${WALLET_API}/wallet-api/wallet/${walletId}/exchange/useOfferRequest`,
       {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
-        data: offerUrl,
+        data: walletOfferUrl,
       }
     );
-    expect(claimRes.ok(), 'Wallet should accept the credential offer').toBeTruthy();
+    if (!claimRes.ok()) {
+      console.error('Wallet claim failed:', claimRes.status(), await claimRes.text());
+    }
+    expect(claimRes.ok(), `Wallet should accept the offer: ${claimRes.status()}`).toBeTruthy();
     const claimedCreds = await claimRes.json();
     expect(Array.isArray(claimedCreds)).toBeTruthy();
     expect(claimedCreds.length).toBeGreaterThan(0);
     const claimedCredId = claimedCreds[0].id;
 
-    // ── Step 4: Verify trust lists are loaded ───────────────────
+    // ── Step 5: Verify trust lists are loaded ───────────────────
     const trustStatus = await getTrustStatus(request);
     const etsiKey = Object.keys(trustStatus.sources).find(k => k.toLowerCase().includes('etsi'));
     expect(etsiKey, 'ETSI trust source should be present').toBeTruthy();
     expect(trustStatus.sources[etsiKey!].enabled).toBe(true);
 
-    // ── Step 5: Navigate portal to verification with policies ───
-    // Set up response interception for verification session URL and session ID
+    // ── Step 6: Navigate portal to verification with policies ───
     let verificationSessionUrl = '';
     let verificationSessionId = '';
     page.on('response', async resp => {
@@ -118,7 +165,7 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
             verificationSessionId = body.sessionId;
           }
         }
-      } catch(e) { /* response body already consumed */ }
+      } catch (_) { /* response body already consumed */ }
     });
 
     await page.goto(`${PORTAL_URL}/credentials?ids=urn:eudi:pid:1&mode=verification`);
@@ -132,18 +179,16 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
     await expect(page.getByText('Revocation Policy')).toBeVisible();
     await expect(page.getByText('EUDI Trust List')).toBeVisible();
 
-    // Click Verify to create verification session
+    // Click Verify to create verification session via the portal
     const verifyButton = page.getByRole('button', { name: /^Verify$/i }).last();
     await verifyButton.click();
     await page.waitForURL(/\/verify/, { timeout: 15_000 });
 
-    // ── Step 6: Wait for verification QR to render ──────────────
-    // The "Open in EUDI Wallet" button appears only when verifier-api2 was used and QR is ready
+    // ── Step 7: Wait for verification QR to render ──────────────
     await page.getByRole('button', { name: 'Open in EUDI Wallet' }).waitFor({ state: 'visible', timeout: 30_000 });
     await page.waitForTimeout(1_000);
 
-    // If page.on('response') didn't capture the URL (e.g., response body already consumed),
-    // extract it from the QR code by clicking "Copy offer URL" and reading the clipboard
+    // If response interception didn't capture the URL, grab from clipboard
     if (!verificationSessionUrl) {
       await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
       await page.getByRole('button', { name: 'Copy offer URL' }).click();
@@ -151,10 +196,11 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
       verificationSessionUrl = await page.evaluate(() => navigator.clipboard.readText());
     }
 
-    expect(verificationSessionUrl, 'Should capture verify URL from verifier-api2 response').toBeTruthy();
+    expect(verificationSessionUrl, 'Should capture verify URL from portal').toBeTruthy();
     expect(verificationSessionUrl).toContain('openid4vp');
 
-    // ── Step 7: Present credential via wallet API ───────────────
+    // ── Step 8: Present credential via wallet API ───────────────
+    // (Wallet is a mobile app — API simulates presentation)
     const presentRes = await request.post(
       `${WALLET_API}/wallet-api/wallet/${walletId}/exchange/usePresentationRequest`,
       {
@@ -165,20 +211,17 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
         },
       }
     );
-    expect(presentRes.ok(), 'Wallet should present the credential').toBeTruthy();
+    expect(presentRes.ok(), `Wallet should present the credential: ${presentRes.status()}`).toBeTruthy();
 
-    // ── Step 8: Navigate to success page ────────────────────────
-    // Extract the session ID — prefer the sessionId from the API response,
-    // fall back to the state parameter in the verify URL
+    // ── Step 9: Navigate to success page via portal ─────────────
     const stateMatch = verificationSessionUrl.match(/[?&]state=([^&]+)/);
     const sessionId = verificationSessionId || (stateMatch ? decodeURIComponent(stateMatch[1]) : '');
-    expect(sessionId, 'Should have a session ID from API response or state parameter').toBeTruthy();
+    expect(sessionId, 'Should have a session ID').toBeTruthy();
 
-    // Navigate directly to the success page
     await page.goto(`${PORTAL_URL}/success/${sessionId}?api2=true`);
     await page.waitForLoadState('load');
 
-    // ── Step 9: Verify success page shows policy results ────────
+    // ── Step 10: Verify success page shows policy results ───────
     await page.waitForTimeout(3_000);
     await expect(page.getByRole('heading', { name: 'Presented Credentials' })).toBeVisible();
 
@@ -190,7 +233,7 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
       bodyText.includes('expiration')
     ).toBeTruthy();
 
-    // ── Step 10: Verify session info via API for completeness ───
+    // ── Step 11: Verify policy results via API (etsi-trusted-issuer) ─
     const sessionInfo = await request.get(
       `${VERIFIER_API2}/verification-session/${sessionId}/info`
     );
@@ -207,7 +250,10 @@ test.describe('Cross-Border Issuance → Hold → Verify', () => {
     expect(policyIds).toContain('revoked-status-list');
     expect(policyIds).toContain('etsi-trusted-issuer');
 
-    const sigResult = vcPolicies.find((p: any) => (p.policy?.id || p.policy?.policy) === 'signature');
-    expect(sigResult?.success).toBe(true);
+    // All policies should pass — including etsi-trusted-issuer (x5c cert matching)
+    for (const policy of vcPolicies) {
+      const policyId = policy.policy?.id || policy.policy?.policy || 'unknown';
+      expect(policy.success, `Policy "${policyId}" should pass`).toBe(true);
+    }
   });
 });

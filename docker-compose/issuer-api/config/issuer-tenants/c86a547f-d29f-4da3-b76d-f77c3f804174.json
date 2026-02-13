@@ -33,24 +33,19 @@
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"mjTRamUvOZy0kzzvUoJwmEBExIPXRrJu23d94kwhQqk\",\"y\":\"xjfezVQUKiH8l3vjuOu2BttfRXUTcPjPQ-3zCAtFmps\",\"d\":\"aw1N4JQbM5X1CrVAo9dO_C1vVLnAekjSi8muyy1WbtA\"}}",
     "credentialConfigurations": {
-        "PayrollCert": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:globalpay:payroll:1",
-            "cryptographic_binding_methods_supported": [
-                "jwk"
-            ],
-            "credential_signing_alg_values_supported": [
-                "ES256"
-            ],
-            "proof_types_supported": {
-                "jwt": {
-                    "proof_signing_alg_values_supported": [
-                        "ES256"
-                    ]
-                }
+        "credentials": [
+            {
+                "configId": "eu.europa.ec.eudi.pid.1",
+                "format": "mso_mdoc",
+                "doctype": "eu.europa.ec.eudi.pid.1"
+            },
+            {
+                "configId": "PaymentWalletAttestation",
+                "format": "dc+sd-jwt",
+                "vct": "PaymentWalletAttestation"
             }
-        }
+        ]
     },
     "createdAt": "2026-02-12T00:12:26.784589966Z",
-    "updatedAt": "2026-02-12T00:12:26.908973341Z"
+    "updatedAt": "2026-02-13T04:57:22.327506135Z"
 }

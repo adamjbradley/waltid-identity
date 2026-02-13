@@ -1,5 +1,5 @@
 import CustomCredentialModal from "@/components/walt/modal/CustomCredentialModal";
-import {MagnifyingGlassIcon, Cog6ToothIcon} from "@heroicons/react/24/outline";
+import {MagnifyingGlassIcon, Cog6ToothIcon, GlobeAltIcon} from "@heroicons/react/24/outline";
 import Credential from "@/components/walt/credential/Credential";
 import {AvailableCredential} from "@/types/credentials";
 import {CredentialsContext, EnvContext} from "@/pages/_app";
@@ -54,6 +54,16 @@ export default function Home() {
           <Cog6ToothIcon className="w-4 h-4" />
           Admin
         </button>
+        {issuerRegistrarEnabled && (
+          <button
+            onClick={() => router.push('/explore')}
+            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            data-testid="explore-btn"
+          >
+            <GlobeAltIcon className="w-4 h-4" />
+            Explore by Country
+          </button>
+        )}
         {hasMtMode && (
           <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700" data-testid="mt-banner">
             <span className="font-medium">Multi-Tenant Mode</span>

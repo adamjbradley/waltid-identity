@@ -112,6 +112,393 @@ export const EudiCredentials: AvailableCredential[] = [
   }
 ];
 
+// --- Country-specific credential data ---
+
+export interface CountryCredentialData {
+  offer: any;
+  defaultClaims: ClaimDefinition[];
+}
+
+export interface CountryEntry {
+  code: string;
+  name: string;
+  flag: string;
+  credentials: {
+    id: string;
+    title: string;
+    format: string; // display format label
+    data: CountryCredentialData;
+  }[];
+}
+
+const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
+  AU: {
+    code: 'AU',
+    name: 'Australia',
+    flag: '\u{1F1E6}\u{1F1FA}',
+    credentials: [
+      {
+        id: 'eu.europa.ec.eudi.pid.1',
+        title: 'EU Personal ID (mDoc)',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'eu.europa.ec.eudi.pid.1': {
+              family_name: 'Mitchell',
+              given_name: 'Sarah',
+              birth_date: '1988-03-22',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Australian Digital Identity Office',
+              issuing_country: 'AU',
+            },
+          },
+          defaultClaims: [
+            { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'org.iso.18013.5.1.mDL',
+        title: 'Mobile Driving License',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'org.iso.18013.5.1': {
+              family_name: 'Mitchell',
+              given_name: 'Sarah',
+              birth_date: '1988-03-22',
+              issue_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_country: 'AU',
+              issuing_authority: 'Roads and Maritime Services NSW',
+              document_number: 'DL987654321',
+              portrait: '',
+              driving_privileges: [
+                { vehicle_category_code: 'C', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
+            },
+          },
+          defaultClaims: [
+            { path: ['org.iso.18013.5.1', 'family_name'] },
+            { path: ['org.iso.18013.5.1', 'given_name'] },
+            { path: ['org.iso.18013.5.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'urn:eudi:pid:1',
+        title: 'EU Personal ID (SD-JWT)',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              family_name: 'Mitchell',
+              given_name: 'Sarah',
+              birth_date: '1988-03-22',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Australian Digital Identity Office',
+              issuing_country: 'AU',
+            },
+          },
+          defaultClaims: [
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['birth_date'] },
+          ],
+        },
+      },
+    ],
+  },
+  IN: {
+    code: 'IN',
+    name: 'India',
+    flag: '\u{1F1EE}\u{1F1F3}',
+    credentials: [
+      {
+        id: 'org.iso.18013.5.1.mDL',
+        title: 'Mobile Driving License',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'org.iso.18013.5.1': {
+              family_name: 'Sharma',
+              given_name: 'Priya',
+              birth_date: '1992-07-10',
+              issue_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_country: 'IN',
+              issuing_authority: 'Ministry of Road Transport',
+              document_number: 'MH0120240001234',
+              portrait: '',
+              driving_privileges: [
+                { vehicle_category_code: 'LMV', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
+            },
+          },
+          defaultClaims: [
+            { path: ['org.iso.18013.5.1', 'family_name'] },
+            { path: ['org.iso.18013.5.1', 'given_name'] },
+            { path: ['org.iso.18013.5.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'urn:eudi:pid:1',
+        title: 'EU Personal ID (SD-JWT)',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              family_name: 'Sharma',
+              given_name: 'Priya',
+              birth_date: '1992-07-10',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Unique Identification Authority of India',
+              issuing_country: 'IN',
+            },
+          },
+          defaultClaims: [
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['birth_date'] },
+          ],
+        },
+      },
+    ],
+  },
+  SG: {
+    code: 'SG',
+    name: 'Singapore',
+    flag: '\u{1F1F8}\u{1F1EC}',
+    credentials: [
+      {
+        id: 'eu.europa.ec.eudi.pid.1',
+        title: 'EU Personal ID (mDoc)',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'eu.europa.ec.eudi.pid.1': {
+              family_name: 'Tan',
+              given_name: 'Wei Lin',
+              birth_date: '1995-11-05',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Government Technology Agency',
+              issuing_country: 'SG',
+            },
+          },
+          defaultClaims: [
+            { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '8888',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'SGD',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_8888',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
+          ],
+        },
+      },
+    ],
+  },
+  DE: {
+    code: 'DE',
+    name: 'Germany',
+    flag: '\u{1F1E9}\u{1F1EA}',
+    credentials: [
+      {
+        id: 'eu.europa.ec.eudi.pid.1',
+        title: 'EU Personal ID (mDoc)',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'eu.europa.ec.eudi.pid.1': {
+              family_name: 'Schneider',
+              given_name: 'Lukas',
+              birth_date: '1985-06-14',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Bundesdruckerei GmbH',
+              issuing_country: 'DE',
+            },
+          },
+          defaultClaims: [
+            { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+            { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'org.iso.18013.5.1.mDL',
+        title: 'Mobile Driving License',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'org.iso.18013.5.1': {
+              family_name: 'Schneider',
+              given_name: 'Lukas',
+              birth_date: '1985-06-14',
+              issue_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_country: 'DE',
+              issuing_authority: 'Kraftfahrt-Bundesamt',
+              document_number: 'B072024001234',
+              portrait: '',
+              driving_privileges: [
+                { vehicle_category_code: 'B', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
+            },
+          },
+          defaultClaims: [
+            { path: ['org.iso.18013.5.1', 'family_name'] },
+            { path: ['org.iso.18013.5.1', 'given_name'] },
+            { path: ['org.iso.18013.5.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'urn:eudi:pid:1',
+        title: 'EU Personal ID (SD-JWT)',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              family_name: 'Schneider',
+              given_name: 'Lukas',
+              birth_date: '1985-06-14',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Bundesdruckerei GmbH',
+              issuing_country: 'DE',
+            },
+          },
+          defaultClaims: [
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['birth_date'] },
+          ],
+        },
+      },
+    ],
+  },
+  FR: {
+    code: 'FR',
+    name: 'France',
+    flag: '\u{1F1EB}\u{1F1F7}',
+    credentials: [
+      {
+        id: 'org.iso.18013.5.1.mDL',
+        title: 'Mobile Driving License',
+        format: 'mDoc',
+        data: {
+          offer: {
+            'org.iso.18013.5.1': {
+              family_name: 'Dupont',
+              given_name: 'Marie',
+              birth_date: '1991-09-28',
+              issue_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_country: 'FR',
+              issuing_authority: 'Prefecture de Police',
+              document_number: 'FR2024000567',
+              portrait: '',
+              driving_privileges: [
+                { vehicle_category_code: 'B', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
+            },
+          },
+          defaultClaims: [
+            { path: ['org.iso.18013.5.1', 'family_name'] },
+            { path: ['org.iso.18013.5.1', 'given_name'] },
+            { path: ['org.iso.18013.5.1', 'birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'urn:eudi:pid:1',
+        title: 'EU Personal ID (SD-JWT)',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              family_name: 'Dupont',
+              given_name: 'Marie',
+              birth_date: '1991-09-28',
+              age_over_18: true,
+              age_over_21: true,
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Agence Nationale des Titres Securises',
+              issuing_country: 'FR',
+            },
+          },
+          defaultClaims: [
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['birth_date'] },
+          ],
+        },
+      },
+    ],
+  },
+};
+
+export function getCountryCredentialData(
+  country: string,
+  credentialId: string
+): CountryCredentialData | null {
+  const entry = COUNTRY_CLAIM_DATA[country];
+  if (!entry) return null;
+  const cred = entry.credentials.find((c) => c.id === credentialId);
+  return cred?.data ?? null;
+}
+
+export function getAllCountries(): CountryEntry[] {
+  return Object.values(COUNTRY_CLAIM_DATA).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}
+
 export const CredentialFormats = [
   'JWT + W3C VC',
   'SD-JWT + W3C VC',

@@ -1,6 +1,6 @@
 import RowCredential from "@/components/walt/credential/RowCredential";
 import Dropdown from "@/components/walt/forms/Dropdown";
-import {AuthenticationMethods, AvailableCredential, VpProfiles} from "@/types/credentials";
+import {AuthenticationMethods, AvailableCredential, VpProfiles, getCountryCredentialData} from "@/types/credentials";
 import Checkbox from "@/components/walt/forms/Checkbox";
 import InputField from "@/components/walt/forms/Input";
 import Button from "@/components/walt/button/Button";
@@ -47,6 +47,10 @@ export default function IssueSection() {
   const [tenants, setTenants] = useState<IssuerTenantSummary[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [tenantCredentialKeys, setTenantCredentialKeys] = useState<string[]>([]);
+  // Map of tenantId -> list of credential config identifiers (configId, vct, doctype)
+  const [tenantCredentialConfigs, setTenantCredentialConfigs] = useState<
+    Record<string, { configId: string; format: string; vct?: string; doctype?: string }[]>
+  >({});
 
   const router = useRouter();
   const params = router.query;
@@ -62,16 +66,51 @@ export default function IssueSection() {
     (cred) => cred.selectedFormat === 'mDoc (ISO 18013-5)'
   );
 
-  // Fetch tenants when issuer registrar is enabled
+  // Fetch tenants and their credential configs when issuer registrar is enabled
   useEffect(() => {
     if (!issuerRegistrarEnabled) return;
     const apiBase = env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER;
     if (!apiBase) return;
-    axios.get(`${apiBase}/admin/issuer`).then((res) => {
+    axios.get(`${apiBase}/admin/issuer`).then(async (res) => {
       const active = (res.data as IssuerTenantSummary[]).filter(
         (t) => t.status === 'ACTIVE' && t.hasCertificate
       );
       setTenants(active);
+
+      // Batch-fetch credential configs for each tenant
+      const configMap: Record<string, { configId: string; format: string; vct?: string; doctype?: string }[]> = {};
+      await Promise.all(
+        active.map(async (tenant) => {
+          try {
+            const detail = await axios.get(`${apiBase}/admin/issuer/${tenant.id}`);
+            const configs = detail.data?.credentialConfigurations;
+            const entries: { configId: string; format: string; vct?: string; doctype?: string }[] = [];
+            if (Array.isArray(configs)) {
+              // Direct array format: [{configId, format, vct?, doctype?}]
+              for (const c of configs) {
+                entries.push({ configId: c.configId, format: c.format, vct: c.vct, doctype: c.doctype });
+              }
+            } else if (configs && typeof configs === 'object') {
+              // Legacy nested format: {credentials: [{configId, format, ...}]}
+              if (Array.isArray((configs as any).credentials)) {
+                for (const c of (configs as any).credentials) {
+                  entries.push({ configId: c.configId, format: c.format, vct: c.vct, doctype: c.doctype });
+                }
+              } else {
+                // Standard object format: {configId: {format, vct?, doctype?}}
+                for (const [key, val] of Object.entries(configs as Record<string, any>)) {
+                  entries.push({ configId: key, format: val.format, vct: val.vct, doctype: val.doctype });
+                }
+              }
+            }
+            configMap[tenant.id] = entries;
+          } catch {
+            configMap[tenant.id] = [];
+          }
+        })
+      );
+      setTenantCredentialConfigs(configMap);
+
       // If issuerId was passed via query param, pre-select it
       const qIssuerId = params.issuerId as string | undefined;
       if (qIssuerId && active.some((t) => t.id === qIssuerId)) {
@@ -80,23 +119,33 @@ export default function IssueSection() {
     }).catch(() => {});
   }, [issuerRegistrarEnabled, env.NEXT_PUBLIC_ISSUER]);
 
+  // Filter tenants to only those whose credential configs match ALL idsToIssue
+  const filteredTenants = React.useMemo(() => {
+    if (!issuerRegistrarEnabled || idsToIssue.length === 0) return tenants;
+    return tenants.filter((tenant) => {
+      const configs = tenantCredentialConfigs[tenant.id];
+      if (!configs || configs.length === 0) return false;
+      return idsToIssue.every((id) =>
+        configs.some(
+          (c) => c.configId === id || c.vct === id || c.doctype === id
+        )
+      );
+    });
+  }, [tenants, tenantCredentialConfigs, idsToIssue.join(','), issuerRegistrarEnabled]);
+
   // Fetch tenant credential keys when a tenant is selected
   useEffect(() => {
     if (!selectedTenantId || !issuerRegistrarEnabled) {
       setTenantCredentialKeys([]);
       return;
     }
-    const apiBase = env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER;
-    if (!apiBase) return;
-    axios.get(`${apiBase}/admin/issuer/${selectedTenantId}`).then((res) => {
-      const configs = res.data?.credentialConfigurations;
-      if (configs && typeof configs === 'object') {
-        setTenantCredentialKeys(Object.keys(configs));
-      } else {
-        setTenantCredentialKeys([]);
-      }
-    }).catch(() => setTenantCredentialKeys([]));
-  }, [selectedTenantId, issuerRegistrarEnabled]);
+    const configs = tenantCredentialConfigs[selectedTenantId];
+    if (configs) {
+      setTenantCredentialKeys(configs.map((c) => c.configId));
+    } else {
+      setTenantCredentialKeys([]);
+    }
+  }, [selectedTenantId, issuerRegistrarEnabled, tenantCredentialConfigs]);
 
   React.useEffect(() => {
     setCredentialsToIssue(
@@ -110,6 +159,20 @@ export default function IssueSection() {
       })
     );
   }, [AvailableCredentials]);
+
+  // Apply country-specific claims when tenant selection changes
+  useEffect(() => {
+    if (!selectedTenantId || !issuerRegistrarEnabled) return;
+    const tenant = tenants.find((t) => t.id === selectedTenantId);
+    if (!tenant?.country) return;
+    setCredentialsToIssue((prev) =>
+      prev.map((cred) => {
+        const countryData = getCountryCredentialData(tenant.country, cred.id);
+        if (!countryData) return cred;
+        return { ...cred, offer: countryData.offer, defaultClaims: countryData.defaultClaims };
+      })
+    );
+  }, [selectedTenantId, tenants]);
 
   function handleCancel() {
     router.push('/');
@@ -180,28 +243,36 @@ export default function IssueSection() {
         Adjust credential data, format and issuance security
       </p>
 
-      {issuerRegistrarEnabled && tenants.length > 0 && (
+      {issuerRegistrarEnabled && (
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <BuildingLibraryIcon className="w-5 h-5 text-blue-600" />
             <label className="text-sm font-medium text-blue-800">Issuing as</label>
           </div>
-          <select
-            data-testid="tenant-select"
-            value={selectedTenantId}
-            onChange={(e) => setSelectedTenantId(e.target.value)}
-            className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Default issuer (no tenant)</option>
-            {tenants.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.legalName} ({t.country})
-              </option>
-            ))}
-          </select>
-          {selectedTenantId && tenantCredentialKeys.length > 0 && (
-            <p className="mt-2 text-xs text-blue-600">
-              Tenant has {tenantCredentialKeys.length} credential configuration{tenantCredentialKeys.length !== 1 ? 's' : ''}
+          {filteredTenants.length > 0 ? (
+            <>
+              <select
+                data-testid="tenant-select"
+                value={selectedTenantId}
+                onChange={(e) => setSelectedTenantId(e.target.value)}
+                className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select an issuer...</option>
+                {filteredTenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.legalName} ({t.country})
+                  </option>
+                ))}
+              </select>
+              {selectedTenantId && tenantCredentialKeys.length > 0 && (
+                <p className="mt-2 text-xs text-blue-600">
+                  Tenant has {tenantCredentialKeys.length} credential configuration{tenantCredentialKeys.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">
+              {tenants.length === 0 ? 'Loading issuers...' : 'No issuers available for this credential'}
             </p>
           )}
         </div>

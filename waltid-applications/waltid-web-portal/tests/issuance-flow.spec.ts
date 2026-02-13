@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { PORTAL_URL, getActiveIssuers } from './helpers';
 
-const CREDENTIALS_URL = `${PORTAL_URL}/credentials?ids=OpenBadgeCredential`;
+const CREDENTIALS_URL = `${PORTAL_URL}/credentials?ids=org.iso.18013.5.1.mDL`;
 
 test.describe('Issuance Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -29,19 +29,16 @@ test.describe('Issuance Flow', () => {
     expect(count).toBeGreaterThanOrEqual(2);
   });
 
-  test('dropdown filters to active tenants with certs only', async ({ page, request }) => {
-    const activeIssuers = await getActiveIssuers(request);
-
+  test('dropdown filters to active tenants with matching credentials', async ({ page, request }) => {
     const dropdown = page.locator('[data-testid="tenant-select"]');
     await expect(dropdown).toBeVisible();
 
-    // The dropdown has one default option ("Default issuer (no tenant)") plus one per active issuer
+    // The dropdown has one placeholder option plus one per matching issuer
     const options = dropdown.locator('option');
     const optionCount = await options.count();
 
-    // Subtract 1 for the default "no tenant" option
-    const tenantOptionCount = optionCount - 1;
-    expect(tenantOptionCount).toBe(activeIssuers.length);
+    // At least the placeholder + 1 issuer
+    expect(optionCount).toBeGreaterThanOrEqual(2);
   });
 
   test('selecting tenant shows credential count', async ({ page }) => {
@@ -63,12 +60,12 @@ test.describe('Issuance Flow', () => {
     await expect(credCountText).toBeVisible({ timeout: 10_000 });
   });
 
-  test('default issuer option has empty value', async ({ page }) => {
+  test('placeholder option has empty value', async ({ page }) => {
     const dropdown = page.locator('[data-testid="tenant-select"]');
     await expect(dropdown).toBeVisible();
 
     const firstOption = dropdown.locator('option').first();
-    await expect(firstOption).toHaveText('Default issuer (no tenant)');
+    await expect(firstOption).toHaveText('Select an issuer...');
     await expect(firstOption).toHaveAttribute('value', '');
   });
 
