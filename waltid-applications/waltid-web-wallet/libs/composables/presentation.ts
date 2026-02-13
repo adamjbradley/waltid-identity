@@ -59,23 +59,40 @@ export async function usePresentation(query: any) {
     return '';
   });
 
+  const dcqlQueryParam = presentationParams.get("dcql_query");
   const presentationDefinition = presentationParams.get(
     "presentation_definition",
   ) as string;
-  const matchedCredentials = await $fetch<
-    Array<{
-      id: string;
-      document: string;
-      parsedDocument?: string;
-      disclosures?: string;
-    }>
-  >(
-    `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForPresentationDefinition`,
-    {
-      method: "POST",
-      body: presentationDefinition,
-    },
-  );
+  const isDcql = !!dcqlQueryParam && !presentationDefinition;
+
+  let matchedCredentials: Array<{
+    id: string;
+    document: string;
+    parsedDocument?: string;
+    disclosures?: string;
+  }>;
+
+  if (isDcql) {
+    matchedCredentials = await $fetch(
+      `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForDcqlQuery`,
+      {
+        method: "POST",
+        body: dcqlQueryParam,
+      },
+    );
+  } else if (presentationDefinition) {
+    matchedCredentials = await $fetch(
+      `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForPresentationDefinition`,
+      {
+        method: "POST",
+        body: presentationDefinition,
+      },
+    );
+  } else {
+    failed.value = true;
+    failMessage.value = "No presentation_definition or dcql_query in request";
+    matchedCredentials = [];
+  }
 
   const selection = ref<{ [key: string]: boolean }>({});
   const selectedCredentialIds = computed(() =>
@@ -198,6 +215,7 @@ export async function usePresentation(query: any) {
     clientId,
     rpDomain,
     mtWalletEnabled,
+    isDcql,
     presentationDefinition,
     matchedCredentials,
     selectedCredentialIds,
