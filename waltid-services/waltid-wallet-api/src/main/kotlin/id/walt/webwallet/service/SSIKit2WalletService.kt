@@ -429,12 +429,11 @@ class SSIKit2WalletService(
             vpTokenEntries[credQuery.id] = JsonPrimitive(presentation)
         }
 
-        // For single credential query, vp_token is the string directly
-        val vpTokenValue = if (vpTokenEntries.size == 1) {
-            vpTokenEntries.values.first().jsonPrimitive.content
-        } else {
-            Json.encodeToString(JsonObject(vpTokenEntries))
+        // vp_token must always be Map<String, List<String>> JSON for verifier-api2
+        val vpTokenMap = vpTokenEntries.mapValues { (_, v) ->
+            buildJsonArray { add(v) }
         }
+        val vpTokenValue = Json.encodeToString(JsonObject(vpTokenMap))
 
         val responseUri = authorizationRequest.responseUri
             ?: authorizationRequest.redirectUri
