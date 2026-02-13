@@ -727,7 +727,81 @@ class MTFlowTests(unittest.TestCase):
             f"MT DCQL verification not successful: {json.dumps(session, indent=2)[:500]}",
         )
 
-    # -- MT Issue + PD Verify (added in Task 5) -----------------------------
+    # -- MT Issue + PD Verify -----------------------------------------------
+
+    def test_03_mt_issue_for_pd(self):
+        """Issue a second MT credential for PD verification."""
+        cred_data = {
+            "given_name": "Dana",
+            "family_name": "TenantPD",
+            "birth_date": "1988-11-05",
+        }
+        offer_url = issue_sdjwt(
+            cred_data, SELECTIVE_DISCLOSURE, mt_issuer_id=self.issuer_id
+        )
+        self.assertTrue(
+            offer_url.startswith("openid-credential-offer://"),
+            f"Unexpected MT offer URL: {offer_url}",
+        )
+
+        claim_offer(self.token, self.wallet_id, offer_url)
+
+        creds = list_credentials(self.token, self.wallet_id)
+        self.assertTrue(len(creds) >= 2, "Expected at least 2 MT credentials")
+        if isinstance(creds, list) and isinstance(creds[0], dict):
+            self.__class__.credential_ids.append(creds[0].get("id", creds[0]))
+        else:
+            self.__class__.credential_ids.append(creds[0])
+
+    def test_04_mt_verify_via_pd(self):
+        """Verify MT-issued credential via PD (legacy verifier)."""
+        self.assertTrue(len(self.credential_ids) >= 2, "No credential to verify")
+
+        # Create PD verification session
+        request_credentials = [{"format": "vc+sd-jwt", "type": "VerifiableCredential"}]
+        verify_url, session_id = create_pd_verification(request_credentials)
+        self.assertTrue(session_id, "No session_id from PD verification")
+
+        # Wallet resolves
+        resolved = resolve_presentation(self.token, self.wallet_id, verify_url)
+        self.assertTrue(resolved, "Empty resolved presentation")
+        resolved_str = resolved.strip().strip('"')
+
+        # Extract and match PD
+        resolved_params = parse_url_params(resolved_str)
+        self.assertIn(
+            "presentation_definition",
+            resolved_params,
+            f"No presentation_definition in resolved URL: {list(resolved_params.keys())}",
+        )
+
+        pd_json = json.loads(resolved_params["presentation_definition"])
+        matched = match_credentials_pd(self.token, self.wallet_id, pd_json)
+        matched_list = matched if isinstance(matched, list) else [matched]
+        self.assertTrue(len(matched_list) >= 1, "No credentials matched PD")
+
+        cred_ids_to_present = []
+        for m in matched_list:
+            if isinstance(m, dict) and "id" in m:
+                cred_ids_to_present.append(m["id"])
+            elif isinstance(m, str):
+                cred_ids_to_present.append(m)
+        if not cred_ids_to_present:
+            cred_ids_to_present = self.credential_ids[-1:]
+
+        # Present
+        result = present_credentials(
+            self.token, self.wallet_id, self.did, resolved_str, cred_ids_to_present
+        )
+
+        time.sleep(1)
+
+        # Check session result
+        session = get_pd_session_result(session_id)
+        self.assertTrue(
+            session.get("verificationResult", False),
+            f"MT PD verification failed: {json.dumps(session, indent=2)[:500]}",
+        )
 
 
 # ---------------------------------------------------------------------------
