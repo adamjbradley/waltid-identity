@@ -2,6 +2,7 @@ package id.walt.commons.trust
 
 import id.walt.commons.config.TrustListConfig
 import id.walt.credentials.formats.DigitalCredential
+import id.walt.credentials.signatures.CoseCredentialSignature
 import id.walt.credentials.signatures.JwtBasedSignature
 import id.walt.etsi.tsl.EtsiTrustListProvider
 import id.walt.etsi.tsl.EtsiTrustListService
@@ -62,13 +63,15 @@ class CompositeTrustService(
     )
 
     override suspend fun validateIssuer(credential: DigitalCredential): TrustValidationResult {
-        val issuer = credential.issuer ?: return TrustValidationResult(trusted = false)
+        val issuer = credential.issuer
+        val x5cCerts = extractX5cCertificates(credential)
+
+        // If no issuer string AND no x5c certificates, we can't validate
+        if (issuer == null && x5cCerts == null) return TrustValidationResult(trusted = false)
 
         // Try ETSI TL
         if (enabledSources[TrustSource.ETSI_TL] == true) {
             try {
-                // Extract x5c certificate chain from JWT header (EUDI-compliant approach)
-                val x5cCerts = extractX5cCertificates(credential)
                 val normalizedX5c = x5cCerts?.map { normalizeBase64(it) }?.toSet()
 
                 val providers = etsiService.getAllTrustedProviders()
@@ -77,10 +80,11 @@ class CompositeTrustService(
                         val trustCert = service.serviceDigitalIdentity?.x509Certificate
 
                         // Primary: x5c certificate chain matching (ETSI TS 119 612 compliant)
+                        // Works for both JWT (SD-JWT) and COSE (mDoc) credentials
                         if (normalizedX5c != null && trustCert != null) {
                             val normalizedTrustCert = normalizeBase64(trustCert)
                             if (normalizedTrustCert in normalizedX5c) {
-                                log.info { "ETSI trust match via x5c certificate chain for issuer $issuer (provider: ${provider.name}, country: ${provider.country})" }
+                                log.info { "ETSI trust match via x5c certificate chain for issuer ${issuer ?: "(mDoc)"} (provider: ${provider.name}, country: ${provider.country})" }
                                 return TrustValidationResult(
                                     trusted = true,
                                     source = TrustSource.ETSI_TL,
@@ -97,38 +101,40 @@ class CompositeTrustService(
                             }
                         }
 
-                        // Fallback: string matching by subject name or provider name
-                        val identityMatch = service.serviceDigitalIdentity?.x509SubjectName?.contains(issuer) == true
-                        val nameMatch = provider.name.equals(issuer, ignoreCase = true)
+                        // Fallback: string matching by subject name or provider name (requires issuer string)
+                        if (issuer != null) {
+                            val identityMatch = service.serviceDigitalIdentity?.x509SubjectName?.contains(issuer) == true
+                            val nameMatch = provider.name.equals(issuer, ignoreCase = true)
 
-                        if (identityMatch || nameMatch) {
-                            return TrustValidationResult(
-                                trusted = true,
-                                source = TrustSource.ETSI_TL,
-                                providerName = provider.name,
-                                country = provider.country,
-                                status = service.currentStatus,
-                                details = mapOf(
-                                    "serviceType" to service.serviceType,
-                                    "serviceName" to service.serviceName,
-                                    "isGranted" to service.isGranted.toString(),
-                                    "matchedBy" to "subject_name_fallback"
+                            if (identityMatch || nameMatch) {
+                                return TrustValidationResult(
+                                    trusted = true,
+                                    source = TrustSource.ETSI_TL,
+                                    providerName = provider.name,
+                                    country = provider.country,
+                                    status = service.currentStatus,
+                                    details = mapOf(
+                                        "serviceType" to service.serviceType,
+                                        "serviceName" to service.serviceName,
+                                        "isGranted" to service.isGranted.toString(),
+                                        "matchedBy" to "subject_name_fallback"
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
 
                 if (x5cCerts == null) {
-                    log.debug { "No x5c certificate chain found in credential from $issuer — only string matching was attempted" }
+                    log.debug { "No x5c certificate chain found in credential from ${issuer ?: "(unknown)"} — only string matching was attempted" }
                 }
             } catch (e: Exception) {
-                log.warn { "ETSI TL validation failed for $issuer: ${e.message}" }
+                log.warn { "ETSI TL validation failed for ${issuer ?: "(mDoc)"}: ${e.message}" }
             }
         }
 
-        // Try OpenID Federation
-        if (enabledSources[TrustSource.OPENID_FEDERATION] == true) {
+        // Try OpenID Federation (requires issuer string — not available for mDoc)
+        if (issuer != null && enabledSources[TrustSource.OPENID_FEDERATION] == true) {
             try {
                 val chain = federationService.buildTrustChain(issuer)
                 if (chain != null && chain.valid) {
@@ -335,6 +341,13 @@ class CompositeTrustService(
 
     private fun extractX5cCertificates(credential: DigitalCredential): List<String>? {
         val signature = credential.signature
+
+        // Handle COSE-based credentials (mDoc)
+        if (signature is CoseCredentialSignature) {
+            return signature.x5cList?.x5c?.map { it.base64Der }?.takeIf { it.isNotEmpty() }
+        }
+
+        // Handle JWT-based credentials (SD-JWT)
         if (signature !is JwtBasedSignature) return null
         val x5c = signature.jwtHeader?.get("x5c")?.jsonArray ?: return null
         if (x5c.isEmpty()) return null
