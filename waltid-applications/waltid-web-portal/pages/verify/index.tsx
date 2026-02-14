@@ -83,9 +83,10 @@ export default function Verification() {
               const rpData = rpDetail.data;
               if (rpData.legalName) setRpHintName(rpData.legalName);
               if (rpData.x5c && rpData.x5c.length > 0) {
+                const certDownload = JSON.parse(certResponse.data);
                 signingConfig = {
                   clientId: rpData.clientId,
-                  key: JSON.parse(certResponse.data),
+                  key: { type: 'jwk', jwk: certDownload.privateKeyJwk },
                   x5c: rpData.x5c,
                 };
               }
