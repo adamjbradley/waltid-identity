@@ -161,7 +161,8 @@ const groupedCredentialsByType = computed(() => {
   }[]> = {};
   for (const credential of matchedCredentials) {
     const parsedDocument = parseJwt(credential.document);
-    const types = (credential.parsedDocument ?? parsedDocument.vc ?? parsedDocument).type ?? parsedDocument.vct ? [parsedDocument.vct] : undefined;
+    const parsed = credential.parsedDocument ?? parsedDocument?.vc ?? parsedDocument;
+    const types = parsed?.type ?? (parsed?.vct ? [parsed.vct] : undefined) ?? (parsed?.docType ? [parsed.docType] : undefined);
     const typeKey = Array.isArray(types) && types.length > 0 ? types.at(-1) : "unknown";
     if (!groups[typeKey]) {
       groups[typeKey] = [];

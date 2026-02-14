@@ -658,23 +658,34 @@ export interface VerificationSessionRequest {
   flow_type: string;
   core_flow: {
     signed_request: boolean;
+    sessionId?: string;
     clientId?: string;
     key?: VerificationSigningConfig['key'];
     x5c?: string[];
     dcql_query: DcqlQuery;
     policies?: { vc_policies: Array<string | Record<string, any>> };
   };
+  redirects?: {
+    success_redirect_uri?: string;
+    error_redirect_uri?: string;
+  };
 }
 
 export function buildVerificationSessionRequest(
   dcqlQuery: DcqlQuery,
   signingConfig?: VerificationSigningConfig,
-  policies: string[] = []
+  policies: string[] = [],
+  redirects?: { success_redirect_uri?: string; error_redirect_uri?: string },
+  sessionId?: string
 ): VerificationSessionRequest {
   const coreFlow: VerificationSessionRequest['core_flow'] = {
     signed_request: true,
     dcql_query: dcqlQuery,
   };
+
+  if (sessionId) {
+    coreFlow.sessionId = sessionId;
+  }
 
   // Add signing parameters if provided
   if (signingConfig) {
@@ -713,10 +724,16 @@ export function buildVerificationSessionRequest(
     }
   }
 
-  return {
+  const request: VerificationSessionRequest = {
     flow_type: 'cross_device',
     core_flow: coreFlow,
   };
+
+  if (redirects) {
+    request.redirects = redirects;
+  }
+
+  return request;
 }
 
 export const DIDMethods = [

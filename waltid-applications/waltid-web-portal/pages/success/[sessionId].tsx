@@ -1,11 +1,24 @@
 import WaltIcon from "@/components/walt/logo/WaltIcon";
-import {CheckCircleIcon} from "@heroicons/react/24/outline";
+import {CheckCircleIcon, XCircleIcon} from "@heroicons/react/24/outline";
 import {useContext, useEffect, useState} from "react";
 import {useRouter} from "next/router";
 import axios from "axios";
 import nextConfig from "@/next.config";
 import Modal from "@/components/walt/modal/BaseModal";
 import {EnvContext} from "@/pages/_app";
+
+interface FlowParticipant {
+  role: string;
+  name: string;
+  detail?: string;
+}
+
+const VCT_DISPLAY_NAMES: Record<string, string> = {
+  'urn:eudi:pid:1': 'EU Personal ID',
+  'eu.europa.ec.eudi.pid.1': 'EU Personal ID (mDoc)',
+  'org.iso.18013.5.1.mDL': 'Mobile Driving Licence',
+  'PaymentWalletAttestation': 'Payment Wallet Attestation',
+};
 
 export default function Success() {
   const env = useContext(EnvContext);
@@ -31,6 +44,8 @@ export default function Success() {
   >([]);
   const [index, setIndex] = useState<number>(0);
   const [modal, setModal] = useState<boolean>(false);
+  const [sessionStatus, setSessionStatus] = useState<string>('');
+  const [flowParticipants, setFlowParticipants] = useState<FlowParticipant[]>([]);
 
   function parseJwt(token: string) {
     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
@@ -59,6 +74,73 @@ export default function Success() {
       axios.get(`${verifier2Url}/verification-session/${router.query.sessionId}/info`)
         .then((response) => {
           const session = response.data;
+
+          // Extract session status
+          setSessionStatus(session.status || '');
+
+          // Extract flow participants
+          const participants: FlowParticipant[] = [];
+
+          // 1. Issuer — prefer issuing_authority claim, fall back to iss field
+          let issuerName = 'Unknown Issuer';
+          let issuerDetail = '';
+          if (session.presentedCredentials) {
+            for (const [, credList] of Object.entries(session.presentedCredentials) as [string, any[]][]) {
+              for (const cred of credList) {
+                const data = cred.credentialData || {};
+                // Prefer human-readable issuing_authority claim
+                if (data.issuing_authority) {
+                  issuerName = data.issuing_authority;
+                  issuerDetail = data.iss || '';
+                } else if (data.iss) {
+                  try {
+                    const issUrl = new URL(data.iss);
+                    issuerName = issUrl.host;
+                    issuerDetail = data.iss;
+                  } catch {
+                    // DID or other non-URL — truncate for display
+                    issuerName = data.iss.length > 30
+                      ? data.iss.substring(0, 30) + '...'
+                      : data.iss;
+                    issuerDetail = data.iss;
+                  }
+                }
+                // Append country to issuer name when available
+                if (data.issuing_country && issuerName !== 'Unknown Issuer') {
+                  issuerDetail = `${data.issuing_country} — ${issuerDetail || data.iss || ''}`;
+                }
+                if (cred.docType) {
+                  issuerDetail = issuerDetail || cred.docType;
+                }
+              }
+            }
+          }
+          participants.push({ role: 'Issuer', name: issuerName, detail: issuerDetail });
+
+          // 2. Holder — the wallet that presented
+          participants.push({ role: 'Holder', name: 'Digital Wallet', detail: 'Credential holder' });
+
+          // 3. Verifier — from client_id in authorization request
+          let verifierName = 'Unknown Verifier';
+          let verifierDetail = '';
+          const clientId = session.bootstrapAuthorizationRequest?.client_id
+            || session.authorizationRequest?.client_id;
+          if (clientId) {
+            verifierDetail = clientId;
+            // Parse x509_san_dns: prefix
+            if (clientId.startsWith('x509_san_dns:')) {
+              verifierName = clientId.replace('x509_san_dns:', '');
+            } else {
+              try {
+                verifierName = new URL(clientId).host;
+              } catch {
+                verifierName = clientId;
+              }
+            }
+          }
+          participants.push({ role: 'Verifier', name: verifierName, detail: verifierDetail });
+
+          setFlowParticipants(participants);
 
           // Extract credentials from presentedCredentials map
           const creds: any[] = [];
@@ -220,9 +302,58 @@ export default function Success() {
         </div>
       </Modal>
       <div className="relative w-full h-full sm:h-auto sm:w-10/12 md:w-8/12 lg:w-6/12 text-center shadow-2xl rounded-lg pt-8 pb-8 px-10 bg-white">
-        <h1 className="text-3xl text-gray-900 text-center font-bold mb-10">
+        {/* Status Header */}
+        {sessionStatus && (
+          <div className={`flex items-center justify-center gap-2 mb-4 py-2 px-4 rounded-full ${
+            sessionStatus === 'SUCCESSFUL'
+              ? 'bg-green-50 text-green-700'
+              : 'bg-red-50 text-red-700'
+          }`}>
+            {sessionStatus === 'SUCCESSFUL' ? (
+              <CheckCircleIcon className="h-5 w-5" />
+            ) : (
+              <XCircleIcon className="h-5 w-5" />
+            )}
+            <span className="text-sm font-semibold">
+              {sessionStatus === 'SUCCESSFUL' ? 'Verification Successful' : `Verification ${sessionStatus}`}
+            </span>
+          </div>
+        )}
+
+        <h1 className="text-3xl text-gray-900 text-center font-bold mb-6">
           Presented Credentials
         </h1>
+
+        {/* Flow Visualization */}
+        {flowParticipants.length > 0 && (
+          <div className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Verification Flow</div>
+            <div className="flex items-center justify-between gap-2">
+              {flowParticipants.map((participant, i) => (
+                <div key={participant.role} className="flex items-center gap-2 flex-1">
+                  <div className="flex flex-col items-center text-center flex-1 min-w-0">
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ${
+                      participant.role === 'Issuer' ? 'bg-blue-600' :
+                      participant.role === 'Holder' ? 'bg-purple-600' : 'bg-green-600'
+                    }`}>
+                      {participant.role === 'Issuer' ? 'I' : participant.role === 'Holder' ? 'H' : 'V'}
+                    </div>
+                    <div className="mt-1.5 text-xs font-semibold text-gray-700">{participant.role}</div>
+                    <div className="text-xs text-gray-500 truncate max-w-full" title={participant.detail || participant.name}>
+                      {participant.name}
+                    </div>
+                  </div>
+                  {i < flowParticipants.length - 1 && (
+                    <svg className="w-5 h-5 text-gray-400 flex-shrink-0 -mt-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-center">
           {index !== 0 && (
             <button
@@ -259,8 +390,8 @@ export default function Success() {
                           credentials[index].type.length - 1
                         ].replace(/([a-z0-9])([A-Z])/g, '$1 $2')
                         : credentials[index]?.vct
-                          ? vctName
-                          : credentials[index]?.vct}
+                          ? (VCT_DISPLAY_NAMES[String(credentials[index].vct)] || vctName || String(credentials[index].vct))
+                          : 'Credential'}
                     </h6>
                   </div>
                 </div>

@@ -86,16 +86,21 @@ export async function useIssuance(query: any) {
         }
 
         if (typeof credentialListElement["vct"] !== 'undefined') {
-
-            const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${credentialListElement["vct"]}`);
-
-            if (response.status < 200 || response.status >= 300) {
-                throw new Error(`VCT URL returns error: ${response.status}`);
+            const vct = credentialListElement["vct"];
+            try {
+                const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${vct}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const nameOrDescription = data.name ?? data.description ?? data.vct ?? vct;
+                    credentialTypes.push(nameOrDescription);
+                } else {
+                    // VCT resolution failed (e.g., URN-based VCTs) — use raw VCT string
+                    credentialTypes.push(vct);
+                }
+            } catch {
+                // Network error — fall back to raw VCT string
+                credentialTypes.push(vct);
             }
-
-            const data = await response.json();
-            const nameOrDescription = data.name ?? data.description ?? data.vct ?? null
-            credentialTypes.push(nameOrDescription);
         }
     }
     const credentialCount = credentialTypes.length;

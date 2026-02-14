@@ -6,9 +6,22 @@ import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.JWSObject
 import com.nimbusds.jose.Payload
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jose.util.Base64URL
+import id.walt.mdoc.COSECryptoProviderKeyInfo
+import id.walt.mdoc.SimpleCOSECryptoProvider
+import id.walt.mdoc.dataelement.ByteStringElement
+import id.walt.mdoc.dataelement.EncodedCBORElement
+import id.walt.mdoc.dataelement.ListElement
+import id.walt.mdoc.dataelement.MapElement
+import id.walt.mdoc.dataelement.NullElement
+import id.walt.mdoc.dataelement.StringElement
+import id.walt.mdoc.dataretrieval.DeviceResponse
+import id.walt.mdoc.doc.MDoc
+import id.walt.mdoc.docrequest.MDocRequestBuilder
+import id.walt.mdoc.mdocauth.DeviceAuthentication
 import id.walt.commons.config.ConfigManager
 import id.walt.commons.featureflag.FeatureManager.whenFeature
 import id.walt.commons.web.ConflictException
@@ -31,6 +44,7 @@ import id.walt.oid4vc.data.ResponseMode
 import id.walt.sdjwt.SDJwtVC
 import id.walt.sdjwt.WaltIdJWTCryptoProvider
 import id.walt.oid4vc.errors.AuthorizationError
+import org.cose.java.AlgorithmID
 import id.walt.oid4vc.providers.CredentialWalletConfig
 import id.walt.oid4vc.providers.OpenIDClientConfig
 import id.walt.oid4vc.requests.AuthorizationRequest
@@ -80,6 +94,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
+import java.security.MessageDigest
 import java.util.*
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -422,6 +437,55 @@ class SSIKit2WalletService(
                         kbKeyId = key.getKeyId()
                     )
                     finalSDJwtVC.toString(formatForPresentation = true, withKBJwt = true)
+                }
+                CredentialFormat.mso_mdoc -> {
+                    val mdoc = MDoc.fromCBORHex(matchingCred.document)
+
+                    // Build OID4VP 1.0 handover: ["OpenID4VPHandover", SHA256(CBOR([clientId, nonce, null, responseUri]))]
+                    val handoverResponseUri = authorizationRequest.responseUri
+                        ?: authorizationRequest.redirectUri ?: ""
+                    val handoverInfo = ListElement(listOf(
+                        StringElement(authorizationRequest.clientId),
+                        StringElement(authorizationRequest.nonce ?: ""),
+                        NullElement(),
+                        StringElement(handoverResponseUri)
+                    ))
+                    val infoHash = MessageDigest.getInstance("SHA-256").digest(handoverInfo.toCBOR())
+                    val mdocHandover = ListElement(listOf(
+                        StringElement("OpenID4VPHandover"),
+                        ByteStringElement(infoHash)
+                    ))
+
+                    val ecKey = ECKey.parse(key.exportJWK()).toECKey()
+                    val cryptoProvider = SimpleCOSECryptoProvider(
+                        listOf(
+                            COSECryptoProviderKeyInfo(
+                                key.getKeyId(),
+                                AlgorithmID.ECDSA_256,
+                                ecKey.toECPublicKey(),
+                                ecKey.toECPrivateKey()
+                            )
+                        )
+                    )
+
+                    val mdocRequest = MDocRequestBuilder(mdoc.docType.value).also { builder ->
+                        credQuery.claims?.forEach { claim ->
+                            if (claim.path.size >= 2) {
+                                builder.addDataElementRequest(claim.path[0], claim.path[1], claim.intentToRetain ?: false)
+                            }
+                        }
+                    }.build()
+
+                    val presentedMDoc = mdoc.presentWithDeviceSignature(
+                        mdocRequest,
+                        DeviceAuthentication(
+                            sessionTranscript = ListElement(
+                                listOf(NullElement(), NullElement(), mdocHandover)
+                            ), mdoc.docType.value, EncodedCBORElement(MapElement(mapOf()))
+                        ), cryptoProvider, key.getKeyId()
+                    )
+
+                    DeviceResponse(listOf(presentedMDoc)).toCBORBase64URL()
                 }
                 else -> matchingCred.document
             }

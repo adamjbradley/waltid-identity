@@ -113,7 +113,15 @@ export default function Verification() {
             }
           }
 
-          const requestBody = buildVerificationSessionRequest(dcqlQuery, signingConfig, vps);
+          // Pre-generate sessionId so we can embed it in redirect URLs
+          const preSessionId = crypto.randomUUID();
+          const successUrl = `${window.location.origin}/success/${preSessionId}?api2=true`;
+
+          const requestBody = buildVerificationSessionRequest(
+            dcqlQuery, signingConfig, vps,
+            { success_redirect_uri: successUrl, error_redirect_uri: successUrl },
+            preSessionId
+          );
 
           const response = await axios.post(
             `${verifier2Url}/verification-session/create`,
