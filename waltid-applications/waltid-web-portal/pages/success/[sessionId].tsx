@@ -81,33 +81,73 @@ export default function Success() {
           // Extract flow participants
           const participants: FlowParticipant[] = [];
 
-          // 1. Issuer — prefer issuing_authority claim, fall back to iss field
+          // 1. Issuer — check top-level claims, mDoc namespaces, then X.509 cert CN
           let issuerName = 'Unknown Issuer';
           let issuerDetail = '';
           if (session.presentedCredentials) {
             for (const [, credList] of Object.entries(session.presentedCredentials) as [string, any[]][]) {
               for (const cred of credList) {
                 const data = cred.credentialData || {};
+
+                // Collect all claims (top-level + mDoc namespaces)
+                const allClaims: Record<string, any> = {};
+                for (const [k, v] of Object.entries(data)) {
+                  if (typeof v === 'object' && v !== null && !Array.isArray(v) && k !== 'cnf') {
+                    // mDoc namespace — flatten claims from it
+                    Object.assign(allClaims, v);
+                  } else {
+                    allClaims[k] = v;
+                  }
+                }
+
                 // Prefer human-readable issuing_authority claim
-                if (data.issuing_authority) {
-                  issuerName = data.issuing_authority;
-                  issuerDetail = data.iss || '';
+                if (allClaims.issuing_authority) {
+                  issuerName = allClaims.issuing_authority;
+                  issuerDetail = data.iss || cred.docType || '';
                 } else if (data.iss) {
                   try {
                     const issUrl = new URL(data.iss);
                     issuerName = issUrl.host;
                     issuerDetail = data.iss;
                   } catch {
-                    // DID or other non-URL — truncate for display
                     issuerName = data.iss.length > 30
                       ? data.iss.substring(0, 30) + '...'
                       : data.iss;
                     issuerDetail = data.iss;
                   }
                 }
-                // Append country to issuer name when available
-                if (data.issuing_country && issuerName !== 'Unknown Issuer') {
-                  issuerDetail = `${data.issuing_country} — ${issuerDetail || data.iss || ''}`;
+
+                // For mDoc: extract issuer from X.509 IACA certificate CN
+                if (issuerName === 'Unknown Issuer' && cred.signature?.x5cList?.length > 0) {
+                  try {
+                    // Use the IACA cert (last in chain) or signer cert (first)
+                    const certB64 = cred.signature.x5cList[cred.signature.x5cList.length - 1];
+                    const certBinary = Buffer.from(certB64, 'base64').toString('binary');
+                    // Extract readable text sequences from DER cert
+                    let readable = '';
+                    for (let ci = 0; ci < certBinary.length; ci++) {
+                      const code = certBinary.charCodeAt(ci);
+                      readable += (code >= 32 && code < 127) ? certBinary[ci] : '\x00';
+                    }
+                    // Find org name — look for text before " IACA" or " Document Signer"
+                    const iacaMatch = readable.match(/([A-Z][A-Za-z0-9 .'()-]+?)\s+IACA/);
+                    if (iacaMatch) {
+                      issuerName = iacaMatch[1].trim();
+                    } else {
+                      const dsMatch = readable.match(/([A-Z][A-Za-z0-9 .'()-]+?)\s+Document Signer/);
+                      if (dsMatch) {
+                        issuerName = dsMatch[1].trim();
+                      }
+                    }
+                  } catch {
+                    // Cert parsing failed — keep Unknown Issuer
+                  }
+                }
+
+                // Append country context
+                const country = allClaims.issuing_country;
+                if (country && issuerName !== 'Unknown Issuer') {
+                  issuerDetail = `${country} — ${issuerDetail || data.iss || ''}`;
                 }
                 if (cred.docType) {
                   issuerDetail = issuerDetail || cred.docType;
@@ -148,17 +188,22 @@ export default function Success() {
             for (const [, credList] of Object.entries(session.presentedCredentials) as [string, any[]][]) {
               for (const cred of credList) {
                 const data = cred.credentialData || {};
-                // Build a credential object compatible with the display template
-                // SD-JWT credentials have flat claims (no credentialSubject wrapper)
                 const displayCred: any = {
-                  vct: data.vct,
+                  vct: data.vct || cred.docType,
                   type: data.type,
                   credentialSubject: {} as Record<string, string>,
                 };
-                // Pick user-facing claims from credentialData (skip internal fields)
-                const skipKeys = new Set(['iss', 'iat', 'nbf', 'exp', 'cnf', 'vct', 'type', '_sd', '_sd_alg']);
+                // Pick user-facing claims — check top-level AND mDoc namespaces
+                const skipKeys = new Set(['iss', 'iat', 'nbf', 'exp', 'cnf', 'vct', 'type', '_sd', '_sd_alg', 'docType']);
                 for (const [k, v] of Object.entries(data)) {
-                  if (!skipKeys.has(k) && (typeof v === 'string' || typeof v === 'boolean')) {
+                  if (typeof v === 'object' && v !== null && !Array.isArray(v) && k !== 'cnf') {
+                    // mDoc namespace — extract claims from nested object
+                    for (const [nk, nv] of Object.entries(v as Record<string, any>)) {
+                      if (typeof nv === 'string' || typeof nv === 'boolean') {
+                        displayCred.credentialSubject[nk] = String(nv);
+                      }
+                    }
+                  } else if (!skipKeys.has(k) && (typeof v === 'string' || typeof v === 'boolean')) {
                     displayCred.credentialSubject[k] = String(v);
                   }
                 }
@@ -332,10 +377,8 @@ export default function Success() {
               {flowParticipants.map((participant, i) => (
                 <div key={participant.role} className="flex items-center gap-2 flex-1">
                   <div className="flex flex-col items-center text-center flex-1 min-w-0">
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ${
-                      participant.role === 'Issuer' ? 'bg-blue-600' :
-                      participant.role === 'Holder' ? 'bg-purple-600' : 'bg-green-600'
-                    }`}>
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md"
+                      style={{ backgroundColor: participant.role === 'Issuer' ? '#2563eb' : participant.role === 'Holder' ? '#9333ea' : '#16a34a' }}>
                       {participant.role === 'Issuer' ? 'I' : participant.role === 'Holder' ? 'H' : 'V'}
                     </div>
                     <div className="mt-1.5 text-xs font-semibold text-gray-700">{participant.role}</div>
