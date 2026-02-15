@@ -13,6 +13,8 @@ import {
   ArrowLeftIcon,
   NoSymbolIcon,
   CheckCircleIcon,
+  GlobeAltIcon,
+  FunnelIcon,
 } from '@heroicons/react/24/outline';
 import AdminNav from '@/components/walt/nav/AdminNav';
 
@@ -33,13 +35,42 @@ interface StatusListSummary {
 
 interface StatusListEntry {
   index: number;
+  listId: string | null;
   credentialId: string | null;
   credentialType: string | null;
   subjectDid: string | null;
+  issuerDid: string | null;
+  issuerName: string | null;
+  country: string | null;
   issuedAt: string | null;
   revoked: boolean;
   revokedAt: string | null;
   revokedReason: string | null;
+}
+
+interface GlobalEntry {
+  listId: string;
+  entry: StatusListEntry;
+}
+
+interface DimensionStats {
+  issued: number;
+  revoked: number;
+}
+
+interface IssuerDimensionStats {
+  name: string | null;
+  issued: number;
+  revoked: number;
+}
+
+interface StatsResponse {
+  totalLists: number;
+  totalIssued: number;
+  totalRevoked: number;
+  byCountry: Record<string, DimensionStats>;
+  byIssuer: Record<string, IssuerDimensionStats>;
+  byCredentialType: Record<string, DimensionStats>;
 }
 
 // -- Status Badge --
@@ -76,7 +107,7 @@ export default function StatusLists() {
   const router = useRouter();
 
   // View state
-  const [view, setView] = useState<'lists' | 'entries'>('lists');
+  const [view, setView] = useState<'lists' | 'entries' | 'all-credentials'>('lists');
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [expandedList, setExpandedList] = useState<string | null>(null);
 
@@ -91,18 +122,30 @@ export default function StatusLists() {
   const [createCredentialTypes, setCreateCredentialTypes] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Entries state
+  // Entries state (per-list)
   const [entries, setEntries] = useState<StatusListEntry[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [entriesPage, setEntriesPage] = useState(1);
   const [entriesTotalCount, setEntriesTotalCount] = useState(0);
   const [entriesFilter, setEntriesFilter] = useState<'all' | 'revoked' | 'active'>('all');
 
+  // All Credentials state
+  const [globalEntries, setGlobalEntries] = useState<GlobalEntry[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalPage, setGlobalPage] = useState(1);
+  const [globalTotalCount, setGlobalTotalCount] = useState(0);
+  const [globalCountryFilter, setGlobalCountryFilter] = useState('');
+  const [globalIssuerFilter, setGlobalIssuerFilter] = useState('');
+  const [globalTypeFilter, setGlobalTypeFilter] = useState('');
+  const [globalStatusFilter, setGlobalStatusFilter] = useState('');
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
   // Action state
   const [deletingList, setDeletingList] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Bulk revoke
+  // Bulk revoke (per-list view)
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   const apiBase = env.NEXT_PUBLIC_ISSUER;
@@ -136,7 +179,7 @@ export default function StatusLists() {
     }
   }, [apiBase]);
 
-  // -- Fetch entries --
+  // -- Fetch entries (per-list) --
 
   const fetchEntries = async (listId: string, page: number = 1) => {
     try {
@@ -164,6 +207,48 @@ export default function StatusLists() {
       fetchEntries(selectedListId, 1);
     }
   }, [view, selectedListId, entriesFilter]);
+
+  // -- Fetch global entries (All Credentials) --
+
+  const fetchGlobalEntries = async (page: number = 1) => {
+    try {
+      setGlobalLoading(true);
+      const params: Record<string, string> = { page: String(page), size: String(pageSize) };
+      if (globalCountryFilter) params.country = globalCountryFilter;
+      if (globalIssuerFilter) params.issuerDid = globalIssuerFilter;
+      if (globalTypeFilter) params.credentialType = globalTypeFilter;
+      if (globalStatusFilter === 'revoked') params.revoked = 'true';
+      if (globalStatusFilter === 'active') params.revoked = 'false';
+
+      const response = await axios.get<GlobalEntry[]>(
+        `${apiBase}/admin/status-lists/entries/search`,
+        { params }
+      );
+      setGlobalEntries(response.data);
+      setGlobalTotalCount(parseInt(response.headers['x-total-count'] || '0', 10));
+      setGlobalPage(page);
+    } catch (e: any) {
+      setActionError(e.response?.data?.error || e.message || 'Failed to fetch credentials');
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await axios.get<StatsResponse>(`${apiBase}/admin/status-lists/stats`);
+      setStats(response.data);
+    } catch {
+      // stats are optional — don't block the view
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'all-credentials') {
+      fetchGlobalEntries(1);
+      fetchStats();
+    }
+  }, [view, globalCountryFilter, globalIssuerFilter, globalTypeFilter, globalStatusFilter]);
 
   // -- Handlers --
 
@@ -205,7 +290,8 @@ export default function StatusLists() {
     try {
       setActionError(null);
       await axios.put(`${apiBase}/admin/status-lists/${listId}/entries/${index}/revoke`, { reason });
-      fetchEntries(listId, entriesPage);
+      if (view === 'entries' && selectedListId) fetchEntries(selectedListId, entriesPage);
+      if (view === 'all-credentials') fetchGlobalEntries(globalPage);
       fetchStatusLists();
     } catch (e: any) {
       setActionError(e.response?.data?.error || e.message || 'Failed to revoke entry');
@@ -216,7 +302,8 @@ export default function StatusLists() {
     try {
       setActionError(null);
       await axios.put(`${apiBase}/admin/status-lists/${listId}/entries/${index}/unrevoke`);
-      fetchEntries(listId, entriesPage);
+      if (view === 'entries' && selectedListId) fetchEntries(selectedListId, entriesPage);
+      if (view === 'all-credentials') fetchGlobalEntries(globalPage);
       fetchStatusLists();
     } catch (e: any) {
       setActionError(e.response?.data?.error || e.message || 'Failed to unrevoke entry');
@@ -237,6 +324,35 @@ export default function StatusLists() {
       fetchStatusLists();
     } catch (e: any) {
       setActionError(e.response?.data?.error || e.message || 'Failed to bulk revoke');
+    }
+  };
+
+  const handleGlobalBulkAction = async (action: 'revoke' | 'unrevoke') => {
+    const reason = action === 'revoke' ? prompt('Bulk revocation reason (optional):') : null;
+    try {
+      setBulkActionLoading(true);
+      setActionError(null);
+      const filter: Record<string, any> = {};
+      if (globalCountryFilter) filter.country = globalCountryFilter;
+      if (globalIssuerFilter) filter.issuerDid = globalIssuerFilter;
+      if (globalTypeFilter) filter.credentialType = globalTypeFilter;
+      if (globalStatusFilter === 'revoked') filter.revoked = true;
+      if (globalStatusFilter === 'active') filter.revoked = false;
+
+      const response = await axios.post(`${apiBase}/admin/status-lists/bulk-action`, {
+        action,
+        reason,
+        filter,
+      });
+      const affected = response.data?.affected || 0;
+      alert(`${action === 'revoke' ? 'Revoked' : 'Unrevoked'} ${affected} credential(s).`);
+      fetchGlobalEntries(globalPage);
+      fetchStats();
+      fetchStatusLists();
+    } catch (e: any) {
+      setActionError(e.response?.data?.error || e.message || 'Bulk action failed');
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -265,11 +381,12 @@ export default function StatusLists() {
   };
 
   const truncate = (s: string | null, len: number = 24) => {
-    if (!s) return '—';
+    if (!s) return '\u2014';
     return s.length > len ? s.slice(0, len) + '...' : s;
   };
 
   const totalPages = Math.ceil(entriesTotalCount / pageSize);
+  const globalTotalPages = Math.ceil(globalTotalCount / pageSize);
 
   // -- Render --
 
@@ -302,6 +419,33 @@ export default function StatusLists() {
     );
   }
 
+  // -- Tab bar --
+  const TabBar = () => (
+    <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+      {([
+        { key: 'lists', label: 'Status Lists', icon: ListBulletIcon },
+        { key: 'all-credentials', label: 'All Credentials', icon: GlobeAltIcon },
+      ] as const).map(({ key, label, icon: Icon }) => (
+        <button
+          key={key}
+          onClick={() => {
+            setView(key);
+            setSelectedListId(null);
+            setActionError(null);
+          }}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            view === key || (key === 'lists' && view === 'entries')
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <Icon className="w-4 h-4" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex flex-col justify-center items-center bg-gray-50 min-h-screen">
       <div className="my-5 flex flex-row items-center gap-4">
@@ -312,9 +456,23 @@ export default function StatusLists() {
       </div>
 
       <div className="w-11/12 md:w-9/12 lg:w-8/12 shadow-2xl rounded-lg mt-5 pt-8 pb-8 px-10 bg-white max-w-[1100px]">
-        {view === 'lists' ? (
+        <TabBar />
+
+        {/* Error banner */}
+        {(error || actionError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-800 text-sm">{error || actionError}</p>
+            {actionError && (
+              <button onClick={() => setActionError(null)} className="text-xs text-red-500 mt-1 underline">
+                Dismiss
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Status Lists Tab ── */}
+        {(view === 'lists' || view === 'entries') && view === 'lists' && (
           <>
-            {/* Header */}
             <div className="flex flex-row justify-between items-center mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Status Lists</h1>
@@ -331,22 +489,6 @@ export default function StatusLists() {
                 </Button>
               </div>
             </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-800 text-sm">{error}</p>
-              </div>
-            )}
-
-            {actionError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-800 text-sm">{actionError}</p>
-                <button onClick={() => setActionError(null)} className="text-xs text-red-500 mt-1 underline">
-                  Dismiss
-                </button>
-              </div>
-            )}
 
             {/* Create Form */}
             {showCreateForm ? (
@@ -417,7 +559,6 @@ export default function StatusLists() {
                   const isExpanded = expandedList === list.id;
                   return (
                     <div key={list.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                      {/* Summary row */}
                       <button
                         onClick={() => setExpandedList(isExpanded ? null : list.id)}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
@@ -448,7 +589,6 @@ export default function StatusLists() {
                         <span className="text-xs text-gray-400 font-mono">{truncate(list.id, 8)}</span>
                       </button>
 
-                      {/* Expanded detail */}
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mb-4">
@@ -489,9 +629,11 @@ export default function StatusLists() {
               </div>
             )}
           </>
-        ) : (
+        )}
+
+        {/* ── Per-List Entries View ── */}
+        {view === 'entries' && (
           <>
-            {/* Entries View */}
             <div className="flex items-center gap-3 mb-6">
               <button
                 onClick={() => {
@@ -509,15 +651,6 @@ export default function StatusLists() {
                 <PurposeBadge purpose={statusLists.find((l) => l.id === selectedListId)!.purpose} />
               )}
             </div>
-
-            {actionError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-800 text-sm">{actionError}</p>
-                <button onClick={() => setActionError(null)} className="text-xs text-red-500 mt-1 underline">
-                  Dismiss
-                </button>
-              </div>
-            )}
 
             {/* Filters */}
             <div className="flex items-center justify-between mb-4">
@@ -576,9 +709,9 @@ export default function StatusLists() {
                         />
                       </th>
                       <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Index</th>
-                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Credential ID</th>
                       <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Subject</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Issuer</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Country</th>
                       <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Issued</th>
                       <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="pb-2 text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -596,9 +729,6 @@ export default function StatusLists() {
                           />
                         </td>
                         <td className="py-2 pr-3 font-mono text-xs">{entry.index}</td>
-                        <td className="py-2 pr-3 font-mono text-xs" title={entry.credentialId || undefined}>
-                          {truncate(entry.credentialId)}
-                        </td>
                         <td className="py-2 pr-3">
                           {entry.credentialType && (
                             <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
@@ -606,11 +736,12 @@ export default function StatusLists() {
                             </span>
                           )}
                         </td>
-                        <td className="py-2 pr-3 font-mono text-xs" title={entry.subjectDid || undefined}>
-                          {truncate(entry.subjectDid)}
+                        <td className="py-2 pr-3 text-xs" title={entry.issuerDid || undefined}>
+                          {entry.issuerName || truncate(entry.issuerDid)}
                         </td>
+                        <td className="py-2 pr-3 text-xs">{entry.country || '\u2014'}</td>
                         <td className="py-2 pr-3 text-xs text-gray-500">
-                          {entry.issuedAt ? formatDate(entry.issuedAt) : '—'}
+                          {entry.issuedAt ? formatDate(entry.issuedAt) : '\u2014'}
                         </td>
                         <td className="py-2 pr-3">
                           <StatusBadge revoked={entry.revoked} />
@@ -655,6 +786,220 @@ export default function StatusLists() {
                 <button
                   onClick={() => selectedListId && fetchEntries(selectedListId, entriesPage + 1)}
                   disabled={entriesPage >= totalPages}
+                  className="text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── All Credentials Tab ── */}
+        {view === 'all-credentials' && (
+          <>
+            <div className="flex flex-row justify-between items-center mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">All Credentials</h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Cross-list credential search and bulk operations
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => fetchGlobalEntries(globalPage)} loading={globalLoading} size="sm" color="secondary">
+                  <div className="flex items-center gap-2">
+                    <ArrowPathIcon className="w-4 h-4" />
+                    Refresh
+                  </div>
+                </Button>
+              </div>
+            </div>
+
+            {/* Stats row */}
+            {stats && (
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-700">{stats.totalIssued}</div>
+                  <div className="text-xs text-blue-600">Total Issued</div>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-red-700">{stats.totalRevoked}</div>
+                  <div className="text-xs text-red-600">Total Revoked</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-gray-700">{stats.totalLists}</div>
+                  <div className="text-xs text-gray-600">Status Lists</div>
+                </div>
+              </div>
+            )}
+
+            {/* Filter bar */}
+            <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <FunnelIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <select
+                value={globalCountryFilter}
+                onChange={(e) => setGlobalCountryFilter(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Countries</option>
+                {stats && Object.keys(stats.byCountry).sort().map((c) => (
+                  <option key={c} value={c}>{c} ({stats.byCountry[c].issued})</option>
+                ))}
+              </select>
+              <select
+                value={globalIssuerFilter}
+                onChange={(e) => setGlobalIssuerFilter(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px]"
+              >
+                <option value="">All Issuers</option>
+                {stats && Object.entries(stats.byIssuer).map(([did, s]) => (
+                  <option key={did} value={did}>{s.name || truncate(did, 20)} ({s.issued})</option>
+                ))}
+              </select>
+              <select
+                value={globalTypeFilter}
+                onChange={(e) => setGlobalTypeFilter(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Types</option>
+                {stats && Object.keys(stats.byCredentialType).sort().map((t) => (
+                  <option key={t} value={t}>{t} ({stats.byCredentialType[t].issued})</option>
+                ))}
+              </select>
+              <select
+                value={globalStatusFilter}
+                onChange={(e) => setGlobalStatusFilter(e.target.value)}
+                className="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="revoked">Revoked</option>
+              </select>
+              {(globalCountryFilter || globalIssuerFilter || globalTypeFilter || globalStatusFilter) && (
+                <button
+                  onClick={() => {
+                    setGlobalCountryFilter('');
+                    setGlobalIssuerFilter('');
+                    setGlobalTypeFilter('');
+                    setGlobalStatusFilter('');
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Bulk action bar */}
+            {(globalCountryFilter || globalIssuerFilter || globalTypeFilter || globalStatusFilter) && (
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs text-gray-500">
+                  {globalTotalCount} matching credential(s)
+                </span>
+                <button
+                  onClick={() => handleGlobalBulkAction('revoke')}
+                  disabled={bulkActionLoading}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  <NoSymbolIcon className="w-3 h-3" />
+                  Revoke All Matching
+                </button>
+                <button
+                  onClick={() => handleGlobalBulkAction('unrevoke')}
+                  disabled={bulkActionLoading}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-md hover:bg-green-50 transition-colors disabled:opacity-50"
+                >
+                  <CheckCircleIcon className="w-3 h-3" />
+                  Unrevoke All Matching
+                </button>
+              </div>
+            )}
+
+            {/* Global entries table */}
+            {globalLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : globalEntries.length === 0 ? (
+              <div className="text-center py-12">
+                <GlobeAltIcon className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                <p className="text-sm text-gray-500">No credentials found.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left">
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Index</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Issuer</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Country</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Issued</th>
+                      <th className="pb-2 pr-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="pb-2 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {globalEntries.map((ge) => (
+                      <tr key={`${ge.listId}-${ge.entry.index}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 pr-3 font-mono text-xs">{ge.entry.index}</td>
+                        <td className="py-2 pr-3">
+                          {ge.entry.credentialType && (
+                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                              {ge.entry.credentialType}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 text-xs" title={ge.entry.issuerDid || undefined}>
+                          {ge.entry.issuerName || truncate(ge.entry.issuerDid)}
+                        </td>
+                        <td className="py-2 pr-3 text-xs">{ge.entry.country || '\u2014'}</td>
+                        <td className="py-2 pr-3 text-xs text-gray-500">
+                          {ge.entry.issuedAt ? formatDate(ge.entry.issuedAt) : '\u2014'}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <StatusBadge revoked={ge.entry.revoked} />
+                        </td>
+                        <td className="py-2">
+                          {ge.entry.revoked ? (
+                            <button
+                              onClick={() => handleUnrevoke(ge.listId, ge.entry.index)}
+                              className="text-xs text-green-600 hover:text-green-800 font-medium transition-colors"
+                            >
+                              Unrevoke
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRevoke(ge.listId, ge.entry.index)}
+                              className="text-xs text-red-600 hover:text-red-800 font-medium transition-colors"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {globalTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+                <button
+                  onClick={() => fetchGlobalEntries(globalPage - 1)}
+                  disabled={globalPage <= 1}
+                  className="text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-xs text-gray-500">
+                  Page {globalPage} of {globalTotalPages} ({globalTotalCount} total)
+                </span>
+                <button
+                  onClick={() => fetchGlobalEntries(globalPage + 1)}
+                  disabled={globalPage >= globalTotalPages}
                   className="text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Next

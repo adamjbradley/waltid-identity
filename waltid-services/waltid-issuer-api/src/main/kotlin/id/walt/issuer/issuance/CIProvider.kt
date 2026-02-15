@@ -21,6 +21,7 @@ import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.FeatureCatalog
 import id.walt.issuer.psp.PwaConfig
+import id.walt.issuer.statuslist.StatusListIssuanceHook
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
 import id.walt.mdoc.cose.COSESign1
@@ -381,6 +382,17 @@ open class CIProvider(
                 X509CertUtils.parse(it).encoded.encodeToBase64()
             }
 
+            // Allocate status list index for SD-JWT credentials (before signing)
+            val statusClaim = if (request.credentialFormat in listOf(
+                    CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc
+                )) {
+                StatusListIssuanceHook.allocateForCredential(
+                    credentialConfigurationId = request.credentialConfigurationId,
+                    issuerDid = request.issuerDid,
+                    baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl,
+                )?.let { StatusListIssuanceHook.buildStatusClaim(it) }
+            } else null
+
             request.run {
                 when (credentialFormat) {
                     CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc -> OpenID4VCI.generateSdJwtVC(
@@ -394,6 +406,7 @@ open class CIProvider(
                             DisplayProperties.fromJSON(it.jsonObject)
                         },
                         x5Chain = x5c,
+                        status = statusClaim,
                     ).also {
                         if (!issuanceSession.callbackUrl.isNullOrEmpty())
                             sendCallback(

@@ -65,7 +65,9 @@ fun Application.statusListAdminRoutes() {
                     id = Uuid.random().toString(),
                     purpose = req.purpose,
                     listSize = listSize,
+                    bitsPerStatus = 1,
                     encodedList = BitstringManager.createEmpty(listSize),
+                    encodedListIetf = BitstringManager.createEmptyIetf(listSize, 1),
                     credentialTypes = req.credentialTypes,
                     createdAt = now,
                     updatedAt = now
@@ -73,6 +75,127 @@ fun Application.statusListAdminRoutes() {
 
                 store.save(data)
                 call.respond(HttpStatusCode.Created, StatusListSummary.from(data))
+            }
+
+            get("entries/search") {
+                val store = StatusListStore.instanceOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Status Lists feature is not enabled")
+                    )
+
+                val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+                val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
+                val countryFilter = call.request.queryParameters["country"]
+                val issuerDidFilter = call.request.queryParameters["issuerDid"]
+                val credentialTypeFilter = call.request.queryParameters["credentialType"]
+                val revokedFilter = call.request.queryParameters["revoked"]?.toBooleanStrictOrNull()
+
+                val allEntries = store.list().flatMap { data ->
+                    store.getRegistry(data.id).entries.values.map { entry ->
+                        GlobalEntry(listId = data.id, entry = entry)
+                    }
+                }.let { entries ->
+                    var filtered = entries
+                    if (countryFilter != null) filtered = filtered.filter { it.entry.country == countryFilter }
+                    if (issuerDidFilter != null) filtered = filtered.filter { it.entry.issuerDid == issuerDidFilter }
+                    if (credentialTypeFilter != null) filtered = filtered.filter { it.entry.credentialType == credentialTypeFilter }
+                    if (revokedFilter != null) filtered = filtered.filter { it.entry.revoked == revokedFilter }
+                    filtered.sortedByDescending { it.entry.issuedAt }
+                }
+
+                val total = allEntries.size
+                val start = (page - 1) * size
+                val paged = allEntries.drop(start).take(size)
+
+                call.response.header("X-Total-Count", total.toString())
+                call.respond(paged)
+            }
+
+            get("stats") {
+                val store = StatusListStore.instanceOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Status Lists feature is not enabled")
+                    )
+
+                val allEntries = store.list().flatMap { data ->
+                    store.getRegistry(data.id).entries.values.toList()
+                }
+
+                val byCountry = mutableMapOf<String, MutableList<StatusListEntry>>()
+                val byIssuer = mutableMapOf<String, MutableList<StatusListEntry>>()
+                val byType = mutableMapOf<String, MutableList<StatusListEntry>>()
+
+                for (entry in allEntries) {
+                    entry.country?.let { byCountry.getOrPut(it) { mutableListOf() }.add(entry) }
+                    entry.issuerDid?.let { byIssuer.getOrPut(it) { mutableListOf() }.add(entry) }
+                    entry.credentialType?.let { byType.getOrPut(it) { mutableListOf() }.add(entry) }
+                }
+
+                call.respond(StatsResponse(
+                    totalLists = store.list().size,
+                    totalIssued = allEntries.size,
+                    totalRevoked = allEntries.count { it.revoked },
+                    byCountry = byCountry.mapValues { (_, entries) ->
+                        DimensionStats(issued = entries.size, revoked = entries.count { it.revoked })
+                    },
+                    byIssuer = byIssuer.mapValues { (_, entries) ->
+                        IssuerDimensionStats(
+                            name = entries.firstOrNull()?.issuerName,
+                            issued = entries.size,
+                            revoked = entries.count { it.revoked }
+                        )
+                    },
+                    byCredentialType = byType.mapValues { (_, entries) ->
+                        DimensionStats(issued = entries.size, revoked = entries.count { it.revoked })
+                    },
+                ))
+            }
+
+            post("bulk-action") {
+                val store = StatusListStore.instanceOrNull()
+                    ?: return@post call.respond(
+                        HttpStatusCode.ServiceUnavailable,
+                        mapOf("error" to "Status Lists feature is not enabled")
+                    )
+
+                val req = call.receive<BulkActionRequest>()
+                val revoke = when (req.action) {
+                    "revoke" -> true
+                    "unrevoke" -> false
+                    else -> return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("error" to "action must be 'revoke' or 'unrevoke'")
+                    )
+                }
+
+                val affected = mutableListOf<AffectedEntry>()
+                val invalidatedLists = mutableSetOf<String>()
+
+                for (data in store.list()) {
+                    val registry = store.getRegistry(data.id)
+                    for ((index, entry) in registry.entries) {
+                        if (entry.revoked == revoke) continue
+                        val filter = req.filter
+                        if (filter.country != null && entry.country != filter.country) continue
+                        if (filter.issuerDid != null && entry.issuerDid != filter.issuerDid) continue
+                        if (filter.credentialType != null && entry.credentialType != filter.credentialType) continue
+                        if (filter.revoked != null && entry.revoked != filter.revoked) continue
+
+                        store.setEntryStatus(data.id, index, revoked = revoke, reason = req.reason)
+                        affected.add(AffectedEntry(listId = data.id, index = index))
+                        invalidatedLists.add(data.id)
+                    }
+                }
+
+                invalidatedLists.forEach { StatusListCredentialGenerator.invalidateCache(it) }
+
+                call.respond(BulkActionResponse(
+                    action = req.action,
+                    affected = affected.size,
+                    entries = affected,
+                ))
             }
 
             route("{listId}") {

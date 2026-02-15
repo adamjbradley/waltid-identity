@@ -3,8 +3,12 @@ package id.walt.issuer.statuslist
 import io.klogging.noCoLogger
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
+@OptIn(ExperimentalUuidApi::class)
 class StatusListStore(private val storageDir: File) {
 
     private val log = noCoLogger("StatusListStore")
@@ -100,6 +104,59 @@ class StatusListStore(private val storageDir: File) {
     }
 
     @Synchronized
+    fun allocateRandomIndex(listId: String, entry: StatusListEntry): Int {
+        val data = listCache[listId] ?: throw IllegalArgumentException("Status list not found: $listId")
+        val registry = getRegistry(listId)
+
+        if (registry.entries.size >= data.listSize) {
+            throw IllegalStateException("Status list $listId is full (size=${data.listSize})")
+        }
+
+        val random = SecureRandom()
+        var index: Int
+        do {
+            index = random.nextInt(data.listSize)
+        } while (registry.entries.containsKey(index))
+
+        val allocatedEntry = entry.copy(index = index, listId = listId)
+        registry.entries[index] = allocatedEntry
+        saveRegistry(registry)
+
+        val now = kotlinx.datetime.Clock.System.now().toString()
+        val updated = data.copy(
+            totalIssued = data.totalIssued + 1,
+            updatedAt = now
+        )
+        save(updated)
+        return index
+    }
+
+    @Synchronized
+    fun findOrCreateDefaultList(credentialType: String): String {
+        val existing = listCache.values.firstOrNull { data ->
+            (data.credentialTypes.isEmpty() || credentialType in data.credentialTypes)
+                && data.totalIssued < data.listSize
+        }
+        if (existing != null) return existing.id
+
+        val now = kotlinx.datetime.Clock.System.now().toString()
+        val listSize = 131072
+        val data = StatusListData(
+            id = Uuid.random().toString(),
+            purpose = "revocation",
+            listSize = listSize,
+            bitsPerStatus = 1,
+            encodedList = BitstringManager.createEmpty(listSize),
+            encodedListIetf = BitstringManager.createEmptyIetf(listSize, 1),
+            credentialTypes = emptyList(),
+            createdAt = now,
+            updatedAt = now
+        )
+        save(data)
+        return data.id
+    }
+
+    @Synchronized
     fun setEntryStatus(listId: String, index: Int, revoked: Boolean, reason: String? = null): StatusListData {
         val data = listCache[listId] ?: throw IllegalArgumentException("Status list not found: $listId")
         val registry = getRegistry(listId)
@@ -116,9 +173,13 @@ class StatusListStore(private val storageDir: File) {
         saveRegistry(registry)
 
         val newEncodedList = BitstringManager.setBit(data.encodedList, index, revoked)
+        val newEncodedListIetf = data.encodedListIetf?.let {
+            BitstringManager.setStatusIetf(it, index, if (revoked) 0x01 else 0x00, data.bitsPerStatus)
+        }
         val newRevokedCount = BitstringManager.countSetBits(newEncodedList)
         val updated = data.copy(
             encodedList = newEncodedList,
+            encodedListIetf = newEncodedListIetf ?: data.encodedListIetf,
             revokedCount = newRevokedCount,
             updatedAt = now
         )
