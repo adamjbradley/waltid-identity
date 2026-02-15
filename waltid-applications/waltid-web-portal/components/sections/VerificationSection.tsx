@@ -64,10 +64,12 @@ export default function VerificationSection() {
   >([]);
 
   React.useEffect(() => {
+    if (!idsToIssue.length) return;
     setCredentialsToIssue(
       AvailableCredentials.filter((cred) => {
+        if (!cred?.id) return false;
         for (const id of idsToIssue) {
-          if (id.toString() == cred.id.toString()) {
+          if (id === cred.id) {
             return true;
           }
         }
