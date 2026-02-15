@@ -18,6 +18,31 @@ export type WalletCredential = {
     format: string;
 };
 
+const VCT_DISPLAY_NAMES: Record<string, string> = {
+    "urn:eudi:pid:1": "EU Personal ID",
+    "PaymentWalletAttestation": "Payment Wallet",
+};
+
+const MDOC_DOCTYPE_NAMES: Record<string, string> = {
+    "org.iso.18013.5.1.mDL": "Mobile Driving Licence",
+    "eu.europa.ec.eudi.pid.1": "EU Personal ID",
+    "eu.europa.ec.eudi.pseudonym.1": "EU Pseudonym",
+    "eu.europa.ec.eudi.over18.1": "Age Verification",
+    "eu.europa.ec.eudi.loyalty.1": "Loyalty Card",
+};
+
+function getMdocNameSpaceElement(parsed: any, elementId: string): string | null {
+    const nameSpaces = parsed?.issuerSigned?.nameSpaces;
+    if (!nameSpaces) return null;
+    for (const ns of Object.values(nameSpaces) as any[]) {
+        if (!Array.isArray(ns)) continue;
+        for (const elem of ns) {
+            if (elem.elementIdentifier === elementId) return elem.elementValue;
+        }
+    }
+    return null;
+}
+
 export function useCredential(credential: Ref<WalletCredential | null>) {
     const currentWallet = useCurrentWallet()
     const jwtJson = computedAsync(async () => {
@@ -63,10 +88,19 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
 
     const titleTitelized = ref('');
 
+    const isMdoc = computed(() => credential.value?.format === "mso_mdoc");
+
     watchEffect(async () => {
-        if (jwtJson.value?.vct) {
+        if (isMdoc.value && jwtJson.value?.docType) {
+            titleTitelized.value = MDOC_DOCTYPE_NAMES[jwtJson.value.docType] ?? jwtJson.value.docType;
+        } else if (jwtJson.value?.vct) {
             const vct = jwtJson.value.vct;
-            titleTitelized.value = await fetchVctName(vct)
+            if (VCT_DISPLAY_NAMES[vct]) {
+                titleTitelized.value = VCT_DISPLAY_NAMES[vct];
+            } else {
+                const vctName = await fetchVctName(vct);
+                titleTitelized.value = vctName ?? vct.replace(/^urn:eudi:/, "").replace(/:/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+            }
         } else {
             // Fallback logic if there's no `vct`
             titleTitelized.value = manifest.value?.display?.title
@@ -76,9 +110,15 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
         }
     });
 
-    const credentialSubtitle = computed(() => manifest.value?.display?.card?.description ?? jwtJson.value?.name);
+    const credentialSubtitle = computed(() => {
+        if (isMdoc.value) return getMdocNameSpaceElement(jwtJson.value, "issuing_country");
+        return manifest.value?.display?.card?.description ?? jwtJson.value?.name;
+    });
     const credentialImageUrl = computed(() => manifest.value?.display?.card?.logo?.uri ?? jwtJson.value?.issuer?.image?.id ?? jwtJson.value?.issuer?.image);
-    const issuerName = computed(() => manifest.value?.display?.card?.issuedBy ?? jwtJson.value?.issuer?.name);
+    const issuerName = computed(() => {
+        if (isMdoc.value) return getMdocNameSpaceElement(jwtJson.value, "issuing_authority");
+        return manifest.value?.display?.card?.issuedBy ?? jwtJson.value?.issuer?.name ?? jwtJson.value?.issuing_authority;
+    });
     const issuerLogo = computed(() => jwtJson.value?.issuer?.image?.id ?? jwtJson.value?.issuer?.image);
     const issuerDid = computed(() => manifest.value?.input?.issuer ?? jwtJson.value?.issuer?.id ?? jwtJson.value?.issuer);
     const issuerKid = computed(() =>
