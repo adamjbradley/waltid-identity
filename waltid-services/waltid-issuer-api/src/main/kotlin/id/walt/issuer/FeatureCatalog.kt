@@ -9,6 +9,7 @@ import id.walt.issuer.config.CredentialTypeConfig
 import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.psp.PwaConfig
+import id.walt.issuer.statuslist.StatusListConfig
 import id.walt.issuer.tenant.IssuerRegistrarConfig
 
 object FeatureCatalog : ServiceFeatureCatalog {
@@ -60,7 +61,14 @@ object FeatureCatalog : ServiceFeatureCatalog {
         default = System.getenv("ISSUER_REGISTRAR_ENABLED")?.toBoolean() ?: false
     )
 
+    val statusListFeature = OptionalFeature(
+        "status-lists",
+        "StatusList2021 credential revocation management",
+        StatusListConfig::class,
+        default = System.getenv("STATUS_LISTS_ENABLED")?.toBoolean() ?: false
+    )
+
     override val baseFeatures = listOf(credentialTypes, issuerService, authenticationService)
-    override val optionalFeatures = listOf(entra, devModeFeature, pwaFeature, issuerRegistrarFeature)
+    override val optionalFeatures = listOf(entra, devModeFeature, pwaFeature, issuerRegistrarFeature, statusListFeature)
 
 }

@@ -4,6 +4,7 @@ import {
   ShieldCheckIcon,
   BuildingOffice2Icon,
   BuildingLibraryIcon,
+  ListBulletIcon,
   HomeIcon,
 } from '@heroicons/react/24/outline';
 
@@ -22,6 +23,11 @@ const navItems = [
     label: 'Relying Parties',
     path: '/admin/relying-parties',
     icon: BuildingOffice2Icon,
+  },
+  {
+    label: 'Status Lists',
+    path: '/admin/status-lists',
+    icon: ListBulletIcon,
   },
 ];
 

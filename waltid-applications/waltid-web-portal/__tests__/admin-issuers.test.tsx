@@ -46,6 +46,7 @@ jest.mock('@heroicons/react/24/outline', () => ({
   HomeIcon: (props: any) => <svg data-testid="home-icon" {...props} />,
   ClipboardDocumentIcon: (props: any) => <svg data-testid="clipboard-icon" {...props} />,
   ArrowTopRightOnSquareIcon: (props: any) => <svg data-testid="external-link-icon" {...props} />,
+  ListBulletIcon: (props: any) => <svg data-testid="list-bullet-icon" {...props} />,
 }));
 
 // Mock react-icons (used by Button component)

@@ -14,6 +14,10 @@ import id.walt.issuer.entra.entraIssuance
 import id.walt.issuer.issuance.OidcApi
 import id.walt.issuer.issuance.OidcApi.oidcApi
 import id.walt.issuer.issuance.issuerApi
+import id.walt.issuer.statuslist.StatusListConfig
+import id.walt.issuer.statuslist.StatusListStore
+import id.walt.issuer.statuslist.statusListAdminRoutes
+import id.walt.issuer.statuslist.statusListPublicRoutes
 import id.walt.issuer.tenant.IssuerRegistrarConfig
 import id.walt.issuer.tenant.IssuerTenantStore
 import id.walt.issuer.tenant.issuerTenantAdminRoutes
@@ -41,6 +45,8 @@ suspend fun main(args: Array<String>) {
                 OidcApi.cleanupInvalidSessions();
                 // Initialize issuer tenant store if registrar feature is enabled
                 { IssuerTenantStore.init(ConfigManager.getConfig<IssuerRegistrarConfig>().storageDir) } whenFeature FeatureCatalog.issuerRegistrarFeature
+                // Initialize status list store if feature is enabled
+                { StatusListStore.init(ConfigManager.getConfig<StatusListConfig>().storageDir) } whenFeature FeatureCatalog.statusListFeature
             },
             run = WebService(Application::issuerModule).run()
         )
@@ -69,5 +75,9 @@ fun Application.issuerModule(withPlugins: Boolean = true) {
     { tenantOidcRoutes() } whenFeature FeatureCatalog.issuerRegistrarFeature
     { tenantIssuerRoutes() } whenFeature FeatureCatalog.issuerRegistrarFeature
     { issuerTenantAdminRoutes() } whenFeature FeatureCatalog.issuerRegistrarFeature
+
+    // StatusList2021: revocation management routes
+    { statusListAdminRoutes() } whenFeature FeatureCatalog.statusListFeature
+    { statusListPublicRoutes() } whenFeature FeatureCatalog.statusListFeature
 }
 
