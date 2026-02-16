@@ -47,29 +47,28 @@
       </div>
 
       <!-- SELECTION PHASE: Choose which credentials to present -->
-      <div v-else-if="selectionPhase" class="my-10 mb-40 sm:mb-10">
-        <div class="text-gray-500 mb-4 text-center">Select credentials to present</div>
-        <div v-for="credentialType in Object.keys(groupedCredentialsByType)" :key="credentialType" class="mb-6">
+      <div v-else-if="selectionPhase" class="mt-4 mb-40 sm:mb-6">
+        <div v-for="credentialType in Object.keys(groupedCredentialsByType)" :key="credentialType" class="mb-3">
           <div v-if="groupedCredentialsByType[credentialType].length > 1"
-            class="text-sm text-[#616E7C] mb-2">Choose one:</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            class="text-xs text-[#616E7C] mb-1.5 uppercase tracking-wide">Select one credential</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             <div v-for="credential in groupedCredentialsByType[credentialType]" :key="credential.id"
               @click="toggleSelectionCard(credentialType, credential.id)"
-              class="relative cursor-pointer rounded-xl border bg-white transition-all duration-200"
+              class="relative cursor-pointer rounded-lg border bg-white transition-all duration-150"
               :class="selection[credential.id]
-                ? 'ring-2 ring-blue-500 shadow-md border-blue-200'
-                : 'opacity-60 hover:opacity-80 border-gray-200'">
+                ? 'ring-2 ring-blue-500 shadow-sm border-blue-300'
+                : 'opacity-50 hover:opacity-75 border-gray-200'">
               <div v-if="selection[credential.id]"
-                class="absolute top-2 right-2 z-10 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
-                <Icon name="heroicons:check" class="h-3 w-3" />
+                class="absolute top-1.5 right-1.5 z-10 bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                <Icon name="heroicons:check" class="h-2.5 w-2.5" />
               </div>
-              <div class="px-3 py-2 rounded-t-xl bg-gradient-to-r from-[#0573F0] to-[#03449E] text-white">
-                <div class="text-sm font-semibold">{{ getCredentialTitle(credential) }}</div>
-                <div class="text-xs opacity-80">{{ getCredentialIssuer(credential) }}</div>
+              <div class="px-3 py-1.5 rounded-t-lg bg-gradient-to-r from-[#0573F0] to-[#03449E] text-white flex items-center justify-between">
+                <div class="text-xs font-semibold truncate">{{ getCredentialTitle(credential) }}</div>
               </div>
-              <div v-if="getCredentialClaims(credential).length" class="px-3 py-2">
+              <div class="px-3 py-1.5">
+                <div class="text-[11px] text-gray-500 mb-0.5">{{ getCredentialIssuer(credential) }}</div>
                 <div v-for="claim in getCredentialClaims(credential)" :key="claim.key"
-                  class="flex justify-between text-xs py-0.5">
+                  class="flex justify-between text-[11px] leading-tight">
                   <span class="text-gray-400">{{ claim.key.replace(/_/g, ' ') }}</span>
                   <span class="text-gray-700 font-medium">{{ claim.value }}</span>
                 </div>
