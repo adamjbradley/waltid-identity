@@ -61,9 +61,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <VerifiableCredentialCard :key="index" :credential="{
-            document: matchedCredentials[index].document,
-          }" class="sm:w-[400px]" />
+          <VerifiableCredentialCard :key="index" :credential="matchedCredentials[index]" class="sm:w-[400px]" />
           <button v-if="matchedCredentials.length > 1" @click="index++" class="mt-4 text-[#002159] font-bold bg-white"
             :disabled="index === matchedCredentials.length - 1" :class="{
               'cursor-not-allowed opacity-50':
