@@ -271,7 +271,7 @@ export default function TrustConfig() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const apiBase = env.NEXT_PUBLIC_VERIFIER2;
+  const apiBase = '/api/proxy/verifier2';
 
   // -- Status tab handlers --
 
@@ -298,13 +298,8 @@ export default function TrustConfig() {
   };
 
   useEffect(() => {
-    if (apiBase) {
-      fetchStatus();
-    } else {
-      setError('Verifier API2 is not configured (NEXT_PUBLIC_VERIFIER2)');
-      setLoading(false);
-    }
-  }, [apiBase]);
+    fetchStatus();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);

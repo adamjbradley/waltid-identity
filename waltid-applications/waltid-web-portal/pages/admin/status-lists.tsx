@@ -148,7 +148,7 @@ export default function StatusLists() {
   // Bulk revoke (per-list view)
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
-  const apiBase = env.NEXT_PUBLIC_ISSUER;
+  const apiBase = '/api/proxy/issuer';
   const featureEnabled = env.NEXT_PUBLIC_STATUS_LISTS_ENABLED === 'true';
   const pageSize = 50;
 
@@ -177,7 +177,7 @@ export default function StatusLists() {
     } else {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, featureEnabled]);
 
   // -- Fetch entries (per-list) --
 
@@ -748,12 +748,7 @@ export default function StatusLists() {
                         </td>
                         <td className="py-2">
                           {entry.revoked ? (
-                            <button
-                              onClick={() => handleUnrevoke(selectedListId!, entry.index)}
-                              className="text-xs text-green-600 hover:text-green-800 font-medium transition-colors"
-                            >
-                              Unrevoke
-                            </button>
+                            <span className="text-xs text-gray-400 font-medium">Permanent</span>
                           ) : (
                             <button
                               onClick={() => handleRevoke(selectedListId!, entry.index)}
@@ -904,14 +899,6 @@ export default function StatusLists() {
                   <NoSymbolIcon className="w-3 h-3" />
                   Revoke All Matching
                 </button>
-                <button
-                  onClick={() => handleGlobalBulkAction('unrevoke')}
-                  disabled={bulkActionLoading}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-md hover:bg-green-50 transition-colors disabled:opacity-50"
-                >
-                  <CheckCircleIcon className="w-3 h-3" />
-                  Unrevoke All Matching
-                </button>
               </div>
             )}
 
@@ -962,12 +949,7 @@ export default function StatusLists() {
                         </td>
                         <td className="py-2">
                           {ge.entry.revoked ? (
-                            <button
-                              onClick={() => handleUnrevoke(ge.listId, ge.entry.index)}
-                              className="text-xs text-green-600 hover:text-green-800 font-medium transition-colors"
-                            >
-                              Unrevoke
-                            </button>
+                            <span className="text-xs text-gray-400 font-medium">Permanent</span>
                           ) : (
                             <button
                               onClick={() => handleRevoke(ge.listId, ge.entry.index)}

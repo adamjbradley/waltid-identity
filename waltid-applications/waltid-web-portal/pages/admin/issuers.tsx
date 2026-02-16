@@ -121,7 +121,7 @@ export default function Issuers() {
   // Trust list URL state
   const [lotlCopied, setLotlCopied] = useState(false);
 
-  const apiBase = env.NEXT_PUBLIC_ISSUER;
+  const apiBase = '/api/proxy/issuer';
 
   // -- Fetch issuer list --
 
@@ -148,13 +148,8 @@ export default function Issuers() {
   };
 
   useEffect(() => {
-    if (apiBase) {
-      fetchIssuerList();
-    } else {
-      setError('Issuer API is not configured (NEXT_PUBLIC_ISSUER)');
-      setLoading(false);
-    }
-  }, [apiBase]);
+    fetchIssuerList();
+  }, []);
 
   // -- Detail expand --
 

@@ -10,6 +10,16 @@
 
 # Issuer API
 :{$ISSUER_API_PORT} {
+    # CORS for portal admin UI
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization"
+
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
     # Serve custom TSL XML for trust list import
     handle /tsl.xml {
         root * /etc/caddy/tsl
@@ -25,17 +35,50 @@
     # Rewrite root well-known to draft13 version for EUDI wallet compatibility
     rewrite /.well-known/openid-credential-issuer /draft13/.well-known/openid-credential-issuer
 
-    reverse_proxy http://issuer-api:{$ISSUER_API_PORT}
+    reverse_proxy http://issuer-api:{$ISSUER_API_PORT} {
+        header_down -Access-Control-Allow-Origin
+        header_down -Access-Control-Allow-Methods
+        header_down -Access-Control-Allow-Headers
+        header_down -Access-Control-Allow-Credentials
+    }
 }
 
 # Verifier API
 :{$VERIFIER_API_PORT} {
-    reverse_proxy http://verifier-api:{$VERIFIER_API_PORT}
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization"
+
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    reverse_proxy http://verifier-api:{$VERIFIER_API_PORT} {
+        header_down -Access-Control-Allow-Origin
+        header_down -Access-Control-Allow-Methods
+        header_down -Access-Control-Allow-Headers
+        header_down -Access-Control-Allow-Credentials
+    }
 }
 
 # Verifier API2
 :{$VERIFIER_API2_PORT} {
-    reverse_proxy http://verifier-api2:{$VERIFIER_API2_PORT}
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization"
+
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    reverse_proxy http://verifier-api2:{$VERIFIER_API2_PORT} {
+        header_down -Access-Control-Allow-Origin
+        header_down -Access-Control-Allow-Methods
+        header_down -Access-Control-Allow-Headers
+        header_down -Access-Control-Allow-Credentials
+    }
 }
 
 

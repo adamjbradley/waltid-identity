@@ -202,25 +202,7 @@ describe('Relying Parties Page - Loading & Error States', () => {
 });
 
 // ====================================================================
-// 3. Error - not configured (1 test)
-// ====================================================================
-
-describe('Relying Parties Page - Not Configured', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('shows error when NEXT_PUBLIC_VERIFIER2 is empty', async () => {
-    await act(async () => {
-      renderWithEnv(<RelyingParties />, { NEXT_PUBLIC_VERIFIER2: '' });
-    });
-
-    expect(screen.getByText(/not configured/i)).toBeInTheDocument();
-  });
-});
-
-// ====================================================================
-// 4. RP List Tab (5 tests)
+// RP List Tab (5 tests)
 // ====================================================================
 
 describe('Relying Parties Page - List Tab', () => {
@@ -526,7 +508,7 @@ describe('Relying Parties Page - Status Management', () => {
     });
 
     expect(mockAxiosPut).toHaveBeenCalledWith(
-      'http://localhost:7004/admin/rp/rp-1',
+      '/api/proxy/verifier2/admin/rp/rp-1',
       { status: 'SUSPENDED' }
     );
   });
@@ -724,7 +706,7 @@ describe('Relying Parties Page - Certificate Section', () => {
     });
 
     expect(mockAxiosPost).toHaveBeenCalledWith(
-      'http://localhost:7004/admin/rp/rp-1/certificate/generate'
+      '/api/proxy/verifier2/admin/rp/rp-1/certificate/generate'
     );
   });
 
@@ -839,7 +821,7 @@ describe('Relying Parties Page - Create RP Form', () => {
     });
 
     expect(mockAxiosPost).toHaveBeenCalledWith(
-      'http://localhost:7004/admin/rp',
+      '/api/proxy/verifier2/admin/rp',
       expect.objectContaining({
         legalName: 'Test Corp',
         domain: 'test.example.com',
@@ -906,7 +888,7 @@ describe('Relying Parties Page - Delete RP', () => {
     });
 
     expect(mockAxiosDelete).toHaveBeenCalledWith(
-      'http://localhost:7004/admin/rp/rp-1'
+      '/api/proxy/verifier2/admin/rp/rp-1'
     );
 
     (window.confirm as jest.Mock).mockRestore();

@@ -123,7 +123,7 @@ export default function RelyingParties() {
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiBase = env.NEXT_PUBLIC_VERIFIER2;
+  const apiBase = '/api/proxy/verifier2';
 
   // -- Fetch RP list --
 
@@ -150,13 +150,8 @@ export default function RelyingParties() {
   };
 
   useEffect(() => {
-    if (apiBase) {
-      fetchRpList();
-    } else {
-      setError('Verifier API2 is not configured (NEXT_PUBLIC_VERIFIER2)');
-      setLoading(false);
-    }
-  }, [apiBase]);
+    fetchRpList();
+  }, []);
 
   // -- Detail expand --
 

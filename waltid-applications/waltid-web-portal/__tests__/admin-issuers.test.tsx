@@ -222,13 +222,6 @@ describe('Issuers Page - Loading & Error States', () => {
     expect(screen.getByText(/not enabled/i)).toBeInTheDocument();
   });
 
-  it('shows error when NEXT_PUBLIC_ISSUER is not configured', async () => {
-    await act(async () => {
-      renderWithEnv(<Issuers />, { NEXT_PUBLIC_ISSUER: '' });
-    });
-
-    expect(screen.getByText(/not configured/i)).toBeInTheDocument();
-  });
 });
 
 // ====================================================================
@@ -566,7 +559,7 @@ describe('Issuers Page - Actions', () => {
     });
 
     expect(mockAxiosPost).toHaveBeenCalledWith(
-      'http://localhost:7002/admin/issuer/tenant-1/certificate/generate'
+      '/api/proxy/issuer/admin/issuer/tenant-1/certificate/generate'
     );
   });
 });
