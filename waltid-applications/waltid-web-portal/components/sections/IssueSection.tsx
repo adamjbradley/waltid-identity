@@ -69,9 +69,8 @@ export default function IssueSection() {
   // Fetch tenants and their credential configs when issuer registrar is enabled
   useEffect(() => {
     if (!issuerRegistrarEnabled) return;
-    const apiBase = env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_ISSUER;
-    if (!apiBase) return;
-    axios.get(`${apiBase}/admin/issuer`).then(async (res) => {
+    const proxyBase = '/api/proxy/issuer';
+    axios.get(`${proxyBase}/admin/issuer`).then(async (res) => {
       const active = (res.data as IssuerTenantSummary[]).filter(
         (t) => t.status === 'ACTIVE' && t.hasCertificate
       );
@@ -82,7 +81,7 @@ export default function IssueSection() {
       await Promise.all(
         active.map(async (tenant) => {
           try {
-            const detail = await axios.get(`${apiBase}/admin/issuer/${tenant.id}`);
+            const detail = await axios.get(`${proxyBase}/admin/issuer/${tenant.id}`);
             const configs = detail.data?.credentialConfigurations;
             const entries: { configId: string; format: string; vct?: string; doctype?: string }[] = [];
             if (Array.isArray(configs)) {
@@ -117,7 +116,7 @@ export default function IssueSection() {
         setSelectedTenantId(qIssuerId);
       }
     }).catch(() => {});
-  }, [issuerRegistrarEnabled, env.NEXT_PUBLIC_ISSUER]);
+  }, [issuerRegistrarEnabled]);
 
   // Filter tenants to only those whose credential configs match ALL idsToIssue
   const filteredTenants = React.useMemo(() => {
