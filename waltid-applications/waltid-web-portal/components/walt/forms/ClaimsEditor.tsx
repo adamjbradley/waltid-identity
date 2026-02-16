@@ -51,7 +51,7 @@ export default function ClaimsEditor({
         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg"
       >
         <span className="text-sm font-medium text-gray-700">
-          Requested Claims ({claims.length})
+          Credential Claims ({claims.length})
         </span>
         {isExpanded ? (
           <ChevronUpIcon className="h-5 w-5 text-gray-500" />
