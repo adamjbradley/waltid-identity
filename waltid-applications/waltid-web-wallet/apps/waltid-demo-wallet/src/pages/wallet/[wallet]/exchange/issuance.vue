@@ -34,7 +34,7 @@
                   parsedDocument: {
                     type: [credential.name],
                     issuer: {
-                      name: issuerHost,
+                      name: issuerCardName,
                     },
                   },
                 }"
@@ -71,7 +71,7 @@
                 parsedDocument: {
                   type: [credentialTypes[index]],
                   issuer: {
-                    name: issuerHost,
+                    name: issuerCardName,
                   },
                 },
               }"
@@ -119,7 +119,7 @@
             >
               <div class="text-black-800">{{ credential.name }}</div>
               <div data-testid="issuer-identity">
-                <template v-if="mtWalletEnabled && (issuerDisplayName || issuerHintName)">
+                <template v-if="issuerDisplayName || issuerHintName">
                   <div class="text-sm text-gray-700">
                     from <span class="font-semibold">{{ issuerDisplayName || issuerHintName }}</span>
                   </div>
@@ -185,15 +185,15 @@ const {
   credentialCount,
   groupedCredentialTypes,
   issuerDisplayName,
-  mtWalletEnabled,
 } = await useIssuance(query);
 
-// Portal hint params — ONLY read when MT enabled
-const issuerHintName = computed(() =>
-  mtWalletEnabled.value ? (route.query.issuerName as string || '') : ''
-);
-const issuerHintDomain = computed(() =>
-  mtWalletEnabled.value ? (route.query.issuerDomain as string || '') : ''
+// Portal hint params
+const issuerHintName = computed(() => route.query.issuerName as string || '');
+const issuerHintDomain = computed(() => route.query.issuerDomain as string || '');
+
+// Best available issuer name for card display
+const issuerCardName = computed(() =>
+  issuerDisplayName.value || issuerHintName.value || issuerHost
 );
 
 if (query.accept) {

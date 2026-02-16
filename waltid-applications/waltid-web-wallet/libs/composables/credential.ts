@@ -18,12 +18,12 @@ export type WalletCredential = {
     format: string;
 };
 
-const VCT_DISPLAY_NAMES: Record<string, string> = {
+export const VCT_DISPLAY_NAMES: Record<string, string> = {
     "urn:eudi:pid:1": "EU Personal ID",
     "PaymentWalletAttestation": "Payment Wallet",
 };
 
-const MDOC_DOCTYPE_NAMES: Record<string, string> = {
+export const MDOC_DOCTYPE_NAMES: Record<string, string> = {
     "org.iso.18013.5.1.mDL": "Mobile Driving Licence",
     "eu.europa.ec.eudi.pid.1": "EU Personal ID",
     "eu.europa.ec.eudi.pseudonym.1": "EU Pseudonym",

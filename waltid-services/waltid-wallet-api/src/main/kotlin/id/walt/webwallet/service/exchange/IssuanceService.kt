@@ -22,8 +22,11 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 
 object IssuanceService : IssuanceServiceBase() {
 
@@ -70,9 +73,27 @@ object IssuanceService : IssuanceServiceBase() {
         logger.debug { "// parse and verify credential(s)" }
         check(processedCredentialOffers.any { it.credentialResponse.credential != null }) { "No credential was returned from credentialEndpoint: $processedCredentialOffers" }
 
-        // ??multiple credentials manifests
-        val manifest =
-            isEntra.takeIf { it }?.let { EntraManifestExtractor().extract(offer) }
+        // Build manifest: Entra uses its own extractor; OID4VCI uses Credential Issuer Metadata display (§11.2.3)
+        val manifest = if (isEntra) {
+            EntraManifestExtractor().extract(offer)
+        } else {
+            val cachedOffer = CredentialOfferCache.get(offer)
+            val credentialOffer = cachedOffer ?: runCatching {
+                val json = Json.parseToJsonElement(offer).jsonObject
+                CredentialOffer.fromJSON(json)
+            }.getOrNull() ?: OpenID4VCI.parseAndResolveCredentialOfferRequestUrl(offer)
+            val metadata = OpenID4VCI.resolveCIProviderMetadata(credentialOffer)
+            val issuerName = metadata.display?.firstOrNull()?.name
+            issuerName?.let {
+                buildJsonObject {
+                    putJsonObject("display") {
+                        putJsonObject("card") {
+                            put("issuedBy", it)
+                        }
+                    }
+                }
+            }
+        }
 
         processedCredentialOffers.map {
             getCredentialData(
