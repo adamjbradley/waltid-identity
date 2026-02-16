@@ -10,7 +10,7 @@
             {{ credentialCount === 1 ? "credential" : "credentials" }}
           </h1>
           <p>
-            issued by <span class="underline">{{ issuerHost }}</span>
+            issued by <span class="underline">{{ issuerDisplayName || issuerHost }}</span>
           </p>
         </div>
       </template>
@@ -245,6 +245,7 @@ const {
   credentialCount,
   groupedCredentialTypes,
   issuerHost,
+  issuerDisplayName,
 } = await useIssuance(query);
 
 if (query.accept) {

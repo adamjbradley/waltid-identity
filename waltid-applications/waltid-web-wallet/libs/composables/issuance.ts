@@ -4,6 +4,7 @@ import {decodeRequest} from "./siop-requests.ts";
 import {computed, type Ref, ref, watch} from "vue";
 import {groupBy} from "./groupings.ts";
 import {useMtWallet} from "./mtWallet.ts";
+import {VCT_DISPLAY_NAMES, MDOC_DOCTYPE_NAMES} from "./credential.ts";
 
 export async function useIssuance(query: any) {
     const currentWallet = useCurrentWallet()
@@ -72,35 +73,55 @@ export async function useIssuance(query: any) {
 
     let credentialTypes: String[] = [];
     for (let credentialListElement of credentialList) {
+        let pushed = false;
 
         if (typeof credentialListElement["types"] !== 'undefined') {
             const typeList = credentialListElement["types"] as Array<String>;
             const lastType = typeList[typeList.length - 1] as String;
             credentialTypes.push(lastType);
+            pushed = true;
         }
 
         if (typeof credentialListElement["credential_definition"] !== 'undefined') {
             const typeList = credentialListElement["credential_definition"]["type"] as Array<String>;
             const lastType = typeList[typeList.length - 1] as String;
             credentialTypes.push(lastType);
+            pushed = true;
         }
 
         if (typeof credentialListElement["vct"] !== 'undefined') {
             const vct = credentialListElement["vct"];
-            try {
-                const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${vct}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const nameOrDescription = data.name ?? data.description ?? data.vct ?? vct;
-                    credentialTypes.push(nameOrDescription);
-                } else {
-                    // VCT resolution failed (e.g., URN-based VCTs) — use raw VCT string
+            // Check local display name map first (handles URN-based VCTs)
+            if (VCT_DISPLAY_NAMES[vct]) {
+                credentialTypes.push(VCT_DISPLAY_NAMES[vct]);
+            } else {
+                try {
+                    const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${vct}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const nameOrDescription = data.name ?? data.description ?? data.vct ?? vct;
+                        credentialTypes.push(nameOrDescription);
+                    } else {
+                        credentialTypes.push(vct);
+                    }
+                } catch {
                     credentialTypes.push(vct);
                 }
-            } catch {
-                // Network error — fall back to raw VCT string
-                credentialTypes.push(vct);
             }
+            pushed = true;
+        }
+
+        // Handle mDoc credentials — use doctype or format field
+        if (!pushed && typeof credentialListElement["doctype"] !== 'undefined') {
+            const doctype = credentialListElement["doctype"] as string;
+            credentialTypes.push(MDOC_DOCTYPE_NAMES[doctype] ?? doctype);
+            pushed = true;
+        }
+
+        // Fallback: use credential config ID for mso_mdoc format
+        if (!pushed && credentialListElement["format"] === "mso_mdoc") {
+            const configId = credentialOffer.credential_configuration_ids?.[credentialTypes.length] ?? "mDoc Credential";
+            credentialTypes.push(MDOC_DOCTYPE_NAMES[configId] ?? configId);
         }
     }
     const credentialCount = credentialTypes.length;
@@ -113,9 +134,8 @@ export async function useIssuance(query: any) {
         (c: { name: string }) => c.name,
     );
 
-    // Extract issuer display name from OpenID metadata — ONLY when MT enabled
+    // Extract issuer display name from OpenID metadata
     const issuerDisplayName = computed(() => {
-        if (!mtWalletEnabled.value) return '';
         return credential_issuer.display?.[0]?.name || '';
     });
 
@@ -130,6 +150,16 @@ export async function useIssuance(query: any) {
                 method: "POST",
                 body: request,
             });
+            // Navigate to the newly accepted credential's detail page
+            try {
+                const credentials: Array<{ id: string }> | null = await $fetch(`/wallet-api/wallet/${currentWallet.value}/credentials`);
+                if (credentials && credentials.length > 0) {
+                    navigateTo(`/wallet/${currentWallet.value}/credentials/${credentials[0].id}`);
+                    return;
+                }
+            } catch {
+                // Fall through to dashboard navigation
+            }
             navigateTo(`/wallet/${currentWallet.value}`);
         } catch (e: any) {
             failed.value = true;
