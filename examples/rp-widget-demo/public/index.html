@@ -2316,6 +2316,39 @@
 
         window.addEventListener('resize', handleResize);
 
+        // Web Wallet URL (configurable)
+        var WEB_WALLET_URL = 'https://wallet.theaustraliahack.com';
+
+        // Build web wallet URL from an openid4vp:// or eudi-openid4vp:// deep link
+        function buildWebWalletUrl(deepLinkHref) {
+            var queryStart = deepLinkHref.indexOf('?');
+            if (queryStart === -1) return WEB_WALLET_URL;
+            return WEB_WALLET_URL + '/verify' + deepLinkHref.substring(queryStart);
+        }
+
+        // Inject "Open in Web Wallet" link next to SDK's "Open Wallet App" link
+        function injectWebWalletLink(walletLink) {
+            if (walletLink.dataset.webWalletInjected) return;
+            walletLink.dataset.webWalletInjected = 'true';
+
+            var webWalletLink = document.createElement('a');
+            webWalletLink.href = buildWebWalletUrl(walletLink.href);
+            webWalletLink.textContent = 'Open in Web Wallet';
+            webWalletLink.className = 'web-wallet-link';
+            webWalletLink.style.cssText = 'display:inline-block;margin-top:8px;padding:10px 24px;background:#4f46e5;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;';
+
+            // Insert after the wallet link
+            walletLink.parentNode.insertBefore(webWalletLink, walletLink.nextSibling);
+        }
+
+        // Watch for SDK-rendered wallet links
+        var webWalletObserver = new MutationObserver(function(mutations) {
+            document.querySelectorAll('a[href*="openid4vp://"]').forEach(function(link) {
+                injectWebWalletLink(link);
+            });
+        });
+        webWalletObserver.observe(document.body, { childList: true, subtree: true });
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             handleResize();

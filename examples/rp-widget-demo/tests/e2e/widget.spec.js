@@ -449,6 +449,109 @@ test.describe('Accessibility', () => {
   });
 });
 
+test.describe('Web Wallet Integration', () => {
+  test.beforeEach(async ({ page }) => {
+    // Mock SDK to render a wallet link (simulates real SDK behavior)
+    await page.route('**/widget/v1/sdk.js', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: `
+          window.WaltVerify = {
+            init: function(config) {},
+            verifyAge: function(options) {
+              // Simulate SDK rendering a modal with wallet link
+              var modal = document.createElement('div');
+              modal.id = 'walt-verify-modal';
+              modal.innerHTML = '<h2>Age Verification</h2>'
+                + '<a href="eudi-openid4vp://authorize?client_id=test-rp&request_uri=https%3A%2F%2Fverify.example.com%2Frequest%2F123">Open Wallet App</a>';
+              document.body.appendChild(modal);
+              return Promise.resolve();
+            },
+            verify: function(options) {
+              // Simulate inline verification with wallet link
+              var container = document.querySelector(options.container);
+              if (container) {
+                container.innerHTML = '<a href="openid4vp://authorize?client_id=test-rp&request_uri=https%3A%2F%2Fverify.example.com%2Frequest%2F456">Open Wallet App</a>';
+              }
+              return Promise.resolve();
+            }
+          };
+        `
+      });
+    });
+
+    await page.route('**/api/token', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          clientToken: 'ct_mock_token_123',
+          expiresAt: new Date(Date.now() + 900000).toISOString()
+        })
+      });
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('injects "Open in Web Wallet" link next to SDK wallet link in modal', async ({ page }) => {
+    await page.waitForFunction(() => typeof window.WaltVerify !== 'undefined');
+
+    // Trigger modal verification
+    await page.click('.product-card:first-child button');
+
+    // Wait for the injected web wallet link
+    const webWalletLink = page.locator('a.web-wallet-link');
+    await expect(webWalletLink).toBeVisible({ timeout: 5000 });
+    await expect(webWalletLink).toHaveText('Open in Web Wallet');
+  });
+
+  test('web wallet link has correct URL structure', async ({ page }) => {
+    await page.waitForFunction(() => typeof window.WaltVerify !== 'undefined');
+
+    await page.click('.product-card:first-child button');
+
+    const webWalletLink = page.locator('a.web-wallet-link');
+    await expect(webWalletLink).toBeVisible({ timeout: 5000 });
+
+    const href = await webWalletLink.getAttribute('href');
+    expect(href).toContain('wallet.theaustraliahack.com/verify?');
+    expect(href).toContain('client_id=');
+    expect(href).toContain('request_uri=');
+    expect(href).not.toContain('openid4vp://');
+    expect(href).not.toContain('eudi-openid4vp://');
+  });
+
+  test('web wallet link works for inline verification', async ({ page }) => {
+    await page.waitForFunction(() => typeof window.WaltVerify !== 'undefined');
+
+    // Click inline verification button
+    await page.click('button:has-text("Start Age Verification (Inline)")');
+
+    // Wait for the injected web wallet link in inline container
+    const webWalletLink = page.locator('#inline-verification-container a.web-wallet-link, a.web-wallet-link');
+    await expect(webWalletLink.first()).toBeVisible({ timeout: 5000 });
+
+    const href = await webWalletLink.first().getAttribute('href');
+    expect(href).toContain('/verify?');
+  });
+
+  test('does not inject duplicate web wallet links', async ({ page }) => {
+    await page.waitForFunction(() => typeof window.WaltVerify !== 'undefined');
+
+    // Trigger verification twice
+    await page.click('.product-card:first-child button');
+    await page.waitForTimeout(500);
+
+    // Should only have one web wallet link per wallet app link
+    const webWalletLinks = page.locator('a.web-wallet-link');
+    const count = await webWalletLinks.count();
+    expect(count).toBe(1);
+  });
+});
+
 test.describe('Error States', () => {
   test('shows alert when SDK not ready and button clicked', async ({ page }) => {
     // Block SDK loading
