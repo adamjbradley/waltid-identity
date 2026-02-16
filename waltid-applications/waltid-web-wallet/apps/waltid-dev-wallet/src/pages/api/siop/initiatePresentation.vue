@@ -5,6 +5,10 @@
       :wallets="wallets"
       :use-url="walletUrlFunction"
     />
+    <div v-else-if="wallets && wallets.length === 0" class="text-center p-8">
+      <p class="text-gray-600 mb-4">No wallets found. Please create a wallet first.</p>
+      <a href="/" class="text-blue-600 hover:text-blue-700 underline">Go to Dashboard</a>
+    </div>
     <LoadingIndicator v-else>Loading wallets...</LoadingIndicator>
   </CenterMain>
 </template>
