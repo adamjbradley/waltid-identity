@@ -52,19 +52,22 @@
         <div v-for="credentialType in Object.keys(groupedCredentialsByType)" :key="credentialType" class="mb-6">
           <div v-if="groupedCredentialsByType[credentialType].length > 1"
             class="text-sm text-[#616E7C] mb-2">Choose one:</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div v-for="credential in groupedCredentialsByType[credentialType]" :key="credential.id"
               @click="toggleSelectionCard(credentialType, credential.id)"
-              class="relative cursor-pointer rounded-2xl transition-all duration-200"
+              class="relative cursor-pointer rounded-xl border bg-white transition-all duration-200"
               :class="selection[credential.id]
-                ? 'ring-2 ring-blue-500 shadow-lg'
-                : 'opacity-60 hover:opacity-80'">
+                ? 'ring-2 ring-blue-500 shadow-md border-blue-200'
+                : 'opacity-60 hover:opacity-80 border-gray-200'">
               <div v-if="selection[credential.id]"
-                class="absolute top-2 right-2 z-10 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center">
-                <Icon name="heroicons:check" class="h-4 w-4" />
+                class="absolute top-2 right-2 z-10 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                <Icon name="heroicons:check" class="h-3 w-3" />
               </div>
-              <VerifiableCredentialCard :credential="credential" class="!h-auto" />
-              <div v-if="getCredentialClaims(credential).length" class="px-4 py-2 bg-white rounded-b-2xl">
+              <div class="px-3 py-2 rounded-t-xl bg-gradient-to-r from-[#0573F0] to-[#03449E] text-white">
+                <div class="text-sm font-semibold">{{ getCredentialTitle(credential) }}</div>
+                <div class="text-xs opacity-80">{{ getCredentialIssuer(credential) }}</div>
+              </div>
+              <div v-if="getCredentialClaims(credential).length" class="px-3 py-2">
                 <div v-for="claim in getCredentialClaims(credential)" :key="claim.key"
                   class="flex justify-between text-xs py-0.5">
                   <span class="text-gray-400">{{ claim.key.replace(/_/g, ' ') }}</span>
@@ -132,10 +135,11 @@ import {computed} from "vue";
 import {useTitle} from "@vueuse/core";
 import {parseJwt} from "@waltid-web-wallet/utils/jwt.ts";
 import {parseDisclosures} from "@waltid-web-wallet/composables/disclosures.ts";
+import {MDOC_DOCTYPE_NAMES, VCT_DISPLAY_NAMES} from "@waltid-web-wallet/composables/credential.ts";
 import CenterMain from "@waltid-web-wallet/components/CenterMain.vue";
 import {usePresentation} from "@waltid-web-wallet/composables/presentation.ts";
 import LoadingIndicator from "@waltid-web-wallet/components/loading/LoadingIndicator.vue";
-import VerifiableCredentialCard from "@waltid-web-wallet/components/credentials/VerifiableCredentialCard.vue";
+
 
 const immediateAccept = ref(false);
 const selectionPhase = ref(false);
@@ -230,6 +234,32 @@ function getCredentialClaims(credential: any): Array<{key: string, value: string
     }
   }
   return claims;
+}
+
+function getCredentialTitle(credential: any): string {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return 'Credential';
+  if (parsed?.docType) return MDOC_DOCTYPE_NAMES[parsed.docType] ?? parsed.docType;
+  if (parsed?.vct) return VCT_DISPLAY_NAMES[parsed.vct] ?? parsed.vct.replace(/^urn:eudi:/, '').replace(/:/g, ' ');
+  return parsed?.type?.at(-1)?.replace(/([a-z0-9])([A-Z])/g, '$1 $2') ?? 'Credential';
+}
+
+function getCredentialIssuer(credential: any): string {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return 'Unknown';
+  // mDoc: issuing_authority from nameSpaces
+  const nameSpaces = parsed?.issuerSigned?.nameSpaces;
+  if (nameSpaces) {
+    for (const ns of Object.values(nameSpaces) as any[]) {
+      if (!Array.isArray(ns)) continue;
+      for (const elem of ns) {
+        if (elem.elementIdentifier === 'issuing_authority') return String(elem.elementValue);
+      }
+    }
+  }
+  // SD-JWT / JWT
+  const vc = parsed?.vc ?? parsed;
+  return vc?.issuer?.name ?? vc?.issuing_authority ?? 'Unknown';
 }
 
 // Portal hint params — ONLY read when MT enabled
