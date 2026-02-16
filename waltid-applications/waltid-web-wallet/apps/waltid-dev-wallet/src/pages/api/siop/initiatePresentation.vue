@@ -16,7 +16,25 @@ import WalletListing from "@waltid-web-wallet/components/wallets/WalletListing.v
 import {encodeRequest, fixRequest} from "@waltid-web-wallet/composables/siop-requests.ts";
 import {listWallets, setWallet, type WalletListing as WalletListingType} from "@waltid-web-wallet/composables/accountWallet.ts";
 
-const queryRequest = new URL("http://example.invalid" + useRoute().fullPath)
+const route = useRoute();
+
+// Auth guard: wait for auth to resolve and redirect to login if unauthenticated
+const { status } = useAuth();
+if (status.value === 'loading') {
+  await new Promise<void>((resolve) => {
+    const stop = watch(status, (newStatus) => {
+      if (newStatus !== 'loading') {
+        stop();
+        resolve();
+      }
+    });
+  });
+}
+if (status.value === 'unauthenticated') {
+  await navigateTo('/login?redirect=' + encodeURIComponent(route.fullPath));
+}
+
+const queryRequest = new URL("http://example.invalid" + route.fullPath)
   .search; // new URL(window.location.href).search
 console.log("queryRequest: ", queryRequest);
 
