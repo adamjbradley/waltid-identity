@@ -26,6 +26,14 @@ interface VerificationResult {
   error?: string;
 }
 
+function buildWebWalletUrl(qrCodeData: string): string {
+  const walletBase = process.env.NEXT_PUBLIC_WEB_WALLET_URL || 'https://wallet.theaustraliahack.com';
+  // Strip the custom scheme (openid4vp:// or mdoc-openid4vp://) and use the query params
+  const queryStart = qrCodeData.indexOf('?');
+  if (queryStart === -1) return walletBase;
+  return `${walletBase}/verify${qrCodeData.substring(queryStart)}`;
+}
+
 export default function CheckoutPage() {
   const [session, setSession] = useState<VerificationSession | null>(null);
   const [status, setStatus] = useState<VerificationStatus>('idle');
@@ -203,7 +211,7 @@ export default function CheckoutPage() {
 
               {/* Same-device flow for mobile */}
               {isMobile && (
-                <div className="mb-6">
+                <div className="mb-4">
                   <a
                     href={session.deepLink}
                     className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
@@ -212,6 +220,16 @@ export default function CheckoutPage() {
                   </a>
                 </div>
               )}
+
+              {/* Web Wallet option - available on both desktop and mobile */}
+              <div className={isMobile ? 'mb-6' : 'mb-4'}>
+                <a
+                  href={buildWebWalletUrl(session.qrCodeData)}
+                  className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
+                >
+                  Open in Web Wallet
+                </a>
+              </div>
 
               {/* Deep link for desktop too */}
               {!isMobile && (

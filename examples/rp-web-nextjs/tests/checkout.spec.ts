@@ -451,6 +451,143 @@ test.describe('API Error Handling', () => {
   });
 });
 
+test.describe('Web Wallet Integration', () => {
+  test.beforeEach(async ({ page }) => {
+    // Mock the verify API
+    await page.route('**/api/verify', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sessionId: 'vs_webwallet123',
+          qrCodeData: 'openid4vp://authorize?client_id=verify-api&request_uri=https://verify.example.com/request/123',
+          deepLink: 'eudi-openid4vp://authorize?request_uri=https://verify.example.com/request/123',
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+        }),
+      });
+    });
+
+    // Mock session status to stay pending
+    await page.route('**/api/sessions/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    });
+  });
+
+  test('displays "Open in Web Wallet" button on desktop', async ({ page }) => {
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    await expect(page.locator('text=Scan to Verify')).toBeVisible();
+    await expect(page.locator('a:has-text("Open in Web Wallet")')).toBeVisible();
+  });
+
+  test('web wallet link has correct href structure', async ({ page }) => {
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
+    await expect(webWalletLink).toBeVisible();
+
+    const href = await webWalletLink.getAttribute('href');
+    // Should start with the web wallet URL and contain /verify path with query params
+    expect(href).toContain('/verify?');
+    expect(href).toContain('client_id=');
+    expect(href).toContain('request_uri=');
+  });
+
+  test('web wallet link does not use openid4vp:// scheme', async ({ page }) => {
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
+    const href = await webWalletLink.getAttribute('href');
+    expect(href).not.toContain('openid4vp://');
+  });
+
+  test('web wallet button coexists with EUDI deep link on desktop', async ({ page }) => {
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    // Both should be visible on desktop
+    await expect(page.locator('a:has-text("Open in Web Wallet")')).toBeVisible();
+    await expect(page.locator('a:has-text("Open in wallet app")')).toBeVisible();
+  });
+});
+
+test.describe('Web Wallet Integration - Mobile', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15' });
+
+  test('shows web wallet button on mobile alongside native wallet', async ({ page }) => {
+    await page.route('**/api/verify', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sessionId: 'vs_mobile_ww',
+          qrCodeData: 'openid4vp://authorize?client_id=verify-api&request_uri=https://verify.example.com/request/456',
+          deepLink: 'eudi-openid4vp://authorize?request_uri=https://verify.example.com/request/456',
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+        }),
+      });
+    });
+
+    await page.route('**/api/sessions/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    });
+
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    // Both native and web wallet should be available on mobile
+    await expect(page.locator('a:has-text("Open in Wallet App")')).toBeVisible();
+    await expect(page.locator('a:has-text("Open in Web Wallet")')).toBeVisible();
+  });
+});
+
+test.describe('Web Wallet - mdoc-openid4vp scheme', () => {
+  test('handles mdoc-openid4vp:// scheme correctly', async ({ page }) => {
+    await page.route('**/api/verify', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sessionId: 'vs_mdoc_ww',
+          qrCodeData: 'mdoc-openid4vp://authorize?client_id=verify-api&request_uri=https://verify.example.com/request/789',
+          deepLink: 'eudi-openid4vp://authorize?request_uri=https://verify.example.com/request/789',
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+        }),
+      });
+    });
+
+    await page.route('**/api/sessions/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    });
+
+    await page.goto('/');
+    await page.click('button:has-text("Verify Age to Continue")');
+
+    const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
+    await expect(webWalletLink).toBeVisible();
+
+    const href = await webWalletLink.getAttribute('href');
+    expect(href).not.toContain('mdoc-openid4vp://');
+    expect(href).toContain('/verify?');
+    expect(href).toContain('client_id=');
+  });
+});
+
 test.describe('Accessibility', () => {
   test('page has proper heading structure', async ({ page }) => {
     await page.goto('/');
