@@ -285,7 +285,7 @@ describe('IssueSection', () => {
       });
 
       await waitFor(() => {
-        expect(mockAxiosGet).toHaveBeenCalledWith('http://localhost:7002/admin/issuer');
+        expect(mockAxiosGet).toHaveBeenCalledWith('/api/proxy/issuer/admin/issuer');
       });
     });
 
@@ -367,7 +367,7 @@ describe('IssueSection', () => {
       });
 
       await waitFor(() => {
-        expect(mockAxiosGet).toHaveBeenCalledWith('http://localhost:7002/admin/issuer/t-1');
+        expect(mockAxiosGet).toHaveBeenCalledWith('/api/proxy/issuer/admin/issuer/t-1');
       });
     });
 
@@ -442,7 +442,7 @@ describe('IssueSection', () => {
 
       // Should not crash — the detail API was called
       await waitFor(() => {
-        expect(mockAxiosGet).toHaveBeenCalledWith('http://localhost:7002/admin/issuer/t-1');
+        expect(mockAxiosGet).toHaveBeenCalledWith('/api/proxy/issuer/admin/issuer/t-1');
       });
 
       // No matching credentials so "No issuers available" message shown
@@ -501,7 +501,7 @@ describe('VerificationSection', () => {
       });
 
       await waitFor(() => {
-        expect(mockAxiosGet).toHaveBeenCalledWith('http://localhost:7004/admin/rp');
+        expect(mockAxiosGet).toHaveBeenCalledWith('/api/proxy/verifier2/admin/rp');
       });
     });
 

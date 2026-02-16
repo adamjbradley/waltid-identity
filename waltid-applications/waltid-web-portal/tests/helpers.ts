@@ -162,3 +162,27 @@ export async function getTrustStatus(request: APIRequestContext): Promise<TrustS
   const res = await request.get(`${VERIFIER_API2}/admin/trust/status`);
   return res.json();
 }
+
+// ── Trust List Management ────────────────────────────────────────
+
+export async function importCustomTsl(request: APIRequestContext, country: string, url: string): Promise<boolean> {
+  const res = await request.post(`${VERIFIER_API2}/admin/trust/custom-tsls`, {
+    data: { country, url },
+  });
+  return res.ok();
+}
+
+export async function removeCustomTsl(request: APIRequestContext, country: string): Promise<boolean> {
+  const res = await request.delete(`${VERIFIER_API2}/admin/trust/custom-tsls/${country}`);
+  return res.ok();
+}
+
+export async function refreshTrustLists(request: APIRequestContext): Promise<boolean> {
+  const res = await request.post(`${VERIFIER_API2}/admin/trust/refresh`, { timeout: 120_000 });
+  return res.ok();
+}
+
+export async function getCustomTsls(request: APIRequestContext): Promise<Record<string, string>> {
+  const res = await request.get(`${VERIFIER_API2}/admin/trust/custom-tsls`);
+  return res.json();
+}

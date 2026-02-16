@@ -7,7 +7,6 @@ import Button from "@/components/walt/button/Button";
 import React, {useContext, useEffect, useState} from "react";
 import {CredentialsContext, EnvContext} from "@/pages/_app";
 import {useRouter} from "next/router";
-import nextConfig from "@/next.config";
 import axios from "axios";
 import {BuildingOfficeIcon} from "@heroicons/react/24/outline";
 
@@ -41,15 +40,13 @@ export default function VerificationSection() {
   // Fetch RP tenants when enabled
   useEffect(() => {
     if (!rpRegistrarEnabled) return;
-    const apiBase = env.NEXT_PUBLIC_VERIFIER2 ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2;
-    if (!apiBase) return;
-    axios.get(`${apiBase}/admin/rp`).then((res) => {
+    axios.get('/api/proxy/verifier2/admin/rp').then((res) => {
       const active = (res.data as RpTenantSummary[]).filter(
         (t) => t.status === 'ACTIVE' && t.hasCertificate
       );
       setRpTenants(active);
     }).catch(() => {});
-  }, [rpRegistrarEnabled, env.NEXT_PUBLIC_VERIFIER2]);
+  }, [rpRegistrarEnabled]);
 
   function handleCancel() {
     router.push('/');
