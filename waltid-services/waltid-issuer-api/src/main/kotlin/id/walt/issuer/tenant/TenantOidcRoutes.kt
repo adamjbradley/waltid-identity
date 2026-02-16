@@ -62,6 +62,40 @@ fun Application.tenantOidcRoutes() {
                             put("locale", "en")
                         }
                     }
+
+                    // Ensure credential configs have binding methods + proof types (required for wallet key proofs)
+                    val configs = metadataMap["credential_configurations_supported"]?.jsonObject
+                    if (configs != null) {
+                        metadataMap["credential_configurations_supported"] = JsonObject(
+                            configs.mapValues { (_, configElement) ->
+                                val config = configElement.jsonObject
+                                if (config["cryptographic_binding_methods_supported"] != null) {
+                                    configElement
+                                } else {
+                                    val format = config["format"]?.jsonPrimitive?.contentOrNull
+                                    val isMdoc = format == "mso_mdoc"
+                                    val isSdJwt = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                    JsonObject(config.toMutableMap().apply {
+                                        this["cryptographic_binding_methods_supported"] = buildJsonArray {
+                                            add(JsonPrimitive(when {
+                                                isMdoc -> "cose_key"
+                                                isSdJwt -> "jwk"
+                                                else -> "did"
+                                            }))
+                                        }
+                                        this["proof_types_supported"] = buildJsonObject {
+                                            putJsonObject("jwt") {
+                                                put("proof_signing_alg_values_supported", buildJsonArray {
+                                                    add(JsonPrimitive("ES256"))
+                                                })
+                                            }
+                                        }
+                                    })
+                                }
+                            }
+                        )
+                    }
+
                     call.respond(JsonObject(metadataMap))
                 }
 
