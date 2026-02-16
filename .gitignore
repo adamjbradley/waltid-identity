@@ -193,5 +193,11 @@ iOSInjectionProject/
 # Claude Code developer state
 .claude/active-feature.json
 
+# Screenshots and test artifacts (local dev only)
+/*.png
+.playwright-mcp/
+waltid-applications/waltid-web-portal/playwright-report/
+waltid-applications/waltid-web-portal/test-results/
+
 # Docker Compose local overrides
 docker-compose/.env.local

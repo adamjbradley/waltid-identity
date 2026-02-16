@@ -324,10 +324,7 @@ services:
         protocol: tcp
         mode: host
 
-      - target: "${RP_DEMO_PORT:-7020}"
-        published: ${RP_DEMO_PORT:-7020} # rp-demo (widget or nextjs)
-        protocol: tcp
-        mode: host
+
 
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
