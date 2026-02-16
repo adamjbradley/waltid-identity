@@ -63,7 +63,14 @@
                 class="absolute top-2 right-2 z-10 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center">
                 <Icon name="heroicons:check" class="h-4 w-4" />
               </div>
-              <VerifiableCredentialCard :credential="credential" />
+              <VerifiableCredentialCard :credential="credential" class="!h-auto" />
+              <div v-if="getCredentialClaims(credential).length" class="px-4 py-2 bg-white rounded-b-2xl">
+                <div v-for="claim in getCredentialClaims(credential)" :key="claim.key"
+                  class="flex justify-between text-xs py-0.5">
+                  <span class="text-gray-400">{{ claim.key.replace(/_/g, ' ') }}</span>
+                  <span class="text-gray-700 font-medium">{{ claim.value }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -124,6 +131,7 @@
 import {computed} from "vue";
 import {useTitle} from "@vueuse/core";
 import {parseJwt} from "@waltid-web-wallet/utils/jwt.ts";
+import {parseDisclosures} from "@waltid-web-wallet/composables/disclosures.ts";
 import CenterMain from "@waltid-web-wallet/components/CenterMain.vue";
 import {usePresentation} from "@waltid-web-wallet/composables/presentation.ts";
 import LoadingIndicator from "@waltid-web-wallet/components/loading/LoadingIndicator.vue";
@@ -178,6 +186,50 @@ function toggleSelectionCard(credentialType: string, credentialId: string) {
     // Single in group: toggle
     selection.value[credentialId] = !selection.value[credentialId];
   }
+}
+
+// Extract key subject claims from a credential for display in the selection grid
+const DISPLAY_CLAIM_KEYS = ['family_name', 'given_name', 'birth_date', 'name', 'document_number', 'issuing_country', 'issuing_authority'];
+function getCredentialClaims(credential: any): Array<{key: string, value: string}> {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return [];
+
+  // mDoc: claims in issuerSigned.nameSpaces.<ns>[].{elementIdentifier, elementValue}
+  const nameSpaces = parsed?.issuerSigned?.nameSpaces;
+  if (nameSpaces) {
+    const claims: Array<{key: string, value: string}> = [];
+    for (const ns of Object.values(nameSpaces) as any[]) {
+      if (!Array.isArray(ns)) continue;
+      for (const elem of ns) {
+        if (DISPLAY_CLAIM_KEYS.includes(elem.elementIdentifier)) {
+          claims.push({ key: elem.elementIdentifier, value: String(elem.elementValue) });
+        }
+      }
+    }
+    return claims;
+  }
+
+  // SD-JWT: claims in disclosures [salt, name, value]
+  if (credential.disclosures) {
+    const disc = parseDisclosures(credential.disclosures);
+    if (disc) {
+      return disc
+        .filter((d: any) => DISPLAY_CLAIM_KEYS.includes(d[1]))
+        .map((d: any) => ({ key: d[1], value: String(d[2]) }));
+    }
+  }
+
+  // JWT: claims directly in parsed document
+  const claims: Array<{key: string, value: string}> = [];
+  const vc = parsed?.vc ?? parsed;
+  if (vc?.credentialSubject) {
+    for (const key of DISPLAY_CLAIM_KEYS) {
+      if (vc.credentialSubject[key]) {
+        claims.push({ key, value: String(vc.credentialSubject[key]) });
+      }
+    }
+  }
+  return claims;
 }
 
 // Portal hint params — ONLY read when MT enabled
