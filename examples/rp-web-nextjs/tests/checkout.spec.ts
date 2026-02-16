@@ -494,7 +494,7 @@ test.describe('Web Wallet Integration', () => {
 
     const href = await webWalletLink.getAttribute('href');
     // Should start with the web wallet URL and contain /verify path with query params
-    expect(href).toContain('/verify?');
+    expect(href).toContain('/api/siop/initiatePresentation?');
     expect(href).toContain('client_id=');
     expect(href).toContain('request_uri=');
   });
@@ -583,7 +583,7 @@ test.describe('Web Wallet - mdoc-openid4vp scheme', () => {
 
     const href = await webWalletLink.getAttribute('href');
     expect(href).not.toContain('mdoc-openid4vp://');
-    expect(href).toContain('/verify?');
+    expect(href).toContain('/api/siop/initiatePresentation?');
     expect(href).toContain('client_id=');
   });
 });

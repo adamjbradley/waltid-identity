@@ -31,7 +31,7 @@ function buildWebWalletUrl(qrCodeData: string): string {
   // Strip the custom scheme (openid4vp:// or mdoc-openid4vp://) and use the query params
   const queryStart = qrCodeData.indexOf('?');
   if (queryStart === -1) return walletBase;
-  return `${walletBase}/verify${qrCodeData.substring(queryStart)}`;
+  return `${walletBase}/api/siop/initiatePresentation${qrCodeData.substring(queryStart)}`;
 }
 
 export default function CheckoutPage() {

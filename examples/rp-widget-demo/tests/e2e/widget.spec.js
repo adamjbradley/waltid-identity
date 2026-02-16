@@ -517,7 +517,7 @@ test.describe('Web Wallet Integration', () => {
     await expect(webWalletLink).toBeVisible({ timeout: 5000 });
 
     const href = await webWalletLink.getAttribute('href');
-    expect(href).toContain('wallet.theaustraliahack.com/verify?');
+    expect(href).toContain('wallet.theaustraliahack.com/api/siop/initiatePresentation?');
     expect(href).toContain('client_id=');
     expect(href).toContain('request_uri=');
     expect(href).not.toContain('openid4vp://');
@@ -535,7 +535,7 @@ test.describe('Web Wallet Integration', () => {
     await expect(webWalletLink.first()).toBeVisible({ timeout: 5000 });
 
     const href = await webWalletLink.first().getAttribute('href');
-    expect(href).toContain('/verify?');
+    expect(href).toContain('/api/siop/initiatePresentation?');
   });
 
   test('does not inject duplicate web wallet links', async ({ page }) => {

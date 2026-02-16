@@ -2323,7 +2323,7 @@
         function buildWebWalletUrl(deepLinkHref) {
             var queryStart = deepLinkHref.indexOf('?');
             if (queryStart === -1) return WEB_WALLET_URL;
-            return WEB_WALLET_URL + '/verify' + deepLinkHref.substring(queryStart);
+            return WEB_WALLET_URL + '/api/siop/initiatePresentation' + deepLinkHref.substring(queryStart);
         }
 
         // Inject "Open in Web Wallet" link next to SDK's "Open Wallet App" link
