@@ -141,14 +141,13 @@ object DcqlMatcher {
             log.trace { "Final matches for ${credQuery.id} after filtering: ${finalMatchesForQuery.map { it.id }}" }
 
             if (finalMatchesForQuery.isNotEmpty()) {
+                // Always return all matching candidates so the wallet UI can let
+                // the user choose which credential to present. The `multiple` constraint
+                // is enforced at presentation submission time, not during selection.
                 if (!credQuery.multiple && finalMatchesForQuery.size > 1) {
-                    // If multiple=false, only one should match. We take the first one found.
-                    // Depending on requirements, this could also be an error or require user selection.
-                    log.warn { "Multiple credentials matched query '${credQuery.id}' but 'multiple' is false. Selecting the first: ${finalMatchesForQuery.first().id}" }
-                    individualMatches[credQuery.id] = listOf(finalMatchesForQuery.first())
-                } else {
-                    individualMatches[credQuery.id] = finalMatchesForQuery
+                    log.info { "Multiple credentials matched query '${credQuery.id}' (multiple=false). Returning all ${finalMatchesForQuery.size} candidates for user selection." }
                 }
+                individualMatches[credQuery.id] = finalMatchesForQuery
             } else {
                 log.debug { "No credentials found matching query: ${credQuery.id}" }
                 // Store nothing if no matches found for this query ID
