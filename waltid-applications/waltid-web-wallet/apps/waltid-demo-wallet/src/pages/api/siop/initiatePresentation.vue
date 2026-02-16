@@ -18,6 +18,23 @@ import {listWallets, setWallet, type WalletListing as WalletListingType} from "@
 import {useMtWallet} from "@waltid-web-wallet/composables/mtWallet.ts";
 
 const route = useRoute();
+
+// Auth guard: wait for auth to resolve and redirect to login if unauthenticated
+const { status } = useAuth();
+if (status.value === 'loading') {
+  await new Promise<void>((resolve) => {
+    const stop = watch(status, (newStatus) => {
+      if (newStatus !== 'loading') {
+        stop();
+        resolve();
+      }
+    });
+  });
+}
+if (status.value === 'unauthenticated') {
+  await navigateTo('/login?redirect=' + encodeURIComponent(route.fullPath));
+}
+
 const { mtWalletEnabled } = useMtWallet();
 
 const queryRequest = new URL("http://example.invalid" + route.fullPath)
