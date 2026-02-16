@@ -194,6 +194,7 @@ export default defineNuxtConfig({
             issuerCallbackUrl: "http://localhost:7100",
             credentialsRepositoryUrl: "http://localhost:3000",
             devWalletUrl: "https://wallet-dev.walt.id",
+            mtWalletEnabled: process.env.NUXT_PUBLIC_MT_WALLET_ENABLED === 'true',
         }
     },
 

@@ -6,9 +6,22 @@ import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.JWSObject
 import com.nimbusds.jose.Payload
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jose.util.Base64URL
+import id.walt.mdoc.COSECryptoProviderKeyInfo
+import id.walt.mdoc.SimpleCOSECryptoProvider
+import id.walt.mdoc.dataelement.ByteStringElement
+import id.walt.mdoc.dataelement.EncodedCBORElement
+import id.walt.mdoc.dataelement.ListElement
+import id.walt.mdoc.dataelement.MapElement
+import id.walt.mdoc.dataelement.NullElement
+import id.walt.mdoc.dataelement.StringElement
+import id.walt.mdoc.dataretrieval.DeviceResponse
+import id.walt.mdoc.doc.MDoc
+import id.walt.mdoc.docrequest.MDocRequestBuilder
+import id.walt.mdoc.mdocauth.DeviceAuthentication
 import id.walt.commons.config.ConfigManager
 import id.walt.commons.featureflag.FeatureManager.whenFeature
 import id.walt.commons.web.ConflictException
@@ -25,9 +38,13 @@ import id.walt.did.dids.registrar.dids.DidKeyCreateOptions
 import id.walt.did.dids.registrar.dids.DidWebCreateOptions
 import id.walt.did.dids.resolver.LocalResolver
 import id.walt.did.utils.EnumUtils.enumValueIgnoreCase
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.CredentialOffer
 import id.walt.oid4vc.data.ResponseMode
+import id.walt.sdjwt.SDJwtVC
+import id.walt.sdjwt.WaltIdJWTCryptoProvider
 import id.walt.oid4vc.errors.AuthorizationError
+import org.cose.java.AlgorithmID
 import id.walt.oid4vc.providers.CredentialWalletConfig
 import id.walt.oid4vc.providers.OpenIDClientConfig
 import id.walt.oid4vc.requests.AuthorizationRequest
@@ -77,6 +94,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
+import java.security.MessageDigest
 import java.util.*
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -219,6 +237,20 @@ class SSIKit2WalletService(
 
         logger.debug { "Using presentation request, selected credentials: ${parameter.selectedCredentials}" }
 
+        val isDcql = authorizationRequest.dcqlQuery != null
+        val isPd = authorizationRequest.presentationDefinition != null
+
+        if (!isDcql && !isPd) {
+            return Result.failure(
+                IllegalArgumentException("Authorization request has neither presentation_definition nor dcql_query")
+            )
+        }
+
+        if (isDcql) {
+            return usePresentationRequestDcql(authorizationRequest, parameter)
+        }
+
+        // Legacy presentation_definition flow
         val presentationSession =
             credentialWallet.initializeAuthorization(
                 authorizationRequest = authorizationRequest,
@@ -227,7 +259,9 @@ class SSIKit2WalletService(
             )
         logger.debug { "Initialized authorization (VPPresentationSession): $presentationSession" }
 
-        logger.debug { "Resolved presentation definition: ${presentationSession.authorizationRequest!!.presentationDefinition!!.toJSONString()}" }
+        presentationSession.authorizationRequest?.presentationDefinition?.let {
+            logger.debug { "Resolved presentation definition: ${it.toJSONString()}" }
+        }
 
         SessionAttributes.HACK_outsideMappedSelectedCredentialsPerSession[
             presentationSession.authorizationRequest!!.state + presentationSession.authorizationRequest.presentationDefinition?.id
@@ -350,6 +384,171 @@ class SSIKit2WalletService(
                 redirectUri = ""
             )
         )
+    }
+
+    private suspend fun usePresentationRequestDcql(
+        authorizationRequest: AuthorizationRequest,
+        parameter: PresentationRequestParameter
+    ): Result<String?> {
+        val dcqlQuery = authorizationRequest.dcqlQuery!!
+        val selectedCredentials = parameter.selectedCredentials
+
+        logger.debug { "DCQL presentation flow. Query IDs: ${dcqlQuery.credentials.map { it.id }}, Selected: $selectedCredentials" }
+
+        val matchedCredentials = credentialService.get(walletId, selectedCredentials)
+
+        // Resolve signing key
+        val key = runBlocking {
+            runCatching {
+                DidService.resolveToKey(parameter.did).getOrThrow().let { KeysService.get(it.getKeyId()) }
+                    ?.let { KeyManager.resolveSerializedKey(it.document) }
+            }
+        }.getOrElse {
+            return Result.failure(IllegalArgumentException("Could not resolve key for DCQL presentation", it))
+        } ?: return Result.failure(IllegalArgumentException("No key resolved for DCQL presentation"))
+
+        // Build vp_token as JSON object: { queryId: credentialPresentation }
+        val vpTokenEntries = mutableMapOf<String, JsonElement>()
+
+        for (credQuery in dcqlQuery.credentials) {
+            val matchingCred = matchedCredentials.find { cred ->
+                val formatMatches = when (cred.format) {
+                    CredentialFormat.sd_jwt_dc -> credQuery.format.id.any { it == "dc+sd-jwt" }
+                    CredentialFormat.sd_jwt_vc -> credQuery.format.id.any { it == "dc+sd-jwt" || it == "vc+sd-jwt" }
+                    CredentialFormat.mso_mdoc -> credQuery.format.id.any { it == "mso_mdoc" }
+                    else -> credQuery.format.id.any { it == cred.format.value }
+                }
+                formatMatches
+            } ?: continue
+
+            val presentation = when (matchingCred.format) {
+                CredentialFormat.sd_jwt_dc, CredentialFormat.sd_jwt_vc -> {
+                    val documentWithDisclosures = if (parameter.disclosures?.containsKey(matchingCred.id) == true) {
+                        matchingCred.document + "~${parameter.disclosures[matchingCred.id]!!.joinToString("~")}"
+                    } else {
+                        matchingCred.document + (matchingCred.disclosures?.let { "~$it" } ?: "")
+                    }
+                    val sdJwtVC = SDJwtVC.parse(documentWithDisclosures)
+                    val finalSDJwtVC = sdJwtVC.present(
+                        discloseAll = true,
+                        audience = authorizationRequest.clientId,
+                        nonce = authorizationRequest.nonce ?: "",
+                        kbCryptoProvider = WaltIdJWTCryptoProvider(keys = mapOf(key.getKeyId() to key)),
+                        kbKeyId = key.getKeyId()
+                    )
+                    finalSDJwtVC.toString(formatForPresentation = true, withKBJwt = true)
+                }
+                CredentialFormat.mso_mdoc -> {
+                    val mdoc = MDoc.fromCBORHex(matchingCred.document)
+
+                    // Build OID4VP 1.0 handover: ["OpenID4VPHandover", SHA256(CBOR([clientId, nonce, null, responseUri]))]
+                    val handoverResponseUri = authorizationRequest.responseUri
+                        ?: authorizationRequest.redirectUri ?: ""
+                    val handoverInfo = ListElement(listOf(
+                        StringElement(authorizationRequest.clientId),
+                        StringElement(authorizationRequest.nonce ?: ""),
+                        NullElement(),
+                        StringElement(handoverResponseUri)
+                    ))
+                    val infoHash = MessageDigest.getInstance("SHA-256").digest(handoverInfo.toCBOR())
+                    val mdocHandover = ListElement(listOf(
+                        StringElement("OpenID4VPHandover"),
+                        ByteStringElement(infoHash)
+                    ))
+
+                    val ecKey = ECKey.parse(key.exportJWK()).toECKey()
+                    val cryptoProvider = SimpleCOSECryptoProvider(
+                        listOf(
+                            COSECryptoProviderKeyInfo(
+                                key.getKeyId(),
+                                AlgorithmID.ECDSA_256,
+                                ecKey.toECPublicKey(),
+                                ecKey.toECPrivateKey()
+                            )
+                        )
+                    )
+
+                    val mdocRequest = MDocRequestBuilder(mdoc.docType.value).also { builder ->
+                        credQuery.claims?.forEach { claim ->
+                            if (claim.path.size >= 2) {
+                                builder.addDataElementRequest(claim.path[0], claim.path[1], claim.intentToRetain ?: false)
+                            }
+                        }
+                    }.build()
+
+                    val presentedMDoc = mdoc.presentWithDeviceSignature(
+                        mdocRequest,
+                        DeviceAuthentication(
+                            sessionTranscript = ListElement(
+                                listOf(NullElement(), NullElement(), mdocHandover)
+                            ), mdoc.docType.value, EncodedCBORElement(MapElement(mapOf()))
+                        ), cryptoProvider, key.getKeyId()
+                    )
+
+                    DeviceResponse(listOf(presentedMDoc)).toCBORBase64URL()
+                }
+                else -> matchingCred.document
+            }
+
+            vpTokenEntries[credQuery.id] = JsonPrimitive(presentation)
+        }
+
+        // vp_token must always be Map<String, List<String>> JSON for verifier-api2
+        val vpTokenMap = vpTokenEntries.mapValues { (_, v) ->
+            buildJsonArray { add(v) }
+        }
+        val vpTokenValue = Json.encodeToString(JsonObject(vpTokenMap))
+
+        val responseUri = authorizationRequest.responseUri
+            ?: authorizationRequest.redirectUri
+            ?: return Result.failure(IllegalArgumentException("No response_uri or redirect_uri in DCQL authorization request"))
+
+        val resp = this.http.submitForm(
+            url = responseUri,
+            formParameters = parameters {
+                append("vp_token", vpTokenValue)
+                authorizationRequest.state?.let { append("state", it) }
+            }
+        )
+
+        val httpResponseBody = runCatching { resp.bodyAsText() }.getOrNull()
+        logger.debug { "DCQL presentation response: ${resp.status}, body: $httpResponseBody" }
+
+        // Parse redirect URI from response
+        if (httpResponseBody != null && httpResponseBody.couldBeJsonObject()) {
+            val bodyJson = httpResponseBody.parseAsJsonObject().getOrNull()
+            val redirectUri = bodyJson?.get("redirect_uri")?.jsonPrimitive?.contentOrNull
+            if (redirectUri != null && redirectUri.isUrl()) {
+                return Result.success(redirectUri)
+            }
+        }
+        if (httpResponseBody != null && httpResponseBody.isUrl()) {
+            return Result.success(httpResponseBody)
+        }
+
+        // Log presentation events
+        parameter.selectedCredentials.forEach {
+            credentialService.get(walletId, it)?.run {
+                eventUseCase.log(
+                    action = EventType.Credential.Present,
+                    originator = authorizationRequest.clientMetadata?.clientName ?: EventDataNotAvailable,
+                    tenant = tenant,
+                    accountId = accountId,
+                    walletId = walletId,
+                    data = eventUseCase.credentialEventData(
+                        credential = this,
+                        subject = eventUseCase.subjectData(this),
+                        organization = eventUseCase.verifierData(authorizationRequest),
+                        type = null
+                    ),
+                    credentialId = this.id,
+                    note = parameter.note,
+                )
+            }
+        }
+
+        return if (resp.status.isSuccess()) Result.success(null)
+        else Result.failure(PresentationError(httpResponseBody ?: "DCQL presentation failed", ""))
     }
 
     fun String.isUrl() = runCatching {

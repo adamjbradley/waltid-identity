@@ -70,6 +70,8 @@ dependencies {
     // Test
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${Versions.COROUTINES_VERSION}")
+    testImplementation("io.ktor:ktor-server-test-host:${Versions.KTOR_VERSION}")
+    testImplementation("io.ktor:ktor-serialization-kotlinx-json-jvm:${Versions.KTOR_VERSION}")
 
     // OIDC
     api(project(":waltid-libraries:protocols:waltid-openid4vc"))

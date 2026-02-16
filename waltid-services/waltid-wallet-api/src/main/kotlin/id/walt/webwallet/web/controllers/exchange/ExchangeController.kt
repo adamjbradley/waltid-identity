@@ -1,5 +1,6 @@
 package id.walt.webwallet.web.controllers.exchange
 
+import id.walt.dcql.models.DcqlQuery
 import id.walt.oid4vc.OpenID4VCI
 import id.walt.oid4vc.data.OpenIDProviderMetadataSerializer
 import id.walt.oid4vc.data.dif.PresentationDefinition
@@ -32,6 +33,7 @@ import io.ktor.server.response.*
 import io.ktor.util.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -93,6 +95,15 @@ fun Application.exchange() = walletRoute {
                     call.getWalletId(),
                     presentationDefinition
                 )
+            call.respond(matchedCredentials)
+        }
+
+        post("matchCredentialsForDcqlQuery") {
+            val dcqlQuery = Json.decodeFromJsonElement(DcqlQuery.serializer(), call.receive<JsonElement>())
+            val matchedCredentials = WalletServiceManager.matchCredentialsForDcqlQuery(
+                call.getWalletId(),
+                dcqlQuery
+            )
             call.respond(matchedCredentials)
         }
 

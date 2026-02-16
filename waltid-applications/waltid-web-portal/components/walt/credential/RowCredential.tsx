@@ -52,6 +52,18 @@ export default function RowCredential({
     credentialToEdit.defaultClaims || []
   );
 
+  // Re-initialize credentialSubject when offer changes (e.g., country switch)
+  React.useEffect(() => {
+    setCredentialSubject(extractCredentialSubject(credentialToEdit.offer));
+  }, [JSON.stringify(credentialToEdit.offer)]);
+
+  // Re-initialize claims when defaultClaims change (e.g., country switch)
+  React.useEffect(() => {
+    if (credentialToEdit.defaultClaims) {
+      setClaims(credentialToEdit.defaultClaims);
+    }
+  }, [JSON.stringify(credentialToEdit.defaultClaims)]);
+
   React.useEffect(() => {
     setCredentialsToIssue(
       credentialsToIssue.map((credential) => {

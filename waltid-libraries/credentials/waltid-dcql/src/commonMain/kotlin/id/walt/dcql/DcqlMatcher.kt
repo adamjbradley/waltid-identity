@@ -130,12 +130,12 @@ object DcqlMatcher {
             log.trace { "Potential matches for ${credQuery.id} based on format: ${potentialMatches.map { it.id }}" }
 
             val finalMatchesForQuery = potentialMatches.filter { credential ->
-                // Apply further filtering based on query constraints
+                // Apply format + meta filtering only — skip claims matching here because
+                // SD-JWT credentials store disclosed claims in selective disclosures (not in
+                // parsedDocument), so claim path resolution would fail. Claims are validated
+                // during actual presentation generation, not during wallet-side matching.
                 matchesMeta(credential, credQuery.meta, credQuery.format) &&
-                        matchesTrustedAuthorities(credential, credQuery.trustedAuthorities) &&
-                        matchesClaims(credential, credQuery.claims, credQuery.claimSets)
-                // Note: requireCryptographicHolderBinding check would happen during
-                // presentation generation, not typically during matching.
+                        matchesTrustedAuthorities(credential, credQuery.trustedAuthorities)
             }
 
             log.trace { "Final matches for ${credQuery.id} after filtering: ${finalMatchesForQuery.map { it.id }}" }

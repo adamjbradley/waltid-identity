@@ -21,6 +21,7 @@ import id.walt.issuer.config.EudiMdocConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.FeatureCatalog
 import id.walt.issuer.psp.PwaConfig
+import id.walt.issuer.statuslist.StatusListIssuanceHook
 import id.walt.mdoc.COSECryptoProviderKeyInfo
 import id.walt.mdoc.SimpleCOSECryptoProvider
 import id.walt.mdoc.cose.COSESign1
@@ -381,6 +382,17 @@ open class CIProvider(
                 X509CertUtils.parse(it).encoded.encodeToBase64()
             }
 
+            // Allocate status list index for SD-JWT credentials (before signing)
+            val statusClaim = if (request.credentialFormat in listOf(
+                    CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc
+                )) {
+                StatusListIssuanceHook.allocateForCredential(
+                    credentialConfigurationId = request.credentialConfigurationId,
+                    issuerDid = request.issuerDid,
+                    baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl,
+                )?.let { StatusListIssuanceHook.buildStatusClaim(it) }
+            } else null
+
             request.run {
                 when (credentialFormat) {
                     CredentialFormat.sd_jwt_vc, CredentialFormat.sd_jwt_dc -> OpenID4VCI.generateSdJwtVC(
@@ -394,6 +406,7 @@ open class CIProvider(
                             DisplayProperties.fromJSON(it.jsonObject)
                         },
                         x5Chain = x5c,
+                        status = statusClaim,
                     ).also {
                         if (!issuanceSession.callbackUrl.isNullOrEmpty())
                             sendCallback(
@@ -785,19 +798,23 @@ open class CIProvider(
         callbackUrl: String? = null,
         txCode: TxCode? = null,
         txCodeValue: String? = null,
-        standardVersion: OpenID4VCIVersion = OpenID4VCIVersion.DRAFT13
+        standardVersion: OpenID4VCIVersion = OpenID4VCIVersion.DRAFT13,
+        baseUrl: String? = null,
+        tokenKey: id.walt.crypto.keys.Key? = null,
     ): IssuanceSession = runBlocking {
         val sessionId = randomUUIDString()
+        val effectiveTokenKey = tokenKey ?: CI_TOKEN_KEY
 
         val credentialOfferBuilder = OidcIssuance.issuanceRequestsToCredentialOfferBuilder(
             issuanceRequests = issuanceRequests,
-            standardVersion = standardVersion
+            standardVersion = standardVersion,
+            baseUrl = baseUrl,
         )
 
         when (issuanceRequests[0].authenticationMethod) {
             AuthenticationMethod.PRE_AUTHORIZED -> {
                 credentialOfferBuilder.addPreAuthorizedCodeGrant(
-                    preAuthCode = OpenID4VC.generateAuthorizationCodeFor(sessionId, metadata.issuer!!, CI_TOKEN_KEY),
+                    preAuthCode = OpenID4VC.generateAuthorizationCodeFor(sessionId, metadata.issuer!!, effectiveTokenKey),
                     txCode = txCode
                 )
             }
@@ -940,11 +957,12 @@ open class CIProvider(
         return@runBlocking response
     }
 
-    fun processTokenRequest(tokenRequest: TokenRequest, dpopThumbprint: String? = null): TokenResponse = runBlocking {
+    fun processTokenRequest(tokenRequest: TokenRequest, dpopThumbprint: String? = null, tokenKey: id.walt.crypto.keys.Key? = null): TokenResponse = runBlocking {
+        val effectiveTokenKey = tokenKey ?: CI_TOKEN_KEY
         val payload = OpenID4VC.validateAndParseTokenRequest(
             tokenRequest = tokenRequest,
             issuer = metadata.issuer!!,
-            tokenKey = CI_TOKEN_KEY
+            tokenKey = effectiveTokenKey
         )
 
         val sessionId = payload[JWTClaims.Payload.subject]?.jsonPrimitive?.content ?: throw TokenError(
@@ -988,7 +1006,7 @@ open class CIProvider(
             issuer = metadata.issuer!!,
             audience = TokenTarget.ACCESS,
             tokenId = null,
-            tokenKey = CI_TOKEN_KEY
+            tokenKey = effectiveTokenKey
         )
 
         // Build authorization_details for PWA (Payment Wallet Attestation) if enabled and session has funding sources

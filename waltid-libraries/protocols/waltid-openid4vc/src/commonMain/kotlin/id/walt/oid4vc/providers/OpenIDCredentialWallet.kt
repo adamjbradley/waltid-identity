@@ -171,6 +171,16 @@ abstract class OpenIDCredentialWallet<S : SIOPSession>(
 
     open fun resolveVPAuthorizationParameters(authorizationRequest: AuthorizationRequest): AuthorizationRequest {
         try {
+            val resolvedClientMetadata = authorizationRequest.clientMetadata
+                ?: authorizationRequest.clientMetadataUri?.let { uri ->
+                    httpGetAsJson(Url(uri))?.jsonObject?.let { OpenIDClientMetadata.fromJSON(it) }
+                }
+
+            // DCQL queries don't require presentation_definition
+            if (authorizationRequest.dcqlQuery != null) {
+                return authorizationRequest.copy(clientMetadata = resolvedClientMetadata)
+            }
+
             return authorizationRequest.copy(
                 presentationDefinition = authorizationRequest.presentationDefinition
                     ?: authorizationRequest.presentationDefinitionUri?.let {
@@ -190,10 +200,7 @@ abstract class OpenIDCredentialWallet<S : SIOPSession>(
                         AuthorizationErrorCode.invalid_request,
                         message = "Presentation definition could not be resolved from presentation_definition or presentation_definition_uri parameters"
                     ),
-                clientMetadata = authorizationRequest.clientMetadata
-                    ?: authorizationRequest.clientMetadataUri?.let { uri ->
-                        httpGetAsJson(Url(uri))?.jsonObject?.let { OpenIDClientMetadata.fromJSON(it) }
-                    }
+                clientMetadata = resolvedClientMetadata
             )
         } catch (exc: SerializationException) {
             exc.printStackTrace()

@@ -35,6 +35,9 @@ services:
         required: false
     # PWA (Payment Wallet Attestation) environment variables are loaded from .env.local
     # To enable: echo "PWA_ENABLED=true" >> .env.local
+    environment:
+      ISSUER_REGISTRAR_ENABLED: ${ISSUER_REGISTRAR_ENABLED:-false}
+      STATUS_LISTS_ENABLED: ${STATUS_LISTS_ENABLED:-false}
     volumes:
       - ./issuer-api/config:/waltid-issuer-api/config
 
@@ -66,6 +69,9 @@ services:
       - caddy
     env_file:
       - .env
+    extra_hosts:
+      - "$SERVICE_HOST:host-gateway"
+      - "issuer.theaustraliahack.com:host-gateway"
     environment:
       RP_REGISTRAR_ENABLED: ${RP_REGISTRAR_ENABLED:-false}
     volumes:
@@ -89,6 +95,7 @@ services:
     environment:
       NUXT_PUBLIC_ISSUER_CALLBACK_URL: "http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT"
       NUXT_PUBLIC_DEV_WALLET_URL: "http://$SERVICE_HOST:$DEV_WALLET_FRONTEND_PORT"
+      NUXT_PUBLIC_MT_WALLET_ENABLED: "${MT_WALLET_ENABLED:-false}"
       PORT: $DEMO_WALLET_FRONTEND_PORT
 
   waltid-dev-wallet:
@@ -107,6 +114,7 @@ services:
     environment:
       NUXT_PUBLIC_ISSUER_CALLBACK_URL: "http://$SERVICE_HOST:$DEV_WALLET_FRONTEND_PORT"
       NUXT_PUBLIC_DEMO_WALLET_URL: "http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT"
+      NUXT_PUBLIC_MT_WALLET_ENABLED: "${MT_WALLET_ENABLED:-false}"
       PORT: $DEV_WALLET_FRONTEND_PORT
 
   web-portal:
@@ -121,24 +129,32 @@ services:
       dockerfile: waltid-applications/waltid-web-portal/Dockerfile
       args:
         NEXT_PUBLIC_VC_REPO: "${VC_REPO_EXTERNAL_URL:-http://$SERVICE_HOST:$VC_REPO_PORT}"
-        NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_URL:-http://$SERVICE_HOST:$ISSUER_API_PORT}"
-        NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API_PORT}"
-        NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API2_PORT}"
+        NEXT_PUBLIC_ISSUER: "http://$SERVICE_HOST:$ISSUER_API_PORT"
+        NEXT_PUBLIC_VERIFIER: "http://$SERVICE_HOST:$VERIFIER_API_PORT"
+        NEXT_PUBLIC_VERIFIER2: "http://$SERVICE_HOST:$VERIFIER_API2_PORT"
         NEXT_PUBLIC_WALLET: "${WALLET_EXTERNAL_URL:-http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT}"
         NEXT_PUBLIC_VERIFIER2_CLIENT_ID: "${NEXT_PUBLIC_VERIFIER2_CLIENT_ID:-}"
         NEXT_PUBLIC_VERIFIER2_SIGNING_KEY: "${NEXT_PUBLIC_VERIFIER2_SIGNING_KEY:-}"
         NEXT_PUBLIC_VERIFIER2_X5C: "${NEXT_PUBLIC_VERIFIER2_X5C:-}"
+        NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED: "${ISSUER_REGISTRAR_ENABLED:-false}"
+        NEXT_PUBLIC_RP_REGISTRAR_ENABLED: "${RP_REGISTRAR_ENABLED:-false}"
+        NEXT_PUBLIC_STATUS_LISTS_ENABLED: "${STATUS_LISTS_ENABLED:-false}"
     depends_on:
       - caddy
     environment:
       NEXT_PUBLIC_VC_REPO: "${VC_REPO_EXTERNAL_URL:-http://$SERVICE_HOST:$VC_REPO_PORT}"
-      NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_URL:-http://$SERVICE_HOST:$ISSUER_API_PORT}"
-      NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API_PORT}"
-      NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_URL:-http://$SERVICE_HOST:$VERIFIER_API2_PORT}"
+      # Portal uses HTTPS URLs for browser-facing calls (via ngrok)
+      # These override ISSUER/VERIFIER_EXTERNAL_URL which are now Docker-internal
+      NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_HTTPS_URL:-https://issuer.theaustraliahack.com}"
+      NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_HTTPS_URL:-https://verifier.theaustraliahack.com}"
+      NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_HTTPS_URL:-https://verifier2.theaustraliahack.com}"
       NEXT_PUBLIC_WALLET: "${WALLET_EXTERNAL_URL:-http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT}"
       NEXT_PUBLIC_VERIFIER2_CLIENT_ID: "${NEXT_PUBLIC_VERIFIER2_CLIENT_ID:-}"
       NEXT_PUBLIC_VERIFIER2_SIGNING_KEY: "${NEXT_PUBLIC_VERIFIER2_SIGNING_KEY:-}"
       NEXT_PUBLIC_VERIFIER2_X5C: "${NEXT_PUBLIC_VERIFIER2_X5C:-}"
+      NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED: "${ISSUER_REGISTRAR_ENABLED:-false}"
+      NEXT_PUBLIC_RP_REGISTRAR_ENABLED: "${RP_REGISTRAR_ENABLED:-false}"
+      NEXT_PUBLIC_STATUS_LISTS_ENABLED: "${STATUS_LISTS_ENABLED:-false}"
       PORT: $WEB_PORTAL_PORT
 
   vc-repo:

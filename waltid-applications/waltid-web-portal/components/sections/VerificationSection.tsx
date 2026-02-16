@@ -1,22 +1,55 @@
 import RowCredential from "@/components/walt/credential/RowCredential";
 import PolicyListItem from "@/components/walt/policy/PolicyListItem";
-import {AvailableCredential} from "@/types/credentials";
+import {AvailableCredential, getDefaultFormatForCredential} from "@/types/credentials";
 import WaltIcon from "@/components/walt/logo/WaltIcon";
 import InputField from "@/components/walt/forms/Input";
 import Button from "@/components/walt/button/Button";
-import React, {useContext, useState} from "react";
-import {CredentialsContext} from "@/pages/_app";
+import React, {useContext, useEffect, useState} from "react";
+import {CredentialsContext, EnvContext} from "@/pages/_app";
 import {useRouter} from "next/router";
+import nextConfig from "@/next.config";
+import axios from "axios";
+import {BuildingOfficeIcon} from "@heroicons/react/24/outline";
+
+interface RpTenantSummary {
+  id: string;
+  legalName: string;
+  domain: string;
+  country: string;
+  status: string;
+  hasCertificate: boolean;
+}
 
 export default function VerificationSection() {
   const router = useRouter();
+  const env = useContext(EnvContext);
   const [AvailableCredentials] = useContext(CredentialsContext);
+
+  // RP registrar state
+  const rpRegistrarEnabled = (env.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const [rpTenants, setRpTenants] = useState<RpTenantSummary[]>([]);
+  const [selectedRpId, setSelectedRpId] = useState<string>('');
 
   const [signaturePolicy, setSignaturePolicy] = useState<boolean>(true);
   const [expiredPolicy, setExpiredPolicy] = useState<boolean>(true);
   const [notBeforePolicy, setNotBeforePolicy] = useState<boolean>(true);
+  const [revocationPolicy, setRevocationPolicy] = useState<boolean>(true);
+  const [trustPolicy, setTrustPolicy] = useState<boolean>(true);
   const [webhookPolicy, setWebhookPolicy] = useState<boolean>(false);
   const [webhook, setWebhook] = useState<string>('');
+
+  // Fetch RP tenants when enabled
+  useEffect(() => {
+    if (!rpRegistrarEnabled) return;
+    const apiBase = env.NEXT_PUBLIC_VERIFIER2 ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2;
+    if (!apiBase) return;
+    axios.get(`${apiBase}/admin/rp`).then((res) => {
+      const active = (res.data as RpTenantSummary[]).filter(
+        (t) => t.status === 'ACTIVE' && t.hasCertificate
+      );
+      setRpTenants(active);
+    }).catch(() => {});
+  }, [rpRegistrarEnabled, env.NEXT_PUBLIC_VERIFIER2]);
 
   function handleCancel() {
     router.push('/');
@@ -24,18 +57,19 @@ export default function VerificationSection() {
 
   const params = router.query;
 
-  const idsToIssue = (params as unknown as { ids: string }).ids?.split(',')
-    ? (params as unknown as { ids: string }).ids?.split(',')
-    : [(params as unknown as { ids: string }).ids];
+  const idsParam = (params as unknown as { ids: string }).ids;
+  const idsToIssue = idsParam ? idsParam.split(',') : [];
   const [credentialsToIssue, setCredentialsToIssue] = useState<
     AvailableCredential[]
   >([]);
 
   React.useEffect(() => {
+    if (!idsToIssue.length) return;
     setCredentialsToIssue(
       AvailableCredentials.filter((cred) => {
+        if (!cred?.id) return false;
         for (const id of idsToIssue) {
-          if (id.toString() == cred.id.toString()) {
+          if (id === cred.id) {
             return true;
           }
         }
@@ -50,10 +84,16 @@ export default function VerificationSection() {
       vps.push('signature');
     }
     if (expiredPolicy) {
-      vps.push('expired');
+      vps.push('expiration');
     }
     if (notBeforePolicy) {
       vps.push('not-before');
+    }
+    if (revocationPolicy) {
+      vps.push('revoked-status-list');
+    }
+    if (trustPolicy) {
+      vps.push('etsi-trusted-issuer');
     }
     if (webhookPolicy) {
       if (webhook.length == 0) {
@@ -71,8 +111,11 @@ export default function VerificationSection() {
 
     params.append(
       'format',
-      (credentialsToIssue[0]?.selectedFormat ?? 'JWT + W3C VC') as string
+      (credentialsToIssue[0]?.selectedFormat ?? getDefaultFormatForCredential(credentialsToIssue[0]?.id || '')) as string
     );
+    if (selectedRpId) {
+      params.append('rpId', selectedRpId);
+    }
     router.push(`/verify?${params.toString()}`);
   }
 
@@ -88,6 +131,29 @@ export default function VerificationSection() {
       <p className="mt-3 text-gray-600">
         Select credential format and policies which should be checked
       </p>
+
+      {rpRegistrarEnabled && rpTenants.length > 0 && (
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <BuildingOfficeIcon className="w-5 h-5 text-blue-600" />
+            <label className="text-sm font-medium text-blue-800">Verifying as</label>
+          </div>
+          <select
+            data-testid="rp-tenant-select"
+            value={selectedRpId}
+            onChange={(e) => setSelectedRpId(e.target.value)}
+            className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Default verifier (no RP)</option>
+            {rpTenants.map((rp) => (
+              <option key={rp.id} value={rp.id}>
+                {rp.legalName} ({rp.domain})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <hr className="mt-8" />
       <h3 className="text-gray-500 text-left mt-2 font-semibold">
         Credential Formats
@@ -126,6 +192,16 @@ export default function VerificationSection() {
             name="Not Before Policy"
             value={notBeforePolicy}
             onChange={setNotBeforePolicy}
+          />
+          <PolicyListItem
+            name="Revocation Policy"
+            value={revocationPolicy}
+            onChange={setRevocationPolicy}
+          />
+          <PolicyListItem
+            name="EUDI Trust List"
+            value={trustPolicy}
+            onChange={setTrustPolicy}
           />
           <div className="sm:flex justify-between">
             <PolicyListItem

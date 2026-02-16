@@ -3,6 +3,24 @@
     <CenterMain>
       <h1 class="mb-2 text-2xl text-center font-bold">Presentation Request</h1>
 
+      <!-- MT MODE ONLY: Verifier identity section (hidden when MT_WALLET_ENABLED=false) -->
+      <div v-if="mtWalletEnabled" class="mb-4 rounded-lg bg-blue-50 p-3 border border-blue-100" data-testid="verifier-identity">
+        <div class="text-xs font-medium text-blue-600 uppercase tracking-wide">Requested by</div>
+        <template v-if="rpDomain">
+          <div class="text-sm font-semibold text-gray-800">{{ rpHintName || rpDomain }}</div>
+          <div v-if="rpHintName" class="text-xs text-gray-500">{{ rpDomain }}</div>
+        </template>
+        <template v-else-if="verifierHost">
+          <div class="text-sm font-semibold text-gray-800">{{ rpHintName || verifierHost }}</div>
+        </template>
+        <template v-else>
+          <div class="text-sm text-gray-600">Unknown verifier</div>
+        </template>
+        <div v-if="clientId" class="mt-1 text-xs text-gray-400 font-mono truncate" data-testid="verifier-client-id">
+          {{ clientId }}
+        </div>
+      </div>
+
       <LoadingIndicator v-if="immediateAccept" class="my-6 mb-12 w-full">
         Presenting credential(s)...
       </LoadingIndicator>
@@ -85,10 +103,10 @@
     <div v-if="!failed && matchedCredentials.length" class="w-full sm:max-w-2xl sm:mx-auto">
       <div
         class="fixed sm:relative bottom-0 w-full p-4 bg-white shadow-md sm:shadow-none sm:flex sm:justify-end sm:gap-4">
-        <button @click="acceptPresentation" class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl">
+        <button data-testid="disclose-credential" @click="acceptPresentation" class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl">
           {{ matchedCredentials.length > 1 ? "Disclose All" : "Disclose" }}
         </button>
-        <button @click="navigateTo(`/wallet/${walletId}`)"
+        <button data-testid="decline-presentation" @click="navigateTo(`/wallet/${walletId}`)"
           class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl">
           Decline
         </button>
@@ -98,6 +116,7 @@
 </template>
 
 <script lang="ts" setup>
+import {computed} from "vue";
 import {useTitle} from "@vueuse/core";
 import {parseJwt} from "@waltid-web-wallet/utils/jwt.ts";
 import CenterMain from "@waltid-web-wallet/components/CenterMain.vue";
@@ -123,7 +142,16 @@ const {
   index,
   acceptPresentation,
   failed,
+  verifierHost,
+  clientId,
+  rpDomain,
+  mtWalletEnabled,
 } = await usePresentation(query);
+
+// Portal hint params — ONLY read when MT enabled
+const rpHintName = computed(() =>
+  mtWalletEnabled.value ? (route.query.rpName as string || '') : ''
+);
 const groupedCredentialsByType = computed(() => {
   const groups: Record<string, {
     id: string;
@@ -133,7 +161,8 @@ const groupedCredentialsByType = computed(() => {
   }[]> = {};
   for (const credential of matchedCredentials) {
     const parsedDocument = parseJwt(credential.document);
-    const types = (credential.parsedDocument ?? parsedDocument.vc ?? parsedDocument).type ?? parsedDocument.vct ? [parsedDocument.vct] : undefined;
+    const parsed = credential.parsedDocument ?? parsedDocument?.vc ?? parsedDocument;
+    const types = parsed?.type ?? (parsed?.vct ? [parsed.vct] : undefined) ?? (parsed?.docType ? [parsed.docType] : undefined);
     const typeKey = Array.isArray(types) && types.length > 0 ? types.at(-1) : "unknown";
     if (!groups[typeKey]) {
       groups[typeKey] = [];

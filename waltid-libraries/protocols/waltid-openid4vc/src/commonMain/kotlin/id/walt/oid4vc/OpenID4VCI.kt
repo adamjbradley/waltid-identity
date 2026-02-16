@@ -750,6 +750,7 @@ object OpenID4VCI {
         dataMapping: JsonObject? = null,
         x5Chain: List<String>? = null,
         display: List<DisplayProperties>? = null,
+        status: JsonObject? = null,
     ): String {
         val proofHeader = credentialRequest.proof?.jwt?.let { JwtUtils.parseJWTHeader(it) }
             ?: throw CredentialError(
@@ -819,7 +820,8 @@ object OpenID4VCI {
                     credentialRequest = credentialRequest,
                     errorCode = CredentialErrorCode.invalid_request,
                     message = "VCT must be set on credential request"
-                )
+                ),
+            status = status,
         ).let { defPayloadProps ->
             display?.takeIf { it.isNotEmpty() }?.let { dis ->
                 defPayloadProps.plus(

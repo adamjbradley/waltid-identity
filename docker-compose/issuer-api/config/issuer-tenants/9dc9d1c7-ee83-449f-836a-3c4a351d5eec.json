@@ -1,0 +1,56 @@
+{
+    "id": "9dc9d1c7-ee83-449f-836a-3c4a351d5eec",
+    "legalName": "Bundesdruckerei GmbH",
+    "country": "DE",
+    "domain": "bdr.de",
+    "contactEmail": "admin@bdr.de",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "i5rj40eBusmi1xJT_ixvKg9CONBFsUeHNLHBoHN0Hok",
+        "y": "vW0oKpw5qOe6McfgFEFykxgV1NjhqUTaiD6TmfvbUEA",
+        "d": "MSxmGiVjhY1fDgf9f7-VQcvd0RNqYykrBWXa8T0-TZ4"
+    },
+    "x5Chain": [
+        "MIIB1jCCAXygAwIBAgIVAOW8hYgBLhndyloirbt2Y++ECS5fMAoGCCqGSM49BAMCMDExIjAgBgNVBAMMGUJ1bmRlc2RydWNrZXJlaSBHbWJIIElBQ0ExCzAJBgNVBAYTAkRFMB4XDTI2MDIxMzA0NTcyMloXDTI3MDIxMzA0NTcyMlowPDEtMCsGA1UEAwwkQnVuZGVzZHJ1Y2tlcmVpIEdtYkggRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJERTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABIua4+NHgbrJotcSU/4sbyoPQjjQRbFHhzSxwaBzdB6JvW0oKpw5qOe6McfgFEFykxgV1NjhqUTaiD6TmfvbUECjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBRCAG2ypXeVnNHIgN1Gxx9YX5R0BTAfBgNVHSMEGDAWgBQQhODKBWiSHN/Jle9PLCbKi5o8RjAKBggqhkjOPQQDAgNIADBFAiA9e5DRujaewlgiB6Uw6dB3T0z74Vkrfj/u7cw8m3IqdAIhAPa5NaB/eB/GHCRNRYLM/9SgiAyZqDWXrs51onjUrtjg",
+        "MIIBxjCCAW2gAwIBAgIULVLh8IEg9AV1ifSl0s/JoYU/IBEwCgYIKoZIzj0EAwIwMTEiMCAGA1UEAwwZQnVuZGVzZHJ1Y2tlcmVpIEdtYkggSUFDQTELMAkGA1UEBhMCREUwHhcNMjYwMjEzMDQ1NzIyWhcNMzEwMjEyMDQ1NzIyWjAxMSIwIAYDVQQDDBlCdW5kZXNkcnVja2VyZWkgR21iSCBJQUNBMQswCQYDVQQGEwJERTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABKLnCM999gHH4jH7L1wiWimob/Si7MvJ2joxkjYBY2t51Sr75TEOtfpTubqCc7yjTjRmisHqBIxuZeHoauVBfyejYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQQhODKBWiSHN/Jle9PLCbKi5o8RjAfBgNVHSMEGDAWgBQQhODKBWiSHN/Jle9PLCbKi5o8RjAKBggqhkjOPQQDAgNHADBEAiA0SHFIoFy6s2ye8W8U7MRBtOq9oNQbf7DL3tT9pRQWRwIgWzkpyPOdCXrqFEB9y7739oLIW6lQ0LnPDsdA5M6GNeE="
+    ],
+    "iacaCertificate": {
+        "subject": "C=DE,CN=Bundesdruckerei GmbH IACA",
+        "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2031-02-12T04:57:22Z",
+        "serialNumber": "2d52e1f08120f4057589f4a5d2cfc9a1853f2011",
+        "fingerprint": "66:E6:E3:FF:DC:17:0C:D2:F2:46:C3:B3:C2:B2:66:72:F0:93:90:40:8F:72:01:0B:B8:F6:58:E5:2C:20:76:A0"
+    },
+    "signerCertificate": {
+        "subject": "C=DE,CN=Bundesdruckerei GmbH Document Signer",
+        "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2027-02-13T04:57:22Z",
+        "serialNumber": "e5bc8588012e19ddca5a22adbb7663ef84092e5f",
+        "fingerprint": "B3:2F:2C:D4:4C:11:E6:F7:A8:A7:1B:8C:AF:84:23:67:87:CD:86:4A:07:E4:1C:47:E1:E0:DF:94:B2:36:74:D5"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"HHmSmUHjYw9xzMhZteipKY65n84q8pJHSo6Q1m6kXBw\",\"y\":\"5FVo0dcb5TCGwb0RJSin4noX43bxSAKTNxeZ98J9qYU\",\"d\":\"8q95hEGJZof8zPyOX8zeIZJVnKs8FUC8hmoEQreYHRI\"}}",
+    "credentialConfigurations": {
+        "credentials": [
+            {
+                "configId": "eu.europa.ec.eudi.pid.1",
+                "format": "mso_mdoc",
+                "doctype": "eu.europa.ec.eudi.pid.1"
+            },
+            {
+                "configId": "urn:eudi:pid:1",
+                "format": "dc+sd-jwt",
+                "vct": "urn:eudi:pid:1"
+            },
+            {
+                "configId": "org.iso.18013.5.1.mDL",
+                "format": "mso_mdoc",
+                "doctype": "org.iso.18013.5.1.mDL"
+            }
+        ]
+    },
+    "createdAt": "2026-02-13T04:57:22.158299760Z",
+    "updatedAt": "2026-02-13T04:57:22.199017926Z"
+}

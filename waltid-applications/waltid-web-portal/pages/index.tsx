@@ -1,8 +1,8 @@
 import CustomCredentialModal from "@/components/walt/modal/CustomCredentialModal";
-import {MagnifyingGlassIcon, Cog6ToothIcon} from "@heroicons/react/24/outline";
+import {MagnifyingGlassIcon, Cog6ToothIcon, GlobeAltIcon} from "@heroicons/react/24/outline";
 import Credential from "@/components/walt/credential/Credential";
 import {AvailableCredential} from "@/types/credentials";
-import {CredentialsContext} from "@/pages/_app";
+import {CredentialsContext, EnvContext} from "@/pages/_app";
 import {Inter} from "next/font/google";
 import React, {useState} from "react";
 import {useRouter} from "next/router";
@@ -11,10 +11,15 @@ const inter = Inter({ subsets: ['latin'] });
 
 export default function Home() {
   const [AvailableCredentials] = React.useContext(CredentialsContext);
+  const env = React.useContext(EnvContext);
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [modalVisible, setModalVisible] = useState(false);
+
+  const issuerRegistrarEnabled = (env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const rpRegistrarEnabled = (env.NEXT_PUBLIC_RP_REGISTRAR_ENABLED ?? 'false') === 'true';
+  const hasMtMode = issuerRegistrarEnabled || rpRegistrarEnabled;
 
   const credentials = !searchTerm
     ? AvailableCredentials
@@ -49,6 +54,27 @@ export default function Home() {
           <Cog6ToothIcon className="w-4 h-4" />
           Admin
         </button>
+        {issuerRegistrarEnabled && (
+          <button
+            onClick={() => router.push('/explore')}
+            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            data-testid="explore-btn"
+          >
+            <GlobeAltIcon className="w-4 h-4" />
+            Explore by Country
+          </button>
+        )}
+        {hasMtMode && (
+          <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700" data-testid="mt-banner">
+            <span className="font-medium">Multi-Tenant Mode</span>
+            {issuerRegistrarEnabled && (
+              <span className="px-2 py-0.5 bg-blue-100 rounded-full text-xs font-medium">Issuer Registrar</span>
+            )}
+            {rpRegistrarEnabled && (
+              <span className="px-2 py-0.5 bg-blue-100 rounded-full text-xs font-medium">RP Registrar</span>
+            )}
+          </div>
+        )}
       </div>
       <main className="flex flex-col items-center gap-5 justify-between mt-16 md:w-[740px] m-auto">
         <div className="flex flex-row gap-5 w-full px-5">

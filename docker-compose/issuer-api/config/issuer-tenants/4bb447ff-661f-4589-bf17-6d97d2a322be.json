@@ -1,0 +1,56 @@
+{
+    "id": "4bb447ff-661f-4589-bf17-6d97d2a322be",
+    "legalName": "Australian Digital Identity Office",
+    "country": "AU",
+    "domain": "digitalid.gov.au",
+    "contactEmail": "admin@digitalid.gov.au",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "BLqdl-kFZ7sDt6py4OpqcP-mhXRA_Sl_6hh3yPAuKtI",
+        "y": "R2V8LvLfP97ycvSqQKde2ZPRH4IyJgTRiGLevfhcfPQ",
+        "d": "uUUF0jwj-nhh-ufI0KrhM22Oq71k0kPW9-zHRPDTnmg"
+    },
+    "x5Chain": [
+        "MIIB8zCCAZigAwIBAgIVAJUwavOmuZfab0H1BYzD0fE9upccMAoGCCqGSM49BAMCMD8xMDAuBgNVBAMMJ0F1c3RyYWxpYW4gRGlnaXRhbCBJZGVudGl0eSBPZmZpY2UgSUFDQTELMAkGA1UEBhMCQVUwHhcNMjYwMjEzMDQ1NzIyWhcNMjcwMjEzMDQ1NzIyWjBKMTswOQYDVQQDDDJBdXN0cmFsaWFuIERpZ2l0YWwgSWRlbnRpdHkgT2ZmaWNlIERvY3VtZW50IFNpZ25lcjELMAkGA1UEBhMCQVUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQEup2X6QVnuwO3qnLg6mpw/6aFdED9KX/qGHfI8C4q0kdlfC7y3z/e8nL0qkCnXtmT0R+CMiYE0Yhi3r34XHz0o2YwZDAOBgNVHQ8BAf8EBAMCB4AwEgYDVR0lBAswCQYHKIGMXQUBAjAdBgNVHQ4EFgQUL/7qwboQ+xaBvVUycdajKbV3HhYwHwYDVR0jBBgwFoAU4pS2VzAUAcqaS/nzceSvQRvIeRwwCgYIKoZIzj0EAwIDSQAwRgIhAJ0pqosEdSa3NGTDV7jO5v/x92hAD9ZUKFsMdXZDYPQ6AiEAmLomOvmSOX5nwQ9pAtDREBXNu3gha5X3AEwNqpzwCnA=",
+        "MIIB5DCCAYqgAwIBAgIVAM4HA0ROuz6dfWb2h1bFzDaORLa7MAoGCCqGSM49BAMCMD8xMDAuBgNVBAMMJ0F1c3RyYWxpYW4gRGlnaXRhbCBJZGVudGl0eSBPZmZpY2UgSUFDQTELMAkGA1UEBhMCQVUwHhcNMjYwMjEzMDQ1NzIyWhcNMzEwMjEyMDQ1NzIyWjA/MTAwLgYDVQQDDCdBdXN0cmFsaWFuIERpZ2l0YWwgSWRlbnRpdHkgT2ZmaWNlIElBQ0ExCzAJBgNVBAYTAkFVMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc/x/QDrevwFRm0nZxMEtxnfUIVIxry5hPAk/zSa9dx1upzhURqRzZMG4KY6uY5dCMaRZoIR3L3ToS6hfJR16m6NjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFOKUtlcwFAHKmkv583Hkr0EbyHkcMB8GA1UdIwQYMBaAFOKUtlcwFAHKmkv583Hkr0EbyHkcMAoGCCqGSM49BAMCA0gAMEUCIAfsScUsSFesBypP3iEGdL8/EGySLzd9J8U/x9h4zi/FAiEAuSy1asMTrELFO+s1i+A4RTpb1eTg6S1ouDVm+EA5R6M="
+    ],
+    "iacaCertificate": {
+        "subject": "C=AU,CN=Australian Digital Identity Office IACA",
+        "issuer": "C=AU,CN=Australian Digital Identity Office IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2031-02-12T04:57:22Z",
+        "serialNumber": "ce0703444ebb3e9d7d66f68756c5cc368e44b6bb",
+        "fingerprint": "3F:45:96:57:1B:8F:34:5D:43:1D:C6:69:D4:A8:BB:B9:EB:86:00:FE:09:40:AA:F9:A2:E7:BE:D9:E8:8D:23:81"
+    },
+    "signerCertificate": {
+        "subject": "C=AU,CN=Australian Digital Identity Office Document Signer",
+        "issuer": "C=AU,CN=Australian Digital Identity Office IACA",
+        "notBefore": "2026-02-13T04:57:22Z",
+        "notAfter": "2027-02-13T04:57:22Z",
+        "serialNumber": "95306af3a6b997da6f41f5058cc3d1f13dba971c",
+        "fingerprint": "3E:B6:13:F2:51:A2:E4:3E:E6:65:4B:BC:B4:BA:82:C3:61:EB:D6:C4:46:01:2D:4A:D1:A3:BA:A8:20:99:3C:57"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"0IJX2uowbEPJG3bNVJbivoDoeD9tgiKiE1CdgdfwEa4\",\"y\":\"aA4K8EVpws-i0n_G7ggAg3wBznLeIj6Nqc_c4pOs8t8\",\"d\":\"bNNU82Lhr2wG7eq0MhIj6BfpVZwqwsGujjlLT1YDheQ\"}}",
+    "credentialConfigurations": {
+        "credentials": [
+            {
+                "configId": "eu.europa.ec.eudi.pid.1",
+                "format": "mso_mdoc",
+                "doctype": "eu.europa.ec.eudi.pid.1"
+            },
+            {
+                "configId": "urn:eudi:pid:1",
+                "format": "dc+sd-jwt",
+                "vct": "urn:eudi:pid:1"
+            },
+            {
+                "configId": "org.iso.18013.5.1.mDL",
+                "format": "mso_mdoc",
+                "doctype": "org.iso.18013.5.1.mDL"
+            }
+        ]
+    },
+    "createdAt": "2026-02-13T04:57:21.952948218Z",
+    "updatedAt": "2026-02-13T04:57:22.140766343Z"
+}

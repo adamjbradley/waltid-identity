@@ -27,6 +27,7 @@ export default function Verification() {
   const [error, setError] = useState<string | null>(null);
   const [usedApi2, setUsedApi2] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [rpHintName, setRpHintName] = useState<string>('');
 
   // Detect mobile device on mount (client-side only)
   useEffect(() => {
@@ -69,25 +70,59 @@ export default function Verification() {
 
           const dcqlQuery = buildDcqlQuery(credentials, credFormat);
 
-          // Build signing config from environment variables if available
+          // Build signing config - prefer RP-specific config when rpId is present
           let signingConfig: VerificationSigningConfig | undefined;
-          const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
-          const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
-          const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
+          const rpId = router.query.rpId?.toString();
 
-          if (clientId && signingKeyJson && x5c) {
+          if (rpId && verifier2Url) {
             try {
-              signingConfig = {
-                clientId,
-                key: JSON.parse(signingKeyJson),
-                x5c: [x5c],
-              };
+              const rpDetail = await axios.get(`${verifier2Url}/admin/rp/${rpId}`);
+              const certResponse = await axios.get(`${verifier2Url}/admin/rp/${rpId}/certificate/download`, {
+                transformResponse: [(data: string) => data],
+              });
+              const rpData = rpDetail.data;
+              if (rpData.legalName) setRpHintName(rpData.legalName);
+              if (rpData.x5c && rpData.x5c.length > 0) {
+                const certDownload = JSON.parse(certResponse.data);
+                signingConfig = {
+                  clientId: rpData.clientId,
+                  key: { type: 'jwk', jwk: certDownload.privateKeyJwk },
+                  x5c: rpData.x5c,
+                };
+              }
             } catch (e) {
-              console.warn('Failed to parse verifier signing config:', e);
+              console.warn('Failed to fetch RP signing config, falling back to env:', e);
             }
           }
 
-          const requestBody = buildVerificationSessionRequest(dcqlQuery, signingConfig);
+          // Fall back to environment variables if no RP config
+          if (!signingConfig) {
+            const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
+            const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
+            const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
+
+            if (clientId && signingKeyJson && x5c) {
+              try {
+                signingConfig = {
+                  clientId,
+                  key: JSON.parse(signingKeyJson),
+                  x5c: [x5c],
+                };
+              } catch (e) {
+                console.warn('Failed to parse verifier signing config:', e);
+              }
+            }
+          }
+
+          // Pre-generate sessionId so we can embed it in redirect URLs
+          const preSessionId = crypto.randomUUID();
+          const successUrl = `${window.location.origin}/success/${preSessionId}?api2=true`;
+
+          const requestBody = buildVerificationSessionRequest(
+            dcqlQuery, signingConfig, vps,
+            { success_redirect_uri: successUrl, error_redirect_uri: successUrl },
+            preSessionId
+          );
 
           const response = await axios.post(
             `${verifier2Url}/verification-session/create`,
@@ -111,7 +146,7 @@ export default function Verification() {
           if (state) {
             checkVerificationResult(verifier2Url, state, true).then((result) => {
               if (result) {
-                router.push(`/success/${state}`);
+                router.push(`/success/${state}?api2=true`);
               }
             });
           }
@@ -203,12 +238,17 @@ export default function Verification() {
   }
 
   function openWebWallet() {
+    // Pass RP hints when rpId is present (implies RP registrar enabled)
+    const metadata: Record<string, string> = {};
+    if (rpHintName) metadata.rpName = rpHintName;
+
     sendToWebWallet(
       env.NEXT_PUBLIC_WALLET
         ? env.NEXT_PUBLIC_WALLET
         : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_WALLET,
       'api/siop/initiatePresentation',
-      verifyURL
+      verifyURL,
+      Object.keys(metadata).length > 0 ? metadata : undefined
     );
   }
 

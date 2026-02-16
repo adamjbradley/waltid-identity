@@ -3,6 +3,7 @@ import {useCurrentWallet} from "./accountWallet.ts";
 import {computed, type Ref, ref, watch} from "vue";
 import {decodeRequest} from "./siop-requests.ts";
 import {navigateTo} from "nuxt/app";
+import {useMtWallet} from "./mtWallet.ts";
 
 export async function usePresentation(query: any) {
   const index = ref(0);
@@ -38,23 +39,60 @@ export async function usePresentation(query: any) {
       presentationParams.get("redirect_uri") ??
       "",
   ).host;
+
+  const { mtWalletEnabled } = useMtWallet();
+
+  // Extract client_id — ONLY when MT enabled
+  const clientId = computed(() => {
+    if (!mtWalletEnabled.value) return '';
+    return presentationParams.get('client_id') || '';
+  });
+
+  // Parse RP domain from x509_san_dns:{domain} — ONLY when MT enabled
+  const rpDomain = computed(() => {
+    if (!mtWalletEnabled.value) return '';
+    const cid = presentationParams.get('client_id') || '';
+    if (cid.startsWith('x509_san_dns:')) return cid.substring('x509_san_dns:'.length);
+    if (cid.startsWith('x509_san_uri:')) {
+      try { return new URL(cid.substring('x509_san_uri:'.length)).host; } catch { return ''; }
+    }
+    return '';
+  });
+
+  const dcqlQueryParam = presentationParams.get("dcql_query");
   const presentationDefinition = presentationParams.get(
     "presentation_definition",
   ) as string;
-  const matchedCredentials = await $fetch<
-    Array<{
-      id: string;
-      document: string;
-      parsedDocument?: string;
-      disclosures?: string;
-    }>
-  >(
-    `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForPresentationDefinition`,
-    {
-      method: "POST",
-      body: presentationDefinition,
-    },
-  );
+  const isDcql = !!dcqlQueryParam && !presentationDefinition;
+
+  let matchedCredentials: Array<{
+    id: string;
+    document: string;
+    parsedDocument?: string;
+    disclosures?: string;
+  }>;
+
+  if (isDcql) {
+    matchedCredentials = await $fetch(
+      `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForDcqlQuery`,
+      {
+        method: "POST",
+        body: dcqlQueryParam,
+      },
+    );
+  } else if (presentationDefinition) {
+    matchedCredentials = await $fetch(
+      `/wallet-api/wallet/${currentWallet.value}/exchange/matchCredentialsForPresentationDefinition`,
+      {
+        method: "POST",
+        body: presentationDefinition,
+      },
+    );
+  } else {
+    failed.value = true;
+    failMessage.value = "No presentation_definition or dcql_query in request";
+    matchedCredentials = [];
+  }
 
   const selection = ref<{ [key: string]: boolean }>({});
   const selectedCredentialIds = computed(() =>
@@ -174,6 +212,10 @@ export async function usePresentation(query: any) {
   return {
     currentWallet,
     verifierHost,
+    clientId,
+    rpDomain,
+    mtWalletEnabled,
+    isDcql,
     presentationDefinition,
     matchedCredentials,
     selectedCredentialIds,

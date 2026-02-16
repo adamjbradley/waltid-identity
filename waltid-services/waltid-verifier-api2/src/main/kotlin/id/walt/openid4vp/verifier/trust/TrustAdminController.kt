@@ -58,7 +58,8 @@ fun Application.trustAdminRoutes() {
                         HttpStatusCode.ServiceUnavailable,
                         mapOf("error" to "Trust lists feature is not enabled")
                     )
-                // Re-fetch trust lists
+                // Re-fetch trust lists from upstream sources
+                (service as? id.walt.commons.trust.CompositeTrustService)?.refresh()
                 val status = service.getStatus()
                 call.respond(Json.encodeToJsonElement(TrustServiceStatus.serializer(), status))
             }

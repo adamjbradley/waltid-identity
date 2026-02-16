@@ -1,6 +1,6 @@
 import axios from "axios";
 import {v4 as uuidv4} from "uuid";
-import {AvailableCredential, CredentialFormats, DIDMethods, DIDMethodsConfig} from "@/types/credentials";
+import {AvailableCredential, CredentialFormats, DIDMethods, DIDMethodsConfig, getDefaultFormatForCredential} from "@/types/credentials";
 
 const getOfferUrl = async (
   credentials: Array<AvailableCredential>,
@@ -9,21 +9,35 @@ const getOfferUrl = async (
   authenticationMethod?: string,
   vpRequestValue?: string,
   vpProfile?: string,
-  useServerKeys?: boolean
+  useServerKeys?: boolean,
+  issuerId?: string
 ) => {
+  // When issuerId is provided, use tenant-scoped URLs
+  const basePath = issuerId ? `/issuers/${issuerId}` : '';
   const data = await fetch(
-    `${NEXT_PUBLIC_ISSUER}/draft13/.well-known/openid-credential-issuer`
+    `${NEXT_PUBLIC_ISSUER}${basePath}/draft13/.well-known/openid-credential-issuer`
   ).then((data) => {
     return data.json();
   });
   const credential_configurations_supported =
     data.credential_configurations_supported;
 
+  // Find a tenant credential config by format match (fallback when key name doesn't match)
+  const findConfigByFormat = (format: string, vctOrDoctype?: string): string | undefined => {
+    return Object.keys(credential_configurations_supported).find((key) => {
+      const config = credential_configurations_supported[key];
+      if (config.format !== format) return false;
+      if (!vctOrDoctype) return true;
+      // Match by vct (SD-JWT) or doctype (mDoc)
+      return config.vct === vctOrDoctype || config.doctype === vctOrDoctype;
+    });
+  };
+
   const payload = await Promise.all(
     credentials.map(async (c) => {
       c = {
         ...c,
-        selectedFormat: c.selectedFormat ?? CredentialFormats[0],
+        selectedFormat: c.selectedFormat ?? getDefaultFormatForCredential(c.id),
         selectedDID: c.selectedDID ?? DIDMethods[0],
       };
 
@@ -54,6 +68,11 @@ const getOfferUrl = async (
         credentialData: offer,
       };
 
+      // Fallback: match by format when tenant has custom config names
+      if (!payload.credentialConfigurationId && issuerId) {
+        payload.credentialConfigurationId = findConfigByFormat('jwt_vc_json') as string;
+      }
+
       if (c.selectedFormat === 'mDoc (ISO 18013-5)') {
         // mDoc format - uses mdocData instead of credentialData
         // Look for matching mDoc credential configuration - prioritize exact ID match
@@ -68,6 +87,11 @@ const getOfferUrl = async (
           return config.format === 'mso_mdoc' &&
                  key.toLowerCase().includes(c.id.toLowerCase().replace(/\s+/g, '_'));
         }) as string;
+
+        // Fallback: match by format + doctype when tenant has custom config names
+        if (!payload.credentialConfigurationId && issuerId) {
+          payload.credentialConfigurationId = findConfigByFormat('mso_mdoc', c.id) as string;
+        }
 
         // For mDoc, the offer data should already be in namespace format
         // Convert credentialData to mdocData format
@@ -130,6 +154,11 @@ const getOfferUrl = async (
           return config.format === 'dc+sd-jwt' &&
                  key.toLowerCase().includes(c.id.toLowerCase().replace(/\s+/g, '_'));
         }) as string;
+
+        // Fallback: match by format + vct when tenant has custom config names
+        if (!payload.credentialConfigurationId && issuerId) {
+          payload.credentialConfigurationId = findConfigByFormat('dc+sd-jwt', c.id) as string;
+        }
 
         payload.selectiveDisclosure = { fields: {} };
         // Flatten credentialSubject for DC+SD-JWT
@@ -246,7 +275,7 @@ const getOfferUrl = async (
 
   const issueUrl =
     NEXT_PUBLIC_ISSUER +
-    `/openid4vc/${issueEndpoint}/${payload.length > 1 ? 'issueBatch' : 'issue'}`;
+    `${basePath}/openid4vc/${issueEndpoint}/${payload.length > 1 ? 'issueBatch' : 'issue'}`;
   return axios.post(issueUrl, payload.length > 1 ? payload : payload[0]);
 };
 

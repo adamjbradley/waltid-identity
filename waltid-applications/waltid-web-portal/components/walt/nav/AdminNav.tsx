@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import {
   ShieldCheckIcon,
   BuildingOffice2Icon,
+  BuildingLibraryIcon,
+  ListBulletIcon,
   HomeIcon,
 } from '@heroicons/react/24/outline';
 
@@ -13,9 +15,19 @@ const navItems = [
     icon: ShieldCheckIcon,
   },
   {
+    label: 'Issuers',
+    path: '/admin/issuers',
+    icon: BuildingLibraryIcon,
+  },
+  {
     label: 'Relying Parties',
     path: '/admin/relying-parties',
     icon: BuildingOffice2Icon,
+  },
+  {
+    label: 'Status Lists',
+    path: '/admin/status-lists',
+    icon: ListBulletIcon,
   },
 ];
 

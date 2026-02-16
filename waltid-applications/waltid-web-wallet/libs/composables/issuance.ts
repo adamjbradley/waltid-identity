@@ -1,8 +1,9 @@
 import {createError, navigateTo, useLazyAsyncData} from "nuxt/app";
 import {useCurrentWallet} from "./accountWallet.ts";
 import {decodeRequest} from "./siop-requests.ts";
-import {type Ref, ref, watch} from "vue";
+import {computed, type Ref, ref, watch} from "vue";
 import {groupBy} from "./groupings.ts";
+import {useMtWallet} from "./mtWallet.ts";
 
 export async function useIssuance(query: any) {
     const currentWallet = useCurrentWallet()
@@ -48,9 +49,12 @@ export async function useIssuance(query: any) {
         issuerHost = issuer;
     }
 
+    const { mtWalletEnabled } = useMtWallet();
+
     const credential_issuer: {
         credential_configurations_supported: Array<{ types: Array<String>; }>; // Draft13
         credentials_supported?: Array<{ id: string; types: Array<String> }>; // Draft11
+        display?: Array<{ name?: string; locale?: string; logo?: { uri?: string } }>;
     } = await $fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveIssuerOpenIDMetadata?issuer=${issuer}`)
 
 
@@ -82,16 +86,21 @@ export async function useIssuance(query: any) {
         }
 
         if (typeof credentialListElement["vct"] !== 'undefined') {
-
-            const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${credentialListElement["vct"]}`);
-
-            if (response.status < 200 || response.status >= 300) {
-                throw new Error(`VCT URL returns error: ${response.status}`);
+            const vct = credentialListElement["vct"];
+            try {
+                const response = await fetch(`/wallet-api/wallet/${currentWallet.value}/exchange/resolveVctUrl?vct=${vct}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const nameOrDescription = data.name ?? data.description ?? data.vct ?? vct;
+                    credentialTypes.push(nameOrDescription);
+                } else {
+                    // VCT resolution failed (e.g., URN-based VCTs) — use raw VCT string
+                    credentialTypes.push(vct);
+                }
+            } catch {
+                // Network error — fall back to raw VCT string
+                credentialTypes.push(vct);
             }
-
-            const data = await response.json();
-            const nameOrDescription = data.name ?? data.description ?? data.vct ?? null
-            credentialTypes.push(nameOrDescription);
         }
     }
     const credentialCount = credentialTypes.length;
@@ -103,6 +112,12 @@ export async function useIssuance(query: any) {
         }),
         (c: { name: string }) => c.name,
     );
+
+    // Extract issuer display name from OpenID metadata — ONLY when MT enabled
+    const issuerDisplayName = computed(() => {
+        if (!mtWalletEnabled.value) return '';
+        return credential_issuer.display?.[0]?.name || '';
+    });
 
     const failed = ref(false);
     const failMessage = ref("Unknown error occurred.");
@@ -142,6 +157,8 @@ export async function useIssuance(query: any) {
         credentialTypes,
         credentialCount,
         groupedCredentialTypes,
-        issuerHost
+        issuerHost,
+        issuerDisplayName,
+        mtWalletEnabled
     }
 }

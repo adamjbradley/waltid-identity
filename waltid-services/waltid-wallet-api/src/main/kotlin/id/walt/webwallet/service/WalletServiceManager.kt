@@ -4,7 +4,11 @@ package id.walt.webwallet.service
 
 import id.walt.commons.config.ConfigManager
 import id.walt.commons.featureflag.FeatureManager.whenFeature
+import id.walt.dcql.DcqlMatcher
+import id.walt.dcql.RawDcqlCredential
+import id.walt.dcql.models.DcqlQuery
 import id.walt.definitionparser.PresentationDefinitionParser
+import id.walt.oid4vc.data.CredentialFormat
 import id.walt.oid4vc.data.dif.PresentationDefinition
 import id.walt.webwallet.FeatureCatalog
 import id.walt.webwallet.config.OidcConfiguration
@@ -61,8 +65,7 @@ import id.walt.webwallet.utils.WalletHttpClients.getHttpClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.*
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -255,5 +258,90 @@ object WalletServiceManager {
             result
         }
         return matches
+    }
+
+    suspend fun matchCredentialsForDcqlQuery(
+        walletId: Uuid,
+        dcqlQuery: DcqlQuery
+    ): List<WalletCredential> {
+        val allCredentials = credentialService.list(walletId, CredentialFilterObject.default)
+
+        val dcqlCredentials = allCredentials.mapNotNull { cred ->
+            val parsedDoc = cred.parsedDocument ?: return@mapNotNull null
+            val formatStr = when (cred.format) {
+                CredentialFormat.sd_jwt_dc -> "dc+sd-jwt"
+                CredentialFormat.sd_jwt_vc -> "dc+sd-jwt"
+                CredentialFormat.mso_mdoc -> "mso_mdoc"
+                CredentialFormat.jwt_vc_json -> "jwt_vc_json"
+                else -> cred.format.value
+            }
+
+            // For mDoc credentials, flatten the namespace structure so DCQL claim paths
+            // like ["eu.europa.ec.eudi.pid.1", "family_name"] resolve correctly.
+            // Raw parsedDocument nests claims under issuerSigned.nameSpaces.<ns>[].elementIdentifier/elementValue
+            val dcqlData = if (cred.format == CredentialFormat.mso_mdoc) {
+                flattenMdocForDcql(parsedDoc)
+            } else {
+                parsedDoc
+            }
+
+            RawDcqlCredential(
+                id = cred.id,
+                format = formatStr,
+                data = dcqlData,
+                disclosures = null,
+                originalCredential = cred
+            )
+        }
+
+        val matchResult = DcqlMatcher.matchWithoutClaims(dcqlQuery, dcqlCredentials)
+
+        return matchResult.getOrElse {
+            logger.warn { "DCQL matching failed: ${it.message}" }
+            emptyMap()
+        }.flatMap { (_, dcqlCreds) ->
+            dcqlCreds.mapNotNull { dcqlCred ->
+                (dcqlCred as? RawDcqlCredential)?.originalCredential as? WalletCredential
+            }
+        }.distinctBy { it.id }
+    }
+
+    /**
+     * Flatten mDoc credential data for DCQL claim path resolution.
+     *
+     * DCQL paths for mDoc use [namespace, claimName] (e.g., ["eu.europa.ec.eudi.pid.1", "family_name"]).
+     * The raw parsedDocument from MDoc.toMapElement().toJsonElement() nests claims under
+     * issuerSigned.nameSpaces.<namespace>[].(elementIdentifier, elementValue).
+     *
+     * This produces a flat structure: { "docType": "...", "<namespace>": { "<claim>": <value>, ... } }
+     */
+    private fun flattenMdocForDcql(parsedDoc: JsonObject): JsonObject {
+        return buildJsonObject {
+            // Keep docType for meta matching
+            parsedDoc["docType"]?.let { put("docType", it) }
+
+            // Extract namespace claims from issuerSigned.nameSpaces
+            val nameSpaces = parsedDoc["issuerSigned"]
+                ?.jsonObject?.get("nameSpaces")
+                ?.jsonObject
+
+            nameSpaces?.forEach { (namespace, items) ->
+                if (items is JsonArray) {
+                    put(namespace, buildJsonObject {
+                        items.forEach { item ->
+                            val itemObj = (item as? JsonObject) ?: return@forEach
+                            val elementId = itemObj["elementIdentifier"]?.jsonPrimitive?.contentOrNull
+                            val elementValue = itemObj["elementValue"]
+                            if (elementId != null && elementValue != null) {
+                                put(elementId, elementValue)
+                            }
+                        }
+                    })
+                }
+            }
+
+            // Preserve credential id
+            parsedDoc["id"]?.let { put("id", it) }
+        }
     }
 }
