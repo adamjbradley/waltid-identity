@@ -3,6 +3,15 @@
     class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 lg:bg-white lg:bg-opacity-50 sm:h-full sm:p-6"
   >
     <div class="sm:h-full w-full">
+      <div class="mb-5 px-1">
+        <h1 class="text-2xl font-bold text-gray-900">
+          Good <span v-if="now.getHours() < 12">morning</span>
+          <span v-else-if="now.getHours() > 21">night</span>
+          <span v-else-if="now.getHours() > 18">evening</span>
+          <span v-else-if="now.getHours() >= 12">afternoon</span><span v-if="user?.friendlyName">, {{ user.friendlyName }}</span>
+        </h1>
+        <p v-if="user?.email" class="text-sm text-gray-500 mt-1">{{ user.email }}</p>
+      </div>
       <div
         v-if="credentials && credentials.length > 0"
         class="sm:flex items-center gap-4 mb-5 hidden"
@@ -82,6 +91,12 @@
 <script setup>
 import VerifiableCredentialCard from "@waltid-web-wallet/components/credentials/VerifiableCredentialCard.vue";
 import scannerSVG from "~/public/svg/scanner.svg";
+import { useNow } from "@vueuse/core";
+import { useUserStore } from "@waltid-web-wallet/stores/user.ts";
+import { storeToRefs } from "pinia";
+
+const { user } = storeToRefs(useUserStore());
+const now = useNow();
 
 const route = useRoute();
 const walletId = route.params.wallet;
