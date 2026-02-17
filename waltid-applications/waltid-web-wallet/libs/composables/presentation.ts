@@ -179,6 +179,27 @@ export async function usePresentation(query: any) {
 
     if (response.ok) {
       const parsedResponse: { redirectUri: string } = await response.json();
+
+      // Priority 1: popup mode — notify opener and close
+      if (window.opener) {
+        const state = presentationParams.get('state') || '';
+        window.opener.postMessage({
+          type: 'waltid:presentation-complete',
+          success: true,
+          sessionId: state,
+        }, '*');
+        window.close();
+        return;
+      }
+
+      // Priority 2: RP-provided redirect_uri (mobile flow)
+      const rpRedirectUri = new URL(window.location.href).searchParams.get('redirect_uri');
+      if (rpRedirectUri && rpRedirectUri.startsWith('https://')) {
+        navigateTo(rpRedirectUri, { external: true });
+        return;
+      }
+
+      // Priority 3: verifier-provided redirect (existing behavior)
       if (parsedResponse.redirectUri) {
         navigateTo(parsedResponse.redirectUri, {
           external: true,

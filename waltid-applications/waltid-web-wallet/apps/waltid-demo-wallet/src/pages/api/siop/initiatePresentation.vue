@@ -65,10 +65,14 @@ const hintSuffix = Object.keys(hintParams).length
   ? '&' + new URLSearchParams(hintParams).toString()
   : '';
 
+// Preserve redirect_uri from RP for post-presentation return
+const redirectUri = route.query.redirect_uri as string || '';
+const redirectParam = redirectUri ? `&redirect_uri=${encodeURIComponent(redirectUri)}` : '';
+
 const wallets = (await listWallets())?.value?.wallets;
 
 const walletUrlFunction = (wallet: WalletListingType) =>
-  `/wallet/${wallet.id}/exchange/presentation?request=${encodedWalletRequestUrl}${hintSuffix}`;
+  `/wallet/${wallet.id}/exchange/presentation?request=${encodedWalletRequestUrl}${hintSuffix}${redirectParam}`;
 
 if (wallets && wallets.length == 1) {
   const wallet = wallets[0];
