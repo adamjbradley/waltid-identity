@@ -25,7 +25,20 @@
         Presenting credential(s)...
       </LoadingIndicator>
 
-      <div v-if="matchedCredentials.length == 0">
+      <div v-if="failed && failMessage" class="my-4 rounded-lg bg-red-50 p-4 border border-red-200">
+        <div class="flex items-start gap-3">
+          <Icon name="heroicons:exclamation-triangle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <div class="text-sm font-semibold text-red-800">Presentation Failed</div>
+            <div class="text-sm text-red-700 mt-1">{{ failMessage }}</div>
+            <button @click="failed = false" class="mt-3 text-sm font-medium text-red-600 hover:text-red-800 underline">
+              Try again
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="matchedCredentials.length == 0 && !failed">
         <span class="text-red-600 animate-pulse flex items-center gap-1 py-1">
           <Icon name="heroicons:exclamation-circle" class="h-6 w-6" />
           You don't have any credentials matching this presentation definition
@@ -87,14 +100,15 @@
                   class="mt-1 h-4 w-4 text-[#0573F0]" />
                 <CredentialDisclosure :credential="credential" :disclosureModalState="disclosureModalState"
                   :disclosures="disclosures" :selection="selection" :toggleDisclosure="toggleDisclosure"
-                  :addDisclosure="addDisclosure" :removeDisclosure="removeDisclosure" />
+                  :addDisclosure="addDisclosure" :removeDisclosure="removeDisclosure"
+                  :requestedClaims="requestedClaimPaths" />
               </div>
             </div>
             <div v-else>
               <CredentialDisclosure :credential="groupedCredentialsByType[credentialType][0]"
                 :disclosureModalState="disclosureModalState" :disclosures="disclosures" :selection="selection"
                 :toggleDisclosure="toggleDisclosure" :addDisclosure="addDisclosure"
-                :removeDisclosure="removeDisclosure" />
+                :removeDisclosure="removeDisclosure" :requestedClaims="requestedClaimPaths" />
             </div>
           </div>
         </div>
@@ -106,7 +120,7 @@
         <button data-testid="disclose-credential" @click="acceptPresentation" class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl">
           {{ matchedCredentials.length > 1 ? "Disclose All" : "Disclose" }}
         </button>
-        <button data-testid="decline-presentation" @click="navigateTo(`/wallet/${walletId}`)"
+        <button data-testid="decline-presentation" @click="declinePresentation"
           class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl">
           Decline
         </button>
@@ -141,11 +155,14 @@ const {
   matchedCredentials,
   index,
   acceptPresentation,
+  declinePresentation,
   failed,
+  failMessage,
   verifierHost,
   clientId,
   rpDomain,
   mtWalletEnabled,
+  requestedClaimPaths,
 } = await usePresentation(query);
 
 // Portal hint params — ONLY read when MT enabled

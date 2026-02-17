@@ -86,6 +86,7 @@ const props = defineProps<{
     toggleDisclosure: (credentialId: string) => void;
     addDisclosure: (credentialId: string, disclosure: string) => void;
     removeDisclosure: (credentialId: string, disclosure: string) => void;
+    requestedClaims?: string[];
 }>();
 
 const type = computed(() => {
@@ -93,5 +94,11 @@ const type = computed(() => {
     return parsed?.type?.at(-1) ?? parsed?.vct?.split('/').pop() ?? parsed?.docType ?? "Unknown";
 });
 const displayType = computed(() => (type.value ?? "Unknown").replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
-const disclosureList = computed(() => parseDisclosures(props.credential.disclosures || ""));
+const disclosureList = computed(() => {
+    const all = parseDisclosures(props.credential.disclosures || "");
+    if (props.requestedClaims?.length) {
+        return all.filter((d: any[]) => props.requestedClaims!.includes(d[1]));
+    }
+    return all;
+});
 </script>

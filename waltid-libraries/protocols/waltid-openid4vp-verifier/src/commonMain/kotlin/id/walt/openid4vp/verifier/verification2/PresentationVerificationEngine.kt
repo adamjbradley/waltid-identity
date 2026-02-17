@@ -2,6 +2,7 @@ package id.walt.openid4vp.verifier.verification2
 
 import id.walt.credentials.formats.DigitalCredential
 import id.walt.credentials.presentations.formats.*
+import id.walt.dcql.DcqlMatcher
 import id.walt.dcql.models.CredentialFormat
 import id.walt.dcql.models.CredentialQuery
 import id.walt.openid4vp.verifier.data.SessionEvent
@@ -357,6 +358,46 @@ object PresentationVerificationEngine {
 
         session.updateSession(SessionEvent.presentation_fulfils_dcql_query) {
 
+        }
+
+        // --- DCQL claims validation ---
+        // Verify that each presented credential actually discloses the claims required by its CredentialQuery.
+        // This covers all credential types: DC SD-JWT (selective disclosures), mso_mdoc (namespace claims),
+        // and jwt_vc_json (W3C VC claims).
+        val claimsErrors = mutableListOf<String>()
+        for ((entry, presentation) in parsedPresentations) {
+            val (_, query) = entry
+            val requiredClaims = query.claims ?: continue
+
+            val credentials: List<DigitalCredential> = when (presentation) {
+                is DcSdJwtPresentation -> listOf(presentation.credential)
+                is MsoMdocPresentation -> listOf(presentation.mdoc)
+                is JwtVcJsonPresentation -> presentation.credentials ?: emptyList()
+                is LdpVcPresentation -> continue
+            }
+
+            for (credential in credentials) {
+                for (claimQuery in requiredClaims) {
+                    val resolved = DcqlMatcher.resolveClaimPath(credential.credentialData, claimQuery.path)
+                    if (resolved == null) {
+                        claimsErrors.add("Query '${query.id}': required claim ${claimQuery.path} not disclosed")
+                        log.warn { "DCQL claims validation failed for query '${query.id}': required claim ${claimQuery.path} not found in presented credential data" }
+                    } else if (!claimQuery.values.isNullOrEmpty()) {
+                        if (claimQuery.values!!.none { it == resolved }) {
+                            claimsErrors.add("Query '${query.id}': claim ${claimQuery.path} value mismatch")
+                            log.warn { "DCQL claims validation failed for query '${query.id}': claim ${claimQuery.path} value $resolved does not match any of ${claimQuery.values}" }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (claimsErrors.isNotEmpty()) {
+            log.error { "DCQL required claims not satisfied for session ${session.id}: $claimsErrors" }
+            session.failSession(SessionEvent.presentation_validation_failed)
+            throw IllegalArgumentException(
+                "Presented credentials do not disclose all required DCQL claims: ${claimsErrors.joinToString("; ")}"
+            )
         }
 
         // --- Credential verification ---

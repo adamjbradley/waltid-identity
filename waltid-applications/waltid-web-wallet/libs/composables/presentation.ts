@@ -1,4 +1,4 @@
-import {encodeDisclosure} from "./disclosures.ts";
+import {encodeDisclosure, parseDisclosures} from "./disclosures.ts";
 import {useCurrentWallet} from "./accountWallet.ts";
 import {computed, type Ref, ref, watch} from "vue";
 import {decodeRequest} from "./siop-requests.ts";
@@ -65,6 +65,32 @@ export async function usePresentation(query: any) {
   ) as string;
   const isDcql = !!dcqlQueryParam && !presentationDefinition;
 
+  // Extract requested claim paths from DCQL or presentation_definition
+  const requestedClaimPaths: string[] = [];
+  if (isDcql && dcqlQueryParam) {
+    try {
+      const dcql = JSON.parse(dcqlQueryParam);
+      for (const cred of dcql.credentials || []) {
+        for (const claim of cred.claims || []) {
+          if (claim.path?.length) requestedClaimPaths.push(claim.path[claim.path.length - 1]);
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  }
+  if (!isDcql && presentationDefinition) {
+    try {
+      const pd = JSON.parse(presentationDefinition);
+      for (const desc of pd.input_descriptors || []) {
+        for (const field of desc.constraints?.fields || []) {
+          for (const p of field.path || []) {
+            const leaf = p.split('.').pop()?.replace(/[[\]$]/g, '');
+            if (leaf) requestedClaimPaths.push(leaf);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   let matchedCredentials: Array<{
     id: string;
     document: string;
@@ -104,7 +130,21 @@ export async function usePresentation(query: any) {
     selection.value[credential.id] = true;
   }
 
-  const disclosures: Ref<{ [key: string]: any[] }> = ref({});
+  // Pre-select only requested disclosures when claim paths are known
+  const preSelectedDisclosures: { [key: string]: any[] } = {};
+  if (requestedClaimPaths.length > 0) {
+    for (const credential of matchedCredentials) {
+      if (credential.disclosures) {
+        const allDisclosures = parseDisclosures(credential.disclosures);
+        const matching = allDisclosures.filter((d: any[]) => requestedClaimPaths.includes(d[1]));
+        if (matching.length > 0) {
+          preSelectedDisclosures[credential.id] = matching;
+        }
+      }
+    }
+  }
+
+  const disclosures: Ref<{ [key: string]: any[] }> = ref(preSelectedDisclosures);
   const encodedDisclosures = computed(() => {
     if (JSON.stringify(disclosures.value) === "{}") return null;
 
@@ -162,7 +202,7 @@ export async function usePresentation(query: any) {
       //did: String, // todo: choose DID of shared credential // for now wallet-api chooses the default wallet did
       presentationRequest: request,
       selectedCredentials: selectedCredentialIds.value,
-      disclosures: encodedDisclosures.value,
+      disclosures: encodedDisclosures.value ?? {},
     };
 
     const response = await fetch(
@@ -211,16 +251,36 @@ export async function usePresentation(query: any) {
         });
       }
     } else {
-      failed.value = true;
       const error: {
         message: string;
         redirectUri: string | null | undefined;
         errorMessage: string;
       } = await response.json();
-      failMessage.value = error.message;
 
       console.log("Error response: " + JSON.stringify(error));
-      window.alert(error.errorMessage);
+
+      // Extract a user-friendly message from the error
+      const rawMsg = error.errorMessage || error.message || "Presentation failed";
+      if (rawMsg.includes("do not disclose all required DCQL claims")) {
+        failMessage.value = "The verifier rejected the presentation because required claims were not disclosed. Please try again and ensure all requested attributes are selected.";
+      } else {
+        failMessage.value = rawMsg;
+      }
+
+      // In popup mode, notify the opener of the failure and close
+      if (window.opener) {
+        const state = presentationParams.get('state') || '';
+        window.opener.postMessage({
+          type: 'waltid:presentation-complete',
+          success: false,
+          sessionId: state,
+          error: failMessage.value,
+        }, '*');
+        window.close();
+        return;
+      }
+
+      failed.value = true;
 
       if (error.redirectUri != null) {
         navigateTo(error.redirectUri as string, {
@@ -228,6 +288,21 @@ export async function usePresentation(query: any) {
         });
       }
     }
+  }
+
+  function declinePresentation() {
+    if (window.opener) {
+      const state = presentationParams.get('state') || '';
+      window.opener.postMessage({
+        type: 'waltid:presentation-complete',
+        success: false,
+        sessionId: state,
+        error: 'User declined the presentation request.',
+      }, '*');
+      window.close();
+      return;
+    }
+    navigateTo(`/wallet/${currentWallet.value}`);
   }
 
   return {
@@ -248,7 +323,9 @@ export async function usePresentation(query: any) {
     addDisclosure,
     removeDisclosure,
     acceptPresentation,
+    declinePresentation,
     failed,
     failMessage,
+    requestedClaimPaths,
   };
 }
