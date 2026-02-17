@@ -2,11 +2,16 @@ package id.walt.test.integration.environment.api.issuer
 
 import id.walt.commons.testing.E2ETest
 import id.walt.issuer.issuance.IssuanceRequest
+import id.walt.issuer.statuslist.CreateStatusListRequest
+import id.walt.issuer.statuslist.GlobalEntry
+import id.walt.issuer.statuslist.RevokeRequest
+import id.walt.issuer.statuslist.StatusListSummary
 import id.walt.oid4vc.data.OpenIDProviderMetadata
 import id.walt.test.integration.expectSuccess
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import kotlinx.serialization.json.JsonObject
 
 class IssuerApi(
     private val e2e: E2ETest,
@@ -86,6 +91,38 @@ class IssuerApi(
                 output?.invoke(body<String>())
             }
         }
+
+    // Status List Admin API
+    suspend fun createStatusListRaw(request: CreateStatusListRequest = CreateStatusListRequest()) =
+        client.post("/admin/status-lists") { setBody(request) }
+
+    suspend fun createStatusList(request: CreateStatusListRequest = CreateStatusListRequest()): StatusListSummary =
+        createStatusListRaw(request).let { it.expectSuccess(); it.body() }
+
+    suspend fun listStatusListsRaw() = client.get("/admin/status-lists")
+
+    suspend fun listStatusLists(): List<StatusListSummary> =
+        listStatusListsRaw().let { it.expectSuccess(); it.body() }
+
+    suspend fun revokeEntryRaw(listId: String, index: Int, reason: String? = null) =
+        client.put("/admin/status-lists/$listId/entries/$index/revoke") { setBody(RevokeRequest(reason)) }
+
+    suspend fun revokeEntry(listId: String, index: Int, reason: String? = null): JsonObject =
+        revokeEntryRaw(listId, index, reason).let { it.expectSuccess(); it.body() }
+
+    suspend fun unrevokeEntryRaw(listId: String, index: Int) =
+        client.put("/admin/status-lists/$listId/entries/$index/unrevoke")
+
+    suspend fun unrevokeEntry(listId: String, index: Int): JsonObject =
+        unrevokeEntryRaw(listId, index).let { it.expectSuccess(); it.body() }
+
+    suspend fun searchStatusListEntriesRaw(credentialType: String? = null) =
+        client.get("/admin/status-lists/entries/search") {
+            url { credentialType?.let { parameters.append("credentialType", it) } }
+        }
+
+    suspend fun searchStatusListEntries(credentialType: String? = null): List<GlobalEntry> =
+        searchStatusListEntriesRaw(credentialType).let { it.expectSuccess(); it.body() }
 
     private suspend fun issue(
         name: String,
