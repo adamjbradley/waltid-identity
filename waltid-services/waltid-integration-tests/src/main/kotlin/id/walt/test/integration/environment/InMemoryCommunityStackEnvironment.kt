@@ -3,11 +3,16 @@
 package id.walt.test.integration.environment
 
 import id.walt.commons.ServiceConfiguration
+import id.walt.commons.config.ConfigManager
 import id.walt.commons.featureflag.CommonsFeatureCatalog
+import id.walt.commons.featureflag.FeatureManager
 import id.walt.commons.testing.E2ETest
 import id.walt.commons.web.plugins.httpJson
 import id.walt.did.dids.DidService
+import id.walt.issuer.FeatureCatalog as IssuerFeatureCatalog
 import id.walt.issuer.issuerModule
+import id.walt.issuer.statuslist.StatusListConfig
+import id.walt.issuer.statuslist.StatusListStore
 import id.walt.test.integration.environment.api.issuer.IssuerApi
 import id.walt.test.integration.environment.api.verifier.VerifierApi
 import id.walt.test.integration.environment.api.wallet.WalletApi
@@ -88,6 +93,10 @@ class InMemoryCommunityStackEnvironment private constructor(val e2e: E2ETest) : 
                     id.walt.webwallet.webWalletSetup()
                     DidService.minimalInit()
                     id.walt.webwallet.db.Db.start()
+                    // Initialize StatusListStore if feature is enabled
+                    if (FeatureManager.isFeatureEnabled(IssuerFeatureCatalog.statusListFeature)) {
+                        StatusListStore.init(ConfigManager.getConfig<StatusListConfig>().storageDir)
+                    }
                 },
                 module = e2eTestModule,
                 timeout = defaultTestTimeout,

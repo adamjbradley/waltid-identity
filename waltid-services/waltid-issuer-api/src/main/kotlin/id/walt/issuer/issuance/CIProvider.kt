@@ -29,6 +29,8 @@ import id.walt.mdoc.dataelement.DataElement
 import id.walt.mdoc.dataelement.json.toDataElement
 import id.walt.mdoc.doc.MDocBuilder
 import id.walt.mdoc.mso.DeviceKeyInfo
+import id.walt.mdoc.mso.Status
+import id.walt.mdoc.mso.StatusListInfo
 import id.walt.mdoc.mso.ValidityInfo
 import id.walt.oid4vc.OpenID4VC
 import id.walt.oid4vc.OpenID4VCI
@@ -556,23 +558,35 @@ open class CIProvider(
                     )
                 }
             }
-        }.sign( // TODO: expiration date!
-            validityInfo = ValidityInfo(
-                signed = Clock.System.now(),
-                validFrom = Clock.System.now(),
-                validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
-            ),
-            deviceKeyInfo = DeviceKeyInfo(
-                deviceKey = DataElement.fromCBOR(
-                    OneKey(
-                        holderKey.publicKey,
-                        null
-                    ).AsCBOR().EncodeToBytes()
-                )
-            ),
-            cryptoProvider = cryptoProvider,
-            keyID = keyID
-        ).also {
+        }.let { builder ->
+            // Allocate status list index for mDoc credentials (before signing)
+            val mdocStatus = StatusListIssuanceHook.allocateForCredential(
+                credentialConfigurationId = request.credentialConfigurationId,
+                issuerDid = request.issuerDid,
+                baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl,
+            )?.let { allocation ->
+                Status(statusList = StatusListInfo(index = allocation.index.toUInt(), uri = allocation.uri))
+            }
+
+            builder.sign( // TODO: expiration date!
+                validityInfo = ValidityInfo(
+                    signed = Clock.System.now(),
+                    validFrom = Clock.System.now(),
+                    validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
+                ),
+                deviceKeyInfo = DeviceKeyInfo(
+                    deviceKey = DataElement.fromCBOR(
+                        OneKey(
+                            holderKey.publicKey,
+                            null
+                        ).AsCBOR().EncodeToBytes()
+                    )
+                ),
+                cryptoProvider = cryptoProvider,
+                keyID = keyID,
+                status = mdocStatus,
+            )
+        }.also {
             if (!issuanceSession.callbackUrl.isNullOrEmpty())
                 sendCallback(
                     sessionId = issuanceSession.id,

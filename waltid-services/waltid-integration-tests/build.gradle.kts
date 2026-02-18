@@ -43,10 +43,9 @@ dependencies {
 }
 
 sourceSets {
-// temporary: remove integration tests failing with unresolved address
-//    test {
-//        kotlin.setSrcDirs(listOf("src/main/kotlin/", "src/test/kotlin"))
-//    }
+    test {
+        kotlin.setSrcDirs(listOf("src/main/kotlin/", "src/test/kotlin"))
+    }
 }
 
 
@@ -54,6 +53,6 @@ kotlin {
     jvmToolchain(21)
 }
 
-/*tasks.test {
+tasks.test {
     useJUnitPlatform()
-}*/
+}

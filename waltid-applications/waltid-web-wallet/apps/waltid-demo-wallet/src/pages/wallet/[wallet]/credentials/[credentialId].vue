@@ -92,7 +92,23 @@
           </div>
         </div>
         <hr class="w-full border-gray-200 my-2" />
-        <div class="flex justify-between my-6">
+        <div class="flex justify-between items-center my-6">
+          <div class="flex items-center gap-3">
+            <div class="text-gray-500">Status:</div>
+            <div v-if="statusLoading" class="text-gray-400 text-sm">Checking...</div>
+            <div v-else-if="isRevoked" class="text-red-600 font-bold">Revoked</div>
+            <div v-else-if="!isNotExpired" class="text-gray-500 font-bold">Expired</div>
+            <div v-else class="text-green-600 font-bold">Active</div>
+            <button @click="checkStatus" :disabled="statusLoading"
+              class="text-gray-400 hover:text-gray-600 disabled:opacity-50" title="Refresh status">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="flex justify-between my-2">
           <div v-if="expirationDate" class="text-gray-500">
             Valid through {{ issuanceDate?.replace(/-/g, ".") }} -
             {{ expirationDate.replace(/-/g, ".") }}
@@ -184,6 +200,10 @@ const {
   disclosures,
   issuerName,
   issuerDid,
+  isNotExpired,
+  isRevoked,
+  statusLoading,
+  checkStatus,
   issuanceDate,
   expirationDate,
 } = useCredential(credential);
