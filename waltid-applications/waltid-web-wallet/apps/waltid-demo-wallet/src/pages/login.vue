@@ -475,7 +475,9 @@ import {storeToRefs} from "pinia";
 const signInRedirectUrl = ref("/");
 const route = useRoute();
 
-if (route.redirectedFrom != undefined) {
+if (route.query.redirect) {
+  signInRedirectUrl.value = route.query.redirect as string;
+} else if (route.redirectedFrom != undefined) {
   console.log(`Redirected from: ${JSON.stringify(route.redirectedFrom)}`);
   signInRedirectUrl.value = route.redirectedFrom.fullPath;
 }
@@ -516,9 +518,13 @@ async function login() {
       success.value = true;
       isLoggingIn.value = false;
 
-      if (wallets) {
-        setWallet(wallets[0].id);
-        navigateTo(`/wallet/${wallets[0].id}`);
+      if (wallets && wallets.length > 0) {
+        setWallet(wallets[0].id, undefined);
+        if (signInRedirectUrl.value !== '/') {
+          navigateTo(signInRedirectUrl.value);
+        } else {
+          navigateTo(`/wallet/${wallets[0].id}`);
+        }
       }
     })
     .catch((err) => {

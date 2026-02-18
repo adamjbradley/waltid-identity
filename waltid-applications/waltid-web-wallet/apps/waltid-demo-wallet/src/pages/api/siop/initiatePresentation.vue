@@ -41,12 +41,11 @@ if (status.value === 'unauthenticated') {
 
 const { mtWalletEnabled } = useMtWallet();
 
-const queryRequest = new URL("http://example.invalid" + route.fullPath)
-  .search; // new URL(window.location.href).search
+const queryRequest = new URL("http://example.invalid" + route.fullPath).search;
 console.log("queryRequest: ", queryRequest);
 
 let fixedRequest = encodeURI(
-  decodeURI(fixRequest("openid://" + window.location.search)),
+  decodeURI(fixRequest("openid://" + queryRequest)),
 );
 console.log("Fixed request: ", fixedRequest);
 
