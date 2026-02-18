@@ -1,0 +1,12 @@
+{
+    "listId": "2b432730-6623-4a80-a0e5-481ef31abab8",
+    "entries": {
+        "80017": {
+            "index": 80017,
+            "listId": "2b432730-6623-4a80-a0e5-481ef31abab8",
+            "credentialType": "identity_credential_vc+sd-jwt",
+            "issuerDid": "did:key:z6MkjoRhq1jSNJdLiruSXrFFxagqrztZaXHqHGUTKJbcNywp",
+            "issuedAt": "2026-02-17T21:58:24.613286Z"
+        }
+    }
+}

@@ -46,70 +46,55 @@
         </span>
       </div>
 
-      <div v-else class="my-10 mb-40 sm:mb-10 overflow-scroll">
-        <div v-if="mobileView" v-for="(credential, credentialIdx) in matchedCredentials" :key="credentialIdx">
-          <div :class="{ 'mt-[-85px]': credentialIdx !== 0 }"
-            class="col-span-1 divide-y divide-gray-200 rounded-2xl bg-white shadow transform hover:scale-105 cursor-pointer duration-200">
-            <VerifiableCredentialCard :credential="credential" />
+      <!-- SELECTION PHASE: Choose which credentials to present -->
+      <div v-else-if="selectionPhase" class="mt-4 mb-40 sm:mb-6">
+        <div v-for="credentialType in Object.keys(groupedCredentialsByType)" :key="credentialType" class="mb-3">
+          <div v-if="groupedCredentialsByType[credentialType].length > 1"
+            class="text-xs text-[#616E7C] mb-1.5 uppercase tracking-wide">Select one credential</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div v-for="credential in groupedCredentialsByType[credentialType]" :key="credential.id"
+              @click="toggleSelectionCard(credentialType, credential.id)"
+              class="relative cursor-pointer rounded-lg border bg-white transition-all duration-150"
+              :class="selection[credential.id]
+                ? 'ring-2 ring-blue-500 shadow-sm border-blue-300'
+                : 'opacity-50 hover:opacity-75 border-gray-200'">
+              <div v-if="selection[credential.id]"
+                class="absolute top-1.5 right-1.5 z-10 bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                <Icon name="heroicons:check" class="h-2.5 w-2.5" />
+              </div>
+              <div class="px-3 py-1.5 rounded-t-lg bg-gradient-to-r from-[#0573F0] to-[#03449E] text-white flex items-center justify-between">
+                <div class="text-xs font-semibold truncate">{{ getCredentialTitle(credential) }}</div>
+              </div>
+              <div class="px-3 py-1.5">
+                <div class="text-[11px] text-gray-500 mb-0.5">{{ getCredentialIssuer(credential) }}</div>
+                <div v-for="claim in getCredentialClaims(credential)" :key="claim.key"
+                  class="flex justify-between text-[11px] leading-tight">
+                  <span class="text-gray-400">{{ claim.key.replace(/_/g, ' ') }}</span>
+                  <span class="text-gray-700 font-medium">{{ claim.value }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="w-full flex justify-center gap-5" v-else>
-          <button v-if="matchedCredentials.length > 1" @click="index--" class="mt-4 text-[#002159] font-bold bg-white"
-            :disabled="index === 0" :class="{ 'cursor-not-allowed opacity-50': index === 0 }">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
+      </div>
+
+      <!-- CONFIRM PHASE: Review disclosures and confirm -->
+      <div v-else class="my-10 mb-40 sm:mb-10 overflow-scroll">
+        <div v-if="matchedCredentials.length > 1" class="mb-4">
+          <button @click="selectionPhase = true" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+            <Icon name="heroicons:arrow-left" class="h-4 w-4" />
+            Back to selection
           </button>
-          <VerifiableCredentialCard :key="index" :credential="{
-            document: matchedCredentials[index].document,
-          }" class="sm:w-[400px]" />
-          <button v-if="matchedCredentials.length > 1" @click="index++" class="mt-4 text-[#002159] font-bold bg-white"
-            :disabled="index === matchedCredentials.length - 1" :class="{
-              'cursor-not-allowed opacity-50':
-                index === matchedCredentials.length - 1,
-            }">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-        <div v-if="!mobileView" class="text-center text-gray-500 mt-2">
-          {{ index + 1 }} of {{ matchedCredentials.length }}
         </div>
         <div class="sm:w-[80%] md:w-[60%] mx-auto">
-          <div class="text-gray-500 mt-8 sm:mt-0">
-            {{
-              matchedCredentials.length > 1 ? "Credentials" : "Credential"
-            }}
-            to present
+          <div class="text-gray-500">
+            {{ selectedCredentials.length > 1 ? "Credentials" : "Credential" }} to present
           </div>
           <hr class="mt-1 mb-2 border-gray-200" />
-          <div v-for="credentialType in Object.keys(groupedCredentialsByType)">
-            <div v-if="groupedCredentialsByType[credentialType].length > 1"
-              class="border border-[#E4E7EB] rounded-xl p-4 mb-4">
-              <div class="text-[#616E7C]">
-                You have {{ groupedCredentialsByType[credentialType].length }} matching credentials of the same type;
-                please choose one.
-              </div>
-              <div v-for="credential in groupedCredentialsByType[credentialType]" class="mt-2 flex gap-2">
-                <input type="radio" :id="`${credentialType}-grouped-credential-${credential.id}`"
-                  :checked="selection[credential.id]"
-                  @click="groupedCredentialsByType[credentialType].forEach(c => selection[c.id] = c.id === credential.id)"
-                  class="mt-1 h-4 w-4 text-[#0573F0]" />
-                <CredentialDisclosure :credential="credential" :disclosureModalState="disclosureModalState"
-                  :disclosures="disclosures" :selection="selection" :toggleDisclosure="toggleDisclosure"
-                  :addDisclosure="addDisclosure" :removeDisclosure="removeDisclosure"
-                  :requestedClaims="requestedClaimPaths" />
-              </div>
-            </div>
-            <div v-else>
-              <CredentialDisclosure :credential="groupedCredentialsByType[credentialType][0]"
-                :disclosureModalState="disclosureModalState" :disclosures="disclosures" :selection="selection"
-                :toggleDisclosure="toggleDisclosure" :addDisclosure="addDisclosure"
-                :removeDisclosure="removeDisclosure" :requestedClaims="requestedClaimPaths" />
-            </div>
+          <div v-for="credential in selectedCredentials" :key="credential.id">
+            <CredentialDisclosure :credential="credential" :disclosureModalState="disclosureModalState"
+              :disclosures="disclosures" :selection="selection" :toggleDisclosure="toggleDisclosure"
+              :addDisclosure="addDisclosure" :removeDisclosure="removeDisclosure" />
           </div>
         </div>
       </div>
@@ -117,13 +102,28 @@
     <div v-if="!failed && matchedCredentials.length" class="w-full sm:max-w-2xl sm:mx-auto">
       <div
         class="fixed sm:relative bottom-0 w-full p-4 bg-white shadow-md sm:shadow-none sm:flex sm:justify-end sm:gap-4">
-        <button data-testid="disclose-credential" @click="acceptPresentation" class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl">
-          {{ matchedCredentials.length > 1 ? "Disclose All" : "Disclose" }}
-        </button>
-        <button data-testid="decline-presentation" @click="declinePresentation"
-          class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl">
-          Decline
-        </button>
+        <!-- Selection phase buttons -->
+        <template v-if="selectionPhase">
+          <button data-testid="continue-selection" @click="selectionPhase = false"
+            :disabled="!hasSelection"
+            class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
+            Continue
+          </button>
+          <button data-testid="decline-presentation" @click="navigateTo(`/wallet/${walletId}`)"
+            class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl">
+            Decline
+          </button>
+        </template>
+        <!-- Confirm phase buttons -->
+        <template v-else>
+          <button data-testid="disclose-credential" @click="acceptPresentation" class="w-full sm:w-44 py-3 mt-4 text-white bg-[#002159] rounded-xl">
+            {{ selectedCredentials.length > 1 ? "Disclose All" : "Disclose" }}
+          </button>
+          <button data-testid="decline-presentation" @click="navigateTo(`/wallet/${walletId}`)"
+            class="w-full sm:w-44 py-3 mt-4 bg-white sm:border sm:border-gray-400 sm:rounded-xl">
+            Decline
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -133,13 +133,15 @@
 import {computed} from "vue";
 import {useTitle} from "@vueuse/core";
 import {parseJwt} from "@waltid-web-wallet/utils/jwt.ts";
+import {parseDisclosures} from "@waltid-web-wallet/composables/disclosures.ts";
+import {MDOC_DOCTYPE_NAMES, VCT_DISPLAY_NAMES} from "@waltid-web-wallet/composables/credential.ts";
 import CenterMain from "@waltid-web-wallet/components/CenterMain.vue";
 import {usePresentation} from "@waltid-web-wallet/composables/presentation.ts";
 import LoadingIndicator from "@waltid-web-wallet/components/loading/LoadingIndicator.vue";
-import VerifiableCredentialCard from "@waltid-web-wallet/components/credentials/VerifiableCredentialCard.vue";
+
 
 const immediateAccept = ref(false);
-const mobileView = ref(window.innerWidth < 650);
+const selectionPhase = ref(false);
 
 const route = useRoute();
 const query = route.query;
@@ -153,7 +155,6 @@ const {
   addDisclosure,
   removeDisclosure,
   matchedCredentials,
-  index,
   acceptPresentation,
   declinePresentation,
   failed,
@@ -164,6 +165,101 @@ const {
   mtWalletEnabled,
   requestedClaimPaths,
 } = await usePresentation(query);
+
+// Show selection phase when multiple credentials match
+selectionPhase.value = matchedCredentials.length > 1;
+
+// Credentials filtered to only selected ones (for confirm phase)
+const selectedCredentials = computed(() =>
+  matchedCredentials.filter(c => selection.value[c.id])
+);
+
+// At least one credential selected
+const hasSelection = computed(() => selectedCredentials.value.length > 0);
+
+// Toggle credential selection — radio behavior for same-type groups
+function toggleSelectionCard(credentialType: string, credentialId: string) {
+  const group = groupedCredentialsByType.value[credentialType];
+  if (group.length > 1) {
+    // Same-type group: radio — select this one, deselect others
+    for (const c of group) {
+      selection.value[c.id] = c.id === credentialId;
+    }
+  } else {
+    // Single in group: toggle
+    selection.value[credentialId] = !selection.value[credentialId];
+  }
+}
+
+// Extract key subject claims from a credential for display in the selection grid
+const DISPLAY_CLAIM_KEYS = ['family_name', 'given_name', 'birth_date', 'name', 'document_number', 'issuing_country', 'issuing_authority'];
+function getCredentialClaims(credential: any): Array<{key: string, value: string}> {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return [];
+
+  // mDoc: claims in issuerSigned.nameSpaces.<ns>[].{elementIdentifier, elementValue}
+  const nameSpaces = parsed?.issuerSigned?.nameSpaces;
+  if (nameSpaces) {
+    const claims: Array<{key: string, value: string}> = [];
+    for (const ns of Object.values(nameSpaces) as any[]) {
+      if (!Array.isArray(ns)) continue;
+      for (const elem of ns) {
+        if (DISPLAY_CLAIM_KEYS.includes(elem.elementIdentifier)) {
+          claims.push({ key: elem.elementIdentifier, value: String(elem.elementValue) });
+        }
+      }
+    }
+    return claims;
+  }
+
+  // SD-JWT: claims in disclosures [salt, name, value]
+  if (credential.disclosures) {
+    const disc = parseDisclosures(credential.disclosures);
+    if (disc) {
+      return disc
+        .filter((d: any) => DISPLAY_CLAIM_KEYS.includes(d[1]))
+        .map((d: any) => ({ key: d[1], value: String(d[2]) }));
+    }
+  }
+
+  // JWT: claims directly in parsed document
+  const claims: Array<{key: string, value: string}> = [];
+  const vc = parsed?.vc ?? parsed;
+  if (vc?.credentialSubject) {
+    for (const key of DISPLAY_CLAIM_KEYS) {
+      if (vc.credentialSubject[key]) {
+        claims.push({ key, value: String(vc.credentialSubject[key]) });
+      }
+    }
+  }
+  return claims;
+}
+
+function getCredentialTitle(credential: any): string {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return 'Credential';
+  if (parsed?.docType) return MDOC_DOCTYPE_NAMES[parsed.docType] ?? parsed.docType;
+  if (parsed?.vct) return VCT_DISPLAY_NAMES[parsed.vct] ?? parsed.vct.replace(/^urn:eudi:/, '').replace(/:/g, ' ');
+  return parsed?.type?.at(-1)?.replace(/([a-z0-9])([A-Z])/g, '$1 $2') ?? 'Credential';
+}
+
+function getCredentialIssuer(credential: any): string {
+  const parsed = credential.parsedDocument ?? parseJwt(credential.document);
+  if (!parsed) return 'Unknown';
+  // mDoc: issuing_authority from nameSpaces
+  const nameSpaces = parsed?.issuerSigned?.nameSpaces;
+  if (nameSpaces) {
+    for (const ns of Object.values(nameSpaces) as any[]) {
+      if (!Array.isArray(ns)) continue;
+      for (const elem of ns) {
+        if (elem.elementIdentifier === 'issuing_authority') return String(elem.elementValue);
+      }
+    }
+  }
+  // SD-JWT / JWT
+  const vc = parsed?.vc ?? parsed;
+  return vc?.issuer?.name ?? vc?.issuing_authority ?? 'Unknown';
+}
 
 // Portal hint params — ONLY read when MT enabled
 const rpHintName = computed(() =>

@@ -7,6 +7,8 @@
           alt="walt.id logo"
           class="h-8 w-auto mx-auto mt-5"
         />
+        <p v-if="user?.friendlyName" class="text-center text-sm font-medium text-gray-900 mt-2">{{ user.friendlyName }}</p>
+        <p v-if="user?.email" class="text-center text-xs text-gray-500">{{ user.email }}</p>
       </div>
       <main class="flex-1 pb-8">
         <slot />
@@ -37,6 +39,10 @@
 import {CogIcon, ListBulletIcon, QuestionMarkCircleIcon, ShieldCheckIcon} from "@heroicons/vue/24/outline";
 import {useCurrentWallet} from "@waltid-web-wallet/composables/accountWallet.ts";
 import {useTenant} from "@waltid-web-wallet/composables/tenants.ts";
+import {useUserStore} from "@waltid-web-wallet/stores/user.ts";
+import {storeToRefs} from "pinia";
+
+const { user } = storeToRefs(useUserStore());
 
 const tenant = (await useTenant().value) as any;
 

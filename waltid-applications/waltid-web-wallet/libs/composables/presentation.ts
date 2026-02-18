@@ -96,6 +96,8 @@ export async function usePresentation(query: any) {
     document: string;
     parsedDocument?: string;
     disclosures?: string;
+    format?: string;
+    manifest?: string;
   }>;
 
   if (isDcql) {
@@ -119,6 +121,25 @@ export async function usePresentation(query: any) {
     failMessage.value = "No presentation_definition or dcql_query in request";
     matchedCredentials = [];
   }
+
+  // Enrich matched credentials with format + manifest for card display
+  const enrichedCredentials = await Promise.all(
+    matchedCredentials.map(async (cred) => {
+      try {
+        const full = await $fetch<{ format?: string; manifest?: string }>(
+          `/wallet-api/wallet/${currentWallet.value}/credentials/${cred.id}`
+        );
+        return {
+          ...cred,
+          format: full.format,
+          manifest: full.manifest,
+        };
+      } catch {
+        return cred;
+      }
+    })
+  );
+  matchedCredentials = enrichedCredentials;
 
   const selection = ref<{ [key: string]: boolean }>({});
   const selectedCredentialIds = computed(() =>

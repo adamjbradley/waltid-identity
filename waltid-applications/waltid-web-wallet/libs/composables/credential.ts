@@ -4,6 +4,12 @@ import {parseJwt} from "../utils/jwt.ts";
 import {computed, type Ref, ref, watchEffect} from "vue";
 import {useCurrentWallet} from "./accountWallet";
 
+export type CredentialStatusResult = {
+    type: string;
+    result: boolean;
+    message: string;
+};
+
 export type WalletCredential = {
     wallet: string;
     id: string;
@@ -126,6 +132,33 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
     );
     const credentialIssuerService = computed(() => manifest.value?.input?.credentialIssuer);
 
+    const statusResults = ref<CredentialStatusResult[]>([]);
+    const statusLoading = ref(false);
+    const isRevoked = computed(() => statusResults.value.some(s => s.type === "revocation" && s.result === true));
+
+    async function checkStatus() {
+        const wId = credential.value?.wallet;
+        const cId = credential.value?.id;
+        if (!wId || !cId) return;
+        statusLoading.value = true;
+        try {
+            statusResults.value = await $fetch<CredentialStatusResult[]>(
+                `/wallet-api/wallet/${wId}/credentials/${encodeURIComponent(cId)}/status`
+            );
+        } catch (e) {
+            console.error("Failed to check credential status:", e);
+        } finally {
+            statusLoading.value = false;
+        }
+    }
+
+    // Auto-check status when credential is available
+    watchEffect(() => {
+        if (credential.value?.wallet && credential.value?.id) {
+            checkStatus();
+        }
+    });
+
     const isNotExpired = computed(() => jwtJson.value?.expirationDate ? new Date(jwtJson.value?.expirationDate).getTime() > new Date().getTime() : jwtJson.value?.validUntil ? new Date(jwtJson.value?.validUntil).getTime() > new Date().getTime() : true);
     const issuanceDate = computed(() => {
         if (jwtJson.value?.issuanceDate) {
@@ -160,6 +193,10 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
         issuerKid,
         credentialIssuerService,
         isNotExpired,
+        isRevoked,
+        statusLoading,
+        checkStatus,
+        issuingCountry,
         issuanceDate,
         expirationDate
     };

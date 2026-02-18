@@ -1,7 +1,16 @@
 <template>
     <div ref="vcCardDiv"
-        :class="{ 'p-6 rounded-2xl shadow-2xl sm:shadow-lg h-full text-white': true, 'lg:w-[400px]': isDetailView, 'bg-gradient-to-br from-[#0573F0] to-[#03449E] border-t-white border-t-[0.5px]': isNotExpired, 'bg-[#7B8794]': !isNotExpired }">
-        <div class="flex justify-end" v-if="!isNotExpired">
+        :class="{
+            'p-6 rounded-2xl shadow-2xl sm:shadow-lg h-full text-white': true,
+            'lg:w-[400px]': isDetailView,
+            'bg-gradient-to-br from-[#DC2626] to-[#991B1B] border-t-white border-t-[0.5px]': isRevoked,
+            'bg-gradient-to-br from-[#0573F0] to-[#03449E] border-t-white border-t-[0.5px]': !isRevoked && isNotExpired,
+            'bg-[#7B8794]': !isRevoked && !isNotExpired
+        }">
+        <div class="flex justify-end" v-if="isRevoked">
+            <div class="bg-red-800 text-white px-2 py-1 rounded-full text-xs font-semibold">Revoked</div>
+        </div>
+        <div class="flex justify-end" v-else-if="!isNotExpired">
             <div class="text-black bg-[#CBD2D9] px-2 py-1 rounded-full text-xs">Expired</div>
         </div>
 
@@ -12,13 +21,14 @@
             </div>
         </div>
 
-        <div :class="{ 'sm:mt-18': isNotExpired, 'sm:mt-8': !isNotExpired }">
+        <div :class="{ 'sm:mt-18': !isRevoked && isNotExpired, 'sm:mt-8': isRevoked || !isNotExpired }">
             <div class="flex justify-between items-end gap-2">
                 <div>
                     <div :class="{ 'text-[#0573f000]': !issuerName }">Issuer</div>
                     <div :class="{ 'text-[#0573f000]': !issuerName }" class="font-bold">
                         {{ issuerName ?? 'Unknown' }}
                     </div>
+                    <div v-if="issuingCountry" class="text-xs opacity-75">{{ issuingCountry }}</div>
                 </div>
                 <img v-if="issuerLogo" :src="issuerLogo" alt="Issuer Logo" class="h-6 rounded-full" />
             </div>
@@ -49,7 +59,7 @@ const props = defineProps({
     },
 });
 
-const { jwtJson: credential, manifest, titleTitelized, isNotExpired, issuerName, issuerLogo } = useCredential(ref(props.credential as any));
+const { jwtJson: credential, manifest, titleTitelized, isNotExpired, isRevoked, issuerName, issuerLogo, issuingCountry } = useCredential(ref(props.credential as any));
 const manifestCard = computed(() => manifest.value?.display?.card ?? manifest.value);
 const isDetailView = ref(props.isDetailView ?? false);
 const vcCardDiv: any = ref(null);
@@ -57,6 +67,9 @@ const vcCardDiv: any = ref(null);
 watchEffect(async () => {
     try {
         if (vcCardDiv.value) {
+            // Don't override card background when revoked
+            if (isRevoked.value) return;
+
             if (manifestCard.value) {
                 if (manifest.value.backgroundImage) {
                     vcCardDiv.value.style.backgroundImage = `url(${manifest.value.backgroundImage.url})`;
