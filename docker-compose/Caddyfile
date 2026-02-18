@@ -35,6 +35,12 @@
     # Rewrite root well-known to draft13 version for EUDI wallet compatibility
     rewrite /.well-known/openid-credential-issuer /draft13/.well-known/openid-credential-issuer
 
+    # Rewrite tenant-specific well-known URLs (RFC 8615 compliance for EUDI wallets)
+    # Wallet requests: /.well-known/openid-credential-issuer/issuers/{id}/draft13
+    # Server expects:  /issuers/{id}/draft13/.well-known/openid-credential-issuer
+    @tenant_wellknown path_regexp tenant ^/\.well-known/(openid-credential-issuer|openid-configuration|oauth-authorization-server)/issuers/([^/]+)/(.+)$
+    rewrite @tenant_wellknown /issuers/{re.tenant.2}/{re.tenant.3}/.well-known/{re.tenant.1}
+
     reverse_proxy http://issuer-api:{$ISSUER_API_PORT} {
         header_down -Access-Control-Allow-Origin
         header_down -Access-Control-Allow-Methods

@@ -24,9 +24,11 @@ val issuerAuthenticationPluginAmendment: suspend () -> Unit = suspend {
                         clientId = authenticationServiceConfig.clientId,
                         clientSecret = authenticationServiceConfig.clientSecret,
                         requestMethod = HttpMethod.Post,
+                        defaultScopes = listOf("openid", "profile", "email"),
+                        extraAuthParameters = listOf("prompt" to "login"),
                     )
                 }
-                urlProvider = { "${issuerServiceConfig.baseUrl}/callback" }
+                urlProvider = { "${issuerServiceConfig.externalBaseUrl ?: issuerServiceConfig.baseUrl}/callback" }
             }
         }
     }

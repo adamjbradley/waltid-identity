@@ -185,7 +185,8 @@ val walletAuthenticationPluginAmendment: suspend () -> Unit = suspend {
                             clientSecret = oidcConfig.clientSecret,
                             accessTokenRequiresBasicAuth = false,
                             requestMethod = HttpMethod.Post,
-                            defaultScopes = oidcConfig.oidcScopes
+                            defaultScopes = oidcConfig.oidcScopes,
+                            extraAuthParameters = listOf("prompt" to "login"),
                         ).also {
                             oidcLogNoco.trace {
                                 """Provider lookup for auth-oauth =

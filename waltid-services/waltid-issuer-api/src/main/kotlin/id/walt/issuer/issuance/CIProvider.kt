@@ -225,7 +225,7 @@ open class CIProvider(
         return properSession
     }
 
-    private fun putSession(id: String, session: IssuanceSession, ttl: Duration? = null) {
+    internal fun putSession(id: String, session: IssuanceSession, ttl: Duration? = null) {
         log.debug { "SETTING CI AUTH SESSION: $id = $session" }
         authSessions.set(id, session, ttl)
     }
@@ -267,7 +267,7 @@ open class CIProvider(
         }
     }
 
-    private fun getVerifiedSession(sessionId: String): IssuanceSession? {
+    internal fun getVerifiedSession(sessionId: String): IssuanceSession? {
         return getSession(sessionId)?.let {
             if (it.isExpired) {
                 // Mark session as expired, persist, emit callback, then remove
@@ -729,16 +729,23 @@ open class CIProvider(
     }
 
     private fun isSupportedAuthorizationDetails(authorizationDetails: AuthorizationDetails): Boolean {
-        return authorizationDetails.type == OPENID_CREDENTIAL_AUTHORIZATION_TYPE &&
-                config.credentialConfigurationsSupported.values.any { credentialSupported ->
-                    credentialSupported.format == authorizationDetails.format &&
-                            ((authorizationDetails.credentialDefinition?.type != null && credentialSupported.credentialDefinition?.type?.containsAll(
-                                authorizationDetails.credentialDefinition!!.type!!
-                            ) == true) ||
-                                    (authorizationDetails.docType != null && credentialSupported.docType == authorizationDetails.docType)
-                                    )
-                    // TODO: check other supported credential parameters
-                }
+        if (authorizationDetails.type != OPENID_CREDENTIAL_AUTHORIZATION_TYPE) return false
+
+        // Draft 13+: credential_configuration_id directly references a supported config
+        val configId = authorizationDetails.credentialConfigurationId
+        if (configId != null) {
+            return config.credentialConfigurationsSupported.containsKey(configId)
+        }
+
+        // Legacy: match by format + docType/credentialDefinition
+        return config.credentialConfigurationsSupported.values.any { credentialSupported ->
+            credentialSupported.format == authorizationDetails.format &&
+                    ((authorizationDetails.credentialDefinition?.type != null && credentialSupported.credentialDefinition?.type?.containsAll(
+                        authorizationDetails.credentialDefinition!!.type!!
+                    ) == true) ||
+                            (authorizationDetails.docType != null && credentialSupported.docType == authorizationDetails.docType)
+                            )
+        }
     }
 
     private fun validateAuthorizationRequest(authorizationRequest: AuthorizationRequest): Boolean {

@@ -87,6 +87,7 @@ class TenantOidcProtocolTest {
 
     private fun createSessionAndGetPreAuthCode(tenant: IssuerTenant): String {
         val provider = IssuerTenantRegistry.getOrCreate(tenant)
+        val tokenKey = IssuerTenantRegistry.getTokenKey(tenant)
         val bankIdKey = provider.metadata.credentialConfigurationsSupported!!.keys
             .first { it.contains("BankId") }
 
@@ -105,7 +106,8 @@ class TenantOidcProtocolTest {
                     authenticationMethod = AuthenticationMethod.PRE_AUTHORIZED,
                 )
             ),
-            expiresIn = 5.minutes
+            expiresIn = 5.minutes,
+            tokenKey = tokenKey
         )
 
         // Extract pre-authorized code from the credential offer

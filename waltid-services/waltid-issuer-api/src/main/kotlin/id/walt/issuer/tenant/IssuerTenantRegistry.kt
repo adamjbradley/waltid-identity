@@ -6,6 +6,8 @@ import id.walt.crypto.keys.Key
 import id.walt.issuer.config.CredentialTypeConfig
 import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.issuance.CIProvider
+import id.walt.issuer.issuance.IssuanceRequest
+import id.walt.oid4vc.data.AuthenticationMethod
 import id.walt.oid4vc.OpenID4VCIVersion
 import id.walt.oid4vc.data.*
 import id.walt.oid4vc.providers.CredentialIssuerConfig
@@ -46,7 +48,8 @@ object IssuerTenantRegistry {
     }
 
     private fun createProviderForTenant(tenant: IssuerTenant): CIProvider {
-        val globalBaseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl
+        val config = ConfigManager.getConfig<OIDCIssuerServiceConfig>()
+        val globalBaseUrl = config.externalBaseUrl ?: config.baseUrl
         val tenantBaseUrl = "$globalBaseUrl/issuers/${tenant.id}"
 
         val credentialConfig = parseCredentialConfigurations(tenant.credentialConfigurations)
@@ -69,6 +72,165 @@ object IssuerTenantRegistry {
             KeyManager.resolveSerializedKey(
                 Json.parseToJsonElement(ciTokenKeyStr).jsonObject
             )
+        }
+    }
+
+    /**
+     * Build default IssuanceRequests for the "Add document from list" flow where the wallet
+     * sends authorization_details with credential_configuration_ids but no credential offer exists.
+     */
+    fun buildDefaultIssuanceRequests(
+        tenant: IssuerTenant,
+        credentialConfigurationIds: List<String>
+    ): List<IssuanceRequest> {
+        val provider = getOrCreate(tenant)
+        val supported = provider.config.credentialConfigurationsSupported
+
+        // Wrap raw JWK in {"type":"jwk","jwk":{...}} format expected by KeyManager
+        val wrappedKey = tenant.issuerKey?.let { rawJwk ->
+            if (rawJwk.containsKey("type")) rawJwk
+            else buildJsonObject {
+                put("type", JsonPrimitive("jwk"))
+                put("jwk", rawJwk)
+            }
+        }
+
+        // Wrap x5Chain base64 DER in PEM format for X509CertUtils.parse()
+        val wrappedX5Chain = tenant.x5Chain?.map { certBase64 ->
+            "-----BEGIN CERTIFICATE-----\n${certBase64}\n-----END CERTIFICATE-----"
+        }
+
+        return credentialConfigurationIds.mapNotNull { configId ->
+            val credSupported = supported[configId] ?: return@mapNotNull null
+            val format = credSupported.format
+            val isMdoc = format == CredentialFormat.mso_mdoc
+            val isSdJwt = format == CredentialFormat.sd_jwt_vc || format == CredentialFormat.sd_jwt_dc
+
+            val docType = credSupported.docType ?: configId
+
+            when {
+                isMdoc -> IssuanceRequest(
+                    issuerKey = wrappedKey,
+                    credentialConfigurationId = configId,
+                    credentialFormat = format,
+                    mdocData = buildDefaultMdocData(docType, tenant),
+                    x5Chain = wrappedX5Chain,
+                    authenticationMethod = AuthenticationMethod.PWD,
+                )
+                isSdJwt -> IssuanceRequest(
+                    issuerKey = wrappedKey,
+                    credentialConfigurationId = configId,
+                    credentialFormat = format,
+                    credentialData = buildDefaultSdJwtData(credSupported.vct ?: configId, tenant),
+                    vct = credSupported.vct,
+                    x5Chain = wrappedX5Chain,
+                    authenticationMethod = AuthenticationMethod.PWD,
+                )
+                else -> null
+            }
+        }
+    }
+
+    /**
+     * Replace default credential data with actual user claims from Keycloak ID token.
+     */
+    fun enrichIssuanceRequestsWithUserClaims(
+        requests: List<IssuanceRequest>,
+        userClaims: JsonObject,
+        tenant: IssuerTenant
+    ): List<IssuanceRequest> {
+        fun claim(name: String): String? = userClaims[name]?.jsonPrimitive?.contentOrNull
+
+        val givenName = claim("given_name") ?: claim("preferred_username") ?: "User"
+        val familyName = claim("family_name") ?: ""
+        val birthdate = claim("birthdate") ?: "1990-01-01"
+        val email = claim("email")
+        val nationality = claim("nationality")
+        val gender = claim("gender")
+        val residentAddress = claim("resident_address")
+        val residentCity = claim("resident_city")
+        val residentState = claim("resident_state")
+        val residentPostalCode = claim("resident_postal_code")
+        val residentCountry = claim("resident_country")
+        val birthPlace = claim("birth_place")
+
+        return requests.map { request ->
+            val format = request.credentialFormat
+            val isMdoc = format == CredentialFormat.mso_mdoc
+            val isSdJwt = format == CredentialFormat.sd_jwt_vc || format == CredentialFormat.sd_jwt_dc
+
+            when {
+                isMdoc && request.mdocData != null -> {
+                    val updatedMdocData = request.mdocData.mapValues { (_, fields) ->
+                        buildJsonObject {
+                            // Keep base fields (issuing_country, issuing_authority, dates)
+                            fields.forEach { (key, value) -> put(key, value) }
+                            // Override with user's identity
+                            put("given_name", givenName)
+                            put("family_name", familyName)
+                            put("birth_date", birthdate)
+                            if (nationality != null) put("nationality", nationality)
+                            if (gender != null) put("gender", gender)
+                            if (residentAddress != null) put("resident_address", residentAddress)
+                            if (residentCity != null) put("resident_city", residentCity)
+                            if (residentState != null) put("resident_state", residentState)
+                            if (residentPostalCode != null) put("resident_postal_code", residentPostalCode)
+                            if (residentCountry != null) put("resident_country", residentCountry)
+                            if (birthPlace != null) put("birth_place", birthPlace)
+                        }
+                    }
+                    request.copy(mdocData = updatedMdocData)
+                }
+                isSdJwt && request.credentialData != null -> {
+                    val updatedData = buildJsonObject {
+                        request.credentialData.forEach { (key, value) -> put(key, value) }
+                        put("given_name", givenName)
+                        put("family_name", familyName)
+                        put("birthdate", birthdate)
+                        if (email != null) put("email", email)
+                        if (nationality != null) put("nationality", nationality)
+                        if (gender != null) put("gender", gender)
+                        if (residentAddress != null) put("resident_address", residentAddress)
+                        if (residentCity != null) put("resident_city", residentCity)
+                        if (residentState != null) put("resident_state", residentState)
+                        if (residentPostalCode != null) put("resident_postal_code", residentPostalCode)
+                        if (residentCountry != null) put("resident_country", residentCountry)
+                        if (birthPlace != null) put("birth_place", birthPlace)
+                    }
+                    request.copy(credentialData = updatedData)
+                }
+                else -> request
+            }
+        }
+    }
+
+    private fun buildDefaultMdocData(docType: String, tenant: IssuerTenant): Map<String, JsonObject> {
+        val namespace = when {
+            docType.contains("pid") -> "eu.europa.ec.eudi.pid.1"
+            docType.contains("mDL") || docType.contains("mdl") -> "org.iso.18013.5.1"
+            else -> docType
+        }
+        val fields = buildJsonObject {
+            put("family_name", "Demo")
+            put("given_name", "User")
+            put("birth_date", "1990-01-01")
+            put("issue_date", "2026-01-01")
+            put("expiry_date", "2027-01-01")
+            put("issuing_country", tenant.country)
+            put("issuing_authority", tenant.legalName)
+        }
+        return mapOf(namespace to fields)
+    }
+
+    private fun buildDefaultSdJwtData(vct: String, tenant: IssuerTenant): JsonObject {
+        return buildJsonObject {
+            put("family_name", "Demo")
+            put("given_name", "User")
+            put("birthdate", "1990-01-01")
+            put("issuing_country", tenant.country)
+            put("issuing_authority", tenant.legalName)
+            put("age_over_18", true)
+            put("age_over_21", true)
         }
     }
 

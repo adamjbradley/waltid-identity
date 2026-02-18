@@ -1,0 +1,35 @@
+{
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "legalName": "The Australia Hack - RP Demo",
+    "tradeName": "RP Demo",
+    "country": "AU",
+    "contactEmail": "admin@theaustraliahack.com",
+    "contactAddress": "Sydney, Australia",
+    "intendedUse": "EUDI wallet verification demo for age check and identity verification",
+    "privacyPolicyUrl": "https://rp.theaustraliahack.com/privacy",
+    "dataRetentionPeriod": "30 days",
+    "lawfulBasis": "CONSENT",
+    "dpaAcknowledged": true,
+    "clientId": "x509_san_dns:rp.theaustraliahack.com",
+    "domain": "rp.theaustraliahack.com",
+    "certificate": {
+        "subject": "O=The Australia Hack - RP Demo,CN=The Australia Hack - RP Demo",
+        "issuer": "O=The Australia Hack - RP Demo,CN=The Australia Hack - RP Demo",
+        "notBefore": "2026-02-18T05:29:42Z",
+        "notAfter": "2027-02-18T05:29:42Z",
+        "serialNumber": "97d07eca15fc587edcaca0890734085b93802f3c",
+        "fingerprint": "AB:78:E1:77:82:CD:5E:F6:0B:9B:DC:87:A9:4D:1F:0C:DC:89:46:A1:40:CA:41:A7:FE:7A:1C:8B:A2:0A:18:B5"
+    },
+    "privateKeyJwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "0D9aFRFO4H6DHQZ1cX1LpiWyXWUXvBxGSO4uFdChq8I",
+        "y": "PbZFaF-zqzLbQwdQ9lK3jdRqhalc9rXWSlrCfbS6eu0",
+        "d": "Xj0QpFGCeAOR-Z0Fvtgx3KFxE3fTw90ZmEUoIs68Tbc"
+    },
+    "x5c": [
+        "MIICLDCCAdGgAwIBAgIVAJfQfsoV/Fh+3KygiQc0CFuTgC88MAoGCCqGSM49BAMCME4xJTAjBgNVBAMMHFRoZSBBdXN0cmFsaWEgSGFjayAtIFJQIERlbW8xJTAjBgNVBAoMHFRoZSBBdXN0cmFsaWEgSGFjayAtIFJQIERlbW8wHhcNMjYwMjE4MDUyOTQyWhcNMjcwMjE4MDUyOTQyWjBOMSUwIwYDVQQDDBxUaGUgQXVzdHJhbGlhIEhhY2sgLSBSUCBEZW1vMSUwIwYDVQQKDBxUaGUgQXVzdHJhbGlhIEhhY2sgLSBSUCBEZW1vMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0D9aFRFO4H6DHQZ1cX1LpiWyXWUXvBxGSO4uFdChq8I9tkVoX7OrMttDB1D2UreN1GqFqVz2tdZKWsJ9tLp67aOBizCBiDAiBgNVHREEGzAZghdycC50aGVhdXN0cmFsaWFoYWNrLmNvbTAOBgNVHQ8BAf8EBAMCB4AwEgYDVR0lBAswCQYHKIGMXQUBBjAdBgNVHQ4EFgQULyWHGMoUBTYFAg9QWbzsmY8YEEcwHwYDVR0jBBgwFoAULyWHGMoUBTYFAg9QWbzsmY8YEEcwCgYIKoZIzj0EAwIDSQAwRgIhAKkKUb2C9vEdBeHQwzw0CbvDlslg5JDPewiL24sb4ypIAiEAtO5T9PCVEWzKI2G6R5RiWeix+57650BU3DgPzoR9698="
+    ],
+    "createdAt": "2026-02-09T09:49:38Z",
+    "updatedAt": "2026-02-18T05:29:42.552354262Z"
+}
