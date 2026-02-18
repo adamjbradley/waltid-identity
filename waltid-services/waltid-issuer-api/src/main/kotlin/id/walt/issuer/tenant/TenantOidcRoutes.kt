@@ -19,6 +19,8 @@ import id.walt.oid4vc.requests.TokenRequest
 import id.walt.oid4vc.responses.AuthorizationErrorCode
 import id.walt.oid4vc.responses.CredentialErrorCode
 import id.walt.oid4vc.responses.PushedAuthorizationResponse
+import id.walt.commons.config.ConfigManager
+import id.walt.issuer.config.OIDCIssuerServiceConfig
 import id.walt.issuer.issuance.CIProvider
 import id.walt.issuer.issuance.ClientAttestationHandler
 import id.walt.issuer.issuance.DPoPHandler
@@ -445,21 +447,45 @@ fun Application.tenantOidcRoutes() {
                     val authReq = runBlocking { AuthorizationRequest.fromHttpParametersAuto(call.parameters.toMap()) }
 
                     try {
-                        val issuanceSession = authReq.issuerState?.let { provider.getSession(it) }
-                            ?: error("No issuance session found for given issuer state")
+                        // For PAR references, resolve the stored session to get the original auth request
+                        val effectiveAuthReq = if (authReq.isReferenceToPAR) {
+                            provider.getPushedAuthorizationSession(authReq).authorizationRequest ?: authReq
+                        } else {
+                            authReq
+                        }
+
+                        var issuanceSession = provider.initializeIssuanceSession(
+                            authorizationRequest = effectiveAuthReq,
+                            expiresIn = 5.minutes,
+                            authServerState = null
+                        )
+
+                        // For "Add document from list" flow: no credential offer, so issuanceRequests is empty.
+                        // Build default requests from authorization_details + tenant config.
+                        if (issuanceSession.issuanceRequests.isEmpty() && effectiveAuthReq.authorizationDetails != null) {
+                            val configIds = effectiveAuthReq.authorizationDetails!!
+                                .mapNotNull { it.credentialConfigurationId }
+                            if (configIds.isNotEmpty()) {
+                                val defaultRequests = IssuerTenantRegistry.buildDefaultIssuanceRequests(tenant, configIds)
+                                issuanceSession = issuanceSession.copy(issuanceRequests = defaultRequests)
+                                provider.putSession(issuanceSession.id, issuanceSession, 5.minutes)
+                            }
+                        }
 
                         val authMethod = issuanceSession.issuanceRequests.firstOrNull()?.authenticationMethod
-                            ?: AuthenticationMethod.NONE
+                            ?: AuthenticationMethod.PWD
 
                         val authResp: Any = when {
                             ResponseType.Code in authReq.responseType -> {
                                 when (authMethod) {
                                     AuthenticationMethod.PWD -> {
+                                        val issuerConfig = ConfigManager.getConfig<OIDCIssuerServiceConfig>()
+                                        val globalBaseUrl = issuerConfig.externalBaseUrl ?: issuerConfig.baseUrl
                                         call.response.apply {
                                             status(HttpStatusCode.Found)
                                             header(
                                                 name = HttpHeaders.Location,
-                                                value = "${provider.metadata.issuer}/external_login/${authReq.toHttpQueryString()}"
+                                                value = "${globalBaseUrl}/pre_login/${authReq.toHttpQueryString()}&_tenantId=${tenant.id}&_tenantSessionId=${issuanceSession.id}"
                                             )
                                         }
                                         return@get

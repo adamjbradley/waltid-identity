@@ -3,6 +3,9 @@
 package id.walt.issuer.issuance
 
 import id.walt.crypto.utils.UuidUtils.randomUUIDString
+import id.walt.issuer.tenant.IssuerTenant
+import id.walt.issuer.tenant.IssuerTenantRegistry
+import id.walt.issuer.tenant.IssuerTenantStore
 import id.walt.issuer.issuance.openapi.oidcapi.getCredentialOfferUriDocs
 import id.walt.issuer.issuance.openapi.oidcapi.getStandardVersionDocs
 import id.walt.issuer.issuance.openapi.oidcapi.standardVersionPathParameter
@@ -46,6 +49,9 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 object OidcApi : CIProvider(), Klogging {
+
+    private val tenantByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val tenantSessionByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun Application.oidcRoute(build: Route.() -> Unit) {
         routing {
@@ -856,6 +862,26 @@ object OidcApi : CIProvider(), Klogging {
                 }
             }
 
+            // Pre-login route: clears any existing Keycloak session before OAuth login
+            // to prevent SSO cross-contamination between wallet apps.
+            get("/pre_login/{internalAuthReq}") {
+                val authConfig = id.walt.commons.config.ConfigManager.getConfig<id.walt.issuer.config.AuthenticationServiceConfig>()
+                val issuerConfig = id.walt.commons.config.ConfigManager.getConfig<id.walt.issuer.config.OIDCIssuerServiceConfig>()
+                val globalBaseUrl = issuerConfig.externalBaseUrl ?: issuerConfig.baseUrl
+                // Use raw URI to preserve percent-encoding in the internalAuthReq params
+                val rawUri = call.request.uri
+                val rawInternalAuthReq = rawUri.substringAfter("/pre_login/")
+                val externalLoginUrl = "${globalBaseUrl}/external_login/${rawInternalAuthReq}"
+
+                if (authConfig.logoutUrl.isNotBlank()) {
+                    val logoutRedirect = "${authConfig.logoutUrl}?client_id=${authConfig.clientId}" +
+                        "&post_logout_redirect_uri=${java.net.URLEncoder.encode(externalLoginUrl, "UTF-8")}"
+                    call.respondRedirect(logoutRedirect)
+                } else {
+                    call.respondRedirect(externalLoginUrl)
+                }
+            }
+
             val authorizationPhase = PipelinePhase("Authorization")
 
             authenticate("auth-oauth") {
@@ -875,6 +901,18 @@ object OidcApi : CIProvider(), Klogging {
                     }
                     if (authReq != null && externalAuthReq != null) {
                         initializeIssuanceSession(authReq, 5.minutes, externalAuthReq.state)
+
+                        // Track tenant ID for callback resolution
+                        val tenantId = call.parameters["internalAuthReq"]
+                            ?.let { Url("http://dummy?$it").parameters["_tenantId"] }
+                        if (tenantId != null && externalAuthReq.state != null) {
+                            tenantByAuthState[externalAuthReq.state!!] = tenantId
+                        }
+                        val tenantSessionId = call.parameters["internalAuthReq"]
+                            ?.let { Url("http://dummy?$it").parameters["_tenantSessionId"] }
+                        if (tenantSessionId != null && externalAuthReq.state != null) {
+                            tenantSessionByAuthState[externalAuthReq.state!!] = tenantSessionId
+                        }
                     }
 
                 }
@@ -888,17 +926,58 @@ object OidcApi : CIProvider(), Klogging {
                 }
 
                 get("/callback") {
-                    // The currentPrincipal contains the Access/ID/Refresh tokens from the Authorization Server
                     val currentPrincipal: OAuthAccessTokenResponse.OAuth2? = call.principal()
 
-                    // should redirect to authorization request redirect uri with the code
-                    val session = getSessionByAuthServerState(call.request.rawQueryParameters.toMap()["state"]!![0])
+                    val state = call.request.rawQueryParameters.toMap()["state"]!![0]
+                    val session = getSessionByAuthServerState(state)
+
+                    // Resolve tenant-specific metadata and token key if this callback originated from a tenant flow
+                    val tenantId: String? = tenantByAuthState.remove(state)
+                    val tenantSessionId: String? = tenantSessionByAuthState.remove(state)
+                    val tenant: IssuerTenant? = tenantId?.let { id -> IssuerTenantStore.instanceOrNull()?.get(id) }
+                    val effectiveMetadata = if (tenant != null) IssuerTenantRegistry.getOrCreate(tenant).metadata else metadata
+                    val effectiveTokenKey = if (tenant != null) IssuerTenantRegistry.getTokenKey(tenant) else CI_TOKEN_KEY
+
                     val authResp = OpenID4VC.processCodeFlowAuthorization(
                         session?.authorizationRequest!!,
                         session.id,
-                        metadata,
-                        CI_TOKEN_KEY
+                        effectiveMetadata,
+                        effectiveTokenKey
                     )
+
+                    // Copy session to tenant provider so token endpoint can find it.
+                    // Merge issuanceRequests from tenant's existing session (populated in authorize handler),
+                    // and enrich credential data with the authenticated user's identity claims.
+                    if (tenant != null) {
+                        val tenantProvider = IssuerTenantRegistry.getOrCreate(tenant)
+                        val tenantSession = tenantSessionId?.let { tenantProvider.getVerifiedSession(it) }
+
+                        // Extract user claims from Keycloak ID token
+                        val userClaims = currentPrincipal?.extraParameters?.get("id_token")?.let { idToken ->
+                            try {
+                                val payload = idToken.split(".").getOrNull(1) ?: return@let null
+                                val decoded = java.util.Base64.getUrlDecoder().decode(payload)
+                                Json.parseToJsonElement(String(decoded)).jsonObject
+                            } catch (e: Exception) {
+                                logger.warn { "Failed to decode ID token: ${e.message}" }
+                                null
+                            }
+                        }
+
+                        val mergedSession = if (tenantSession != null && tenantSession.issuanceRequests.isNotEmpty()) {
+                            val enrichedRequests = if (userClaims != null) {
+                                IssuerTenantRegistry.enrichIssuanceRequestsWithUserClaims(
+                                    tenantSession.issuanceRequests, userClaims, tenant
+                                )
+                            } else {
+                                tenantSession.issuanceRequests
+                            }
+                            session.copy(issuanceRequests = enrichedRequests)
+                        } else {
+                            session
+                        }
+                        tenantProvider.putSession(session.id, mergedSession, 5.minutes)
+                    }
 
                     val redirectUri = when (session.authorizationRequest.isReferenceToPAR) {
                         true -> getPushedAuthorizationSession(session.authorizationRequest).authorizationRequest?.redirectUri

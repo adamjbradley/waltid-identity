@@ -29,6 +29,7 @@ services:
     pull_policy: missing
     depends_on:
       - caddy
+      - keycloak
     env_file:
       - .env
       - path: .env.local
@@ -324,8 +325,6 @@ services:
         protocol: tcp
         mode: host
 
-
-
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./issuer-api/tsl.xml:/etc/caddy/tsl/tsl.xml:ro
@@ -453,6 +452,24 @@ services:
       NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
     ports:
       - "${RP_NEXTJS_PORT:-7020}:3000"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    profiles:
+      - identity
+      - all
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: ${KEYCLOAK_PORT:-8180}
+      KC_HOSTNAME: ${KEYCLOAK_EXTERNAL_URL:-http://localhost:8180}
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    ports:
+      - "${KEYCLOAK_PORT:-8180}:${KEYCLOAK_PORT:-8180}"
 
 volumes:
   wallet-api-db:
