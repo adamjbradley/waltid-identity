@@ -2355,7 +2355,28 @@
             webWalletLink.addEventListener('click', function(e) {
                 if (window.innerWidth >= 768) {
                     e.preventDefault();
-                    window.open(walletUrl, 'waltid-wallet', 'width=500,height=700,popup=yes');
+                    var popup = window.open(walletUrl, 'waltid-wallet', 'width=500,height=700,popup=yes');
+                    // Monitor popup — if closed without postMessage, synthesize a failure
+                    if (popup) {
+                        var popupCheck = setInterval(function() {
+                            if (popup.closed) {
+                                clearInterval(popupCheck);
+                                // Dispatch a synthetic failure message so the SDK shows the error dialog
+                                window.postMessage({
+                                    type: 'waltid:presentation-complete',
+                                    success: false,
+                                    error: 'Wallet window was closed without completing verification.'
+                                }, '*');
+                            }
+                        }, 500);
+                        // Clean up when a real postMessage arrives (success or failure)
+                        window.addEventListener('message', function handler(event) {
+                            if (event.data && event.data.type === 'waltid:presentation-complete') {
+                                clearInterval(popupCheck);
+                                window.removeEventListener('message', handler);
+                            }
+                        });
+                    }
                 }
             });
 
