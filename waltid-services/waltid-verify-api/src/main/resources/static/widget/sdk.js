@@ -759,6 +759,7 @@
     var activeContainer = null;
     var activeSession = null;
     var pollTimer = null;
+    var activePollingOptions = null;
 
 
     // ============================================================
@@ -1545,6 +1546,7 @@
     // ============================================================
 
     function startPolling(sessionId, options) {
+        activePollingOptions = options;
         var startTime = Date.now();
         var timeout = options.timeout || config.timeout;
 
@@ -1622,7 +1624,33 @@
             clearTimeout(pollTimer);
             pollTimer = null;
         }
+        activePollingOptions = null;
     }
+
+
+    // ============================================================
+    // Wallet Popup Message Handler
+    // ============================================================
+
+    // Listen for postMessage from wallet popup (decline / failure)
+    window.addEventListener('message', function(event) {
+        if (!event.data || event.data.type !== 'waltid:presentation-complete') return;
+        if (event.data.success !== false) return; // success is handled by polling
+        if (!activeContainer || !activeModal) return; // no active modal to update
+
+        log('info', 'Wallet popup reported failure:', event.data);
+
+        var options = activePollingOptions || {};
+        stopPolling();
+        var error = new Error(event.data.error || 'Verification was not completed.');
+        error.code = 'WALLET_DECLINED';
+
+        renderErrorContent(activeContainer, error, options);
+
+        if (options.onFailure) {
+            options.onFailure(error);
+        }
+    });
 
 
     // ============================================================

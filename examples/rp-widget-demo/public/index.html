@@ -2331,18 +2331,12 @@
         }
 
         // Listen for postMessage from wallet popup when presentation completes
+        // Note: The SDK handles failure rendering automatically via its own message listener.
+        // This handler is for RP-specific logging or custom behavior.
         window.addEventListener('message', function(event) {
             if (event.origin !== WEB_WALLET_URL) return;
             if (!event.data || event.data.type !== 'waltid:presentation-complete') return;
             console.log('Wallet presentation complete:', event.data);
-
-            if (event.data.success === false) {
-                // User declined or presentation failed — close the SDK modal and show error
-                WaltVerify.close();
-                var errorMsg = event.data.error || 'Verification was not completed.';
-                showResult('modal', { error: errorMsg });
-            }
-            // success: true is handled by the SDK's polling (it detects 'verified' status)
         });
 
         // Inject "Open in Web Wallet" link next to SDK's "Open Wallet App" link
