@@ -2323,19 +2323,62 @@
         function buildWebWalletUrl(deepLinkHref) {
             var queryStart = deepLinkHref.indexOf('?');
             if (queryStart === -1) return WEB_WALLET_URL;
-            return WEB_WALLET_URL + '/api/siop/initiatePresentation' + deepLinkHref.substring(queryStart);
+            var walletUrl = WEB_WALLET_URL + '/api/siop/initiatePresentation' + deepLinkHref.substring(queryStart);
+            // Add redirect_uri so the wallet can return the user after presentation
+            var redirectUri = window.location.origin + window.location.pathname;
+            walletUrl += '&redirect_uri=' + encodeURIComponent(redirectUri);
+            return walletUrl;
         }
+
+        // Listen for postMessage from wallet popup when presentation completes
+        // Note: The SDK handles failure rendering automatically via its own message listener.
+        // This handler is for RP-specific logging or custom behavior.
+        window.addEventListener('message', function(event) {
+            if (event.origin !== WEB_WALLET_URL) return;
+            if (!event.data || event.data.type !== 'waltid:presentation-complete') return;
+            console.log('Wallet presentation complete:', event.data);
+        });
 
         // Inject "Open in Web Wallet" link next to SDK's "Open Wallet App" link
         function injectWebWalletLink(walletLink) {
             if (walletLink.dataset.webWalletInjected) return;
             walletLink.dataset.webWalletInjected = 'true';
 
+            var walletUrl = buildWebWalletUrl(walletLink.href);
             var webWalletLink = document.createElement('a');
-            webWalletLink.href = buildWebWalletUrl(walletLink.href);
+            webWalletLink.href = walletUrl;
             webWalletLink.textContent = 'Open in Web Wallet';
             webWalletLink.className = 'web-wallet-link';
             webWalletLink.style.cssText = 'display:inline-block;margin-top:8px;padding:10px 24px;background:#4f46e5;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;';
+
+            // Desktop: open wallet in popup; Mobile: navigate (redirect_uri handles return)
+            webWalletLink.addEventListener('click', function(e) {
+                if (window.innerWidth >= 768) {
+                    e.preventDefault();
+                    var popup = window.open(walletUrl, 'waltid-wallet', 'width=500,height=700,popup=yes');
+                    // Monitor popup — if closed without postMessage, synthesize a failure
+                    if (popup) {
+                        var popupCheck = setInterval(function() {
+                            if (popup.closed) {
+                                clearInterval(popupCheck);
+                                // Dispatch a synthetic failure message so the SDK shows the error dialog
+                                window.postMessage({
+                                    type: 'waltid:presentation-complete',
+                                    success: false,
+                                    error: 'Wallet window was closed without completing verification.'
+                                }, '*');
+                            }
+                        }, 500);
+                        // Clean up when a real postMessage arrives (success or failure)
+                        window.addEventListener('message', function handler(event) {
+                            if (event.data && event.data.type === 'waltid:presentation-complete') {
+                                clearInterval(popupCheck);
+                                window.removeEventListener('message', handler);
+                            }
+                        });
+                    }
+                }
+            });
 
             // Insert after the wallet link
             walletLink.parentNode.insertBefore(webWalletLink, walletLink.nextSibling);

@@ -6,8 +6,8 @@
       :use-url="walletUrlFunction"
     />
     <div v-else-if="wallets && wallets.length === 0" class="text-center p-8">
-      <p class="text-gray-600 mb-4">No wallets found. Please create a wallet first.</p>
-      <a href="/" class="text-blue-600 hover:text-blue-700 underline">Go to Dashboard</a>
+      <p class="text-gray-600 mb-4">Please sign in to your wallet to continue.</p>
+      <a :href="'/login?redirect=' + encodeURIComponent($route.fullPath)" class="inline-block px-6 py-2 bg-[#002159] text-white rounded-xl hover:bg-[#003080] transition-colors">Sign In</a>
     </div>
     <LoadingIndicator v-else>Loading wallets...</LoadingIndicator>
   </CenterMain>
@@ -41,12 +41,11 @@ if (status.value === 'unauthenticated') {
 
 const { mtWalletEnabled } = useMtWallet();
 
-const queryRequest = new URL("http://example.invalid" + route.fullPath)
-  .search; // new URL(window.location.href).search
+const queryRequest = new URL("http://example.invalid" + route.fullPath).search;
 console.log("queryRequest: ", queryRequest);
 
 let fixedRequest = encodeURI(
-  decodeURI(fixRequest("openid://" + window.location.search)),
+  decodeURI(fixRequest("openid://" + queryRequest)),
 );
 console.log("Fixed request: ", fixedRequest);
 
@@ -65,10 +64,14 @@ const hintSuffix = Object.keys(hintParams).length
   ? '&' + new URLSearchParams(hintParams).toString()
   : '';
 
+// Preserve redirect_uri from RP for post-presentation return
+const redirectUri = route.query.redirect_uri as string || '';
+const redirectParam = redirectUri ? `&redirect_uri=${encodeURIComponent(redirectUri)}` : '';
+
 const wallets = (await listWallets())?.value?.wallets;
 
 const walletUrlFunction = (wallet: WalletListingType) =>
-  `/wallet/${wallet.id}/exchange/presentation?request=${encodedWalletRequestUrl}${hintSuffix}`;
+  `/wallet/${wallet.id}/exchange/presentation?request=${encodedWalletRequestUrl}${hintSuffix}${redirectParam}`;
 
 if (wallets && wallets.length == 1) {
   const wallet = wallets[0];

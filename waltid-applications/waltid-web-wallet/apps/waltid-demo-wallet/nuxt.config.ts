@@ -226,6 +226,12 @@ export default defineNuxtConfig({
     // }
     //proxy: [ 'http://localhost:4545/api' ]
 
+    routeRules: {
+        '/api/siop/**': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+        '/wallet/*/exchange/**': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+        '/login': { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+    },
+
     ssr: false,
     compatibilityDate: "2024-07-26"
 });
