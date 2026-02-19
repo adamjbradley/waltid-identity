@@ -28,7 +28,10 @@
                     <div :class="{ 'text-[#0573f000]': !issuerName }" class="font-bold">
                         {{ issuerName ?? 'Unknown' }}
                     </div>
-                    <div v-if="issuingCountry" class="text-xs opacity-75">{{ issuingCountry }}</div>
+                    <div v-if="issuingCountry || countryFlag" class="text-xs opacity-75">
+                        <span v-if="countryFlag" class="mr-1">{{ countryFlag }}</span>
+                        <span v-if="issuingCountry">{{ issuingCountry }}</span>
+                    </div>
                 </div>
                 <img v-if="issuerLogo" :src="issuerLogo" alt="Issuer Logo" class="h-6 rounded-full" />
             </div>
@@ -59,7 +62,7 @@ const props = defineProps({
     },
 });
 
-const { jwtJson: credential, manifest, titleTitelized, isNotExpired, isRevoked, issuerName, issuerLogo, issuingCountry } = useCredential(ref(props.credential as any));
+const { jwtJson: credential, manifest, titleTitelized, isNotExpired, isRevoked, issuerName, issuerLogo, issuingCountry, countryFlag } = useCredential(ref(props.credential as any));
 const manifestCard = computed(() => manifest.value?.display?.card ?? manifest.value);
 const isDetailView = ref(props.isDetailView ?? false);
 const vcCardDiv: any = ref(null);

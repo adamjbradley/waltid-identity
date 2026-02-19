@@ -1,0 +1,69 @@
+{
+    "id": "7877dee0-5e83-49bd-926a-94e9043e9ace",
+    "legalName": "DVLA Digital Identity",
+    "country": "GB",
+    "domain": "identity.gov.uk",
+    "contactEmail": "digital@gov.uk",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "BYsT01gG3A7moo-qdZN9g0H8-sJgonDexTfemdZS_5w",
+        "y": "6Mr0zBo1jjdp62LeSe9NPxJT945_gOI6TQ1MhTom_pQ",
+        "d": "ZCKxxwoPv7aUngdSzWClH4_cZkaVjN2WpxoHq3odnko"
+    },
+    "x5Chain": [
+        "MIIB2DCCAX6gAwIBAgIVAKpy9bJAI/6tVqt9GQvVfpjNT7JQMAoGCCqGSM49BAMCMDIxIzAhBgNVBAMMGkRWTEEgRGlnaXRhbCBJZGVudGl0eSBJQUNBMQswCQYDVQQGEwJHQjAeFw0yNjAyMTgyMzQ1NTlaFw0yNzAyMTgyMzQ1NTlaMD0xLjAsBgNVBAMMJURWTEEgRGlnaXRhbCBJZGVudGl0eSBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAkdCMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBYsT01gG3A7moo+qdZN9g0H8+sJgonDexTfemdZS/5zoyvTMGjWON2nrYt5J700/ElP3jn+A4jpNDUyFOib+lKNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFGpdChRFYIOIjbVqhYrLU9Hw1SrpMB8GA1UdIwQYMBaAFNPf3Fru86eRgxYpRfIMfwUM9kyMMAoGCCqGSM49BAMCA0gAMEUCIAylK1GW7lnRD19Bi33d3Erql1zZcN+yQyOMW3FD1YojAiEAhkTdbGHocNc3A5VrEEhKIYGcPoXV0P98263Os/QfLdw=",
+        "MIIByzCCAXCgAwIBAgIVALefO5ZuRyWQJXo2oAp3H15UA1HOMAoGCCqGSM49BAMCMDIxIzAhBgNVBAMMGkRWTEEgRGlnaXRhbCBJZGVudGl0eSBJQUNBMQswCQYDVQQGEwJHQjAeFw0yNjAyMTgyMzQ1NTlaFw0zMTAyMTcyMzQ1NTlaMDIxIzAhBgNVBAMMGkRWTEEgRGlnaXRhbCBJZGVudGl0eSBJQUNBMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABLntLvhV9BGwDxwfS4mXUTNOtOA9rvwEozr7ycjXSpbij7NSWEnRWXnzQTWMG35VSKJ2NGTGpYhga1cv+zLCrPKjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBTT39xa7vOnkYMWKUXyDH8FDPZMjDAfBgNVHSMEGDAWgBTT39xa7vOnkYMWKUXyDH8FDPZMjDAKBggqhkjOPQQDAgNJADBGAiEA75zxYh7lB1lI9Lo9oTKw7PT0Il1xjZIZ0dGYjZ4ZCTECIQD/6S+7zfCVoye5NfuNfMQUVjZuFLKDy4gA6uq/+dD8kg=="
+    ],
+    "iacaCertificate": {
+        "subject": "C=GB,CN=DVLA Digital Identity IACA",
+        "issuer": "C=GB,CN=DVLA Digital Identity IACA",
+        "notBefore": "2026-02-18T23:45:59Z",
+        "notAfter": "2031-02-17T23:45:59Z",
+        "serialNumber": "b79f3b966e472590257a36a00a771f5e540351ce",
+        "fingerprint": "BC:29:EA:95:81:55:86:BC:DA:44:34:DC:98:B3:C0:0A:B6:C2:9C:21:62:D7:BE:C8:78:BB:FD:51:74:7F:0C:B6"
+    },
+    "signerCertificate": {
+        "subject": "C=GB,CN=DVLA Digital Identity Document Signer",
+        "issuer": "C=GB,CN=DVLA Digital Identity IACA",
+        "notBefore": "2026-02-18T23:45:59Z",
+        "notAfter": "2027-02-18T23:45:59Z",
+        "serialNumber": "aa72f5b24023fead56ab7d190bd57e98cd4fb250",
+        "fingerprint": "B9:F2:25:A1:CD:F3:A4:78:D9:E3:81:2E:AD:7C:8D:B0:53:7C:BC:19:2C:AD:5A:20:17:B8:EF:66:E4:80:39:38"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"oIoDG-LT3t9WQ4PIDH55i_ef2_vt_KFn5gNZEjet8_Y\",\"y\":\"T38Y-swJ7p9TcO1xqtsxmuzGmu7AXrFUTEuGPTl5IE4\",\"d\":\"atDiWV1Z1Vfqso65b0R-CXKJeaSprnbeeIBD4NoR2Z8\"}}",
+    "credentialConfigurations": {
+        "urn:uk:gov:onelogin:pid:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:onelogin:pid:1",
+            "display": [
+                {
+                    "name": "GOV.UK Identity",
+                    "locale": "en"
+                }
+            ]
+        },
+        "urn:uk:gov:dvla:dl:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:dvla:dl:1",
+            "display": [
+                {
+                    "name": "Driving Licence (UK)",
+                    "locale": "en"
+                }
+            ]
+        },
+        "urn:uk:gov:rtw:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:rtw:1",
+            "display": [
+                {
+                    "name": "Right to Work",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-18T23:45:49.368040425Z",
+    "updatedAt": "2026-02-18T23:46:13.773288422Z"
+}
