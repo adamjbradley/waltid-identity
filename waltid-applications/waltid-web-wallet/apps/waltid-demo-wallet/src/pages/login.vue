@@ -495,6 +495,7 @@ import {useTenant} from "@waltid-web-wallet/composables/tenants.ts";
 import {listWallets, setWallet} from "@waltid-web-wallet/composables/accountWallet.ts";
 import {useUserStore} from "@waltid-web-wallet/stores/user.ts";
 import {storeToRefs} from "pinia";
+import {decodeJwt} from "jose";
 
 function decodeJwt(token: string): any {
   const payload = token.split('.')[1];
