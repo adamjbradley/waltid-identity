@@ -269,6 +269,33 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
           ],
         },
       },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '4321',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'AUD',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_4321',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
+          ],
+        },
+      },
     ],
   },
   IN: {
@@ -349,6 +376,33 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
           ],
         },
       },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '5678',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'INR',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_5678',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
+          ],
+        },
+      },
     ],
   },
   GB: {
@@ -426,6 +480,33 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             { path: ['family_name'] },
             { path: ['given_name'] },
             { path: ['nhs_number'] },
+          ],
+        },
+      },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '7890',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'GBP',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_7890',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
           ],
         },
       },
@@ -573,6 +654,33 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
           ],
         },
       },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '2345',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'EUR',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_2345',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
+          ],
+        },
+      },
     ],
   },
   FR: {
@@ -630,6 +738,33 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             { path: ['family_name'] },
             { path: ['given_name'] },
             { path: ['birth_date'] },
+          ],
+        },
+      },
+      {
+        id: 'PaymentWalletAttestation',
+        title: 'Payment Wallet Attestation',
+        format: 'DC+SD-JWT',
+        data: {
+          offer: {
+            credentialSubject: {
+              funding_source: {
+                type: 'CARD',
+                panLastFour: '6789',
+                iin: '512345',
+                scheme: 'mastercard',
+                currency: 'EUR',
+                icon: 'https://example.com/mc-icon.png',
+                aliasId: 'pwa_mc_6789',
+              },
+            },
+            vct: 'PaymentWalletAttestation',
+          },
+          defaultClaims: [
+            { path: ['funding_source'] },
+            { path: ['funding_source', 'type'] },
+            { path: ['funding_source', 'panLastFour'] },
+            { path: ['funding_source', 'scheme'] },
           ],
         },
       },
