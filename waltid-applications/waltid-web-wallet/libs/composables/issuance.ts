@@ -152,9 +152,15 @@ export async function useIssuance(query: any) {
             });
             // Navigate to the newly accepted credential's detail page
             try {
-                const credentials: Array<{ id: string }> | null = await $fetch(`/wallet-api/wallet/${currentWallet.value}/credentials`);
+                const credentials: Array<{ id: string; addedOn?: string }> | null = await $fetch(`/wallet-api/wallet/${currentWallet.value}/credentials`);
                 if (credentials && credentials.length > 0) {
-                    navigateTo(`/wallet/${currentWallet.value}/credentials/${credentials[0].id}`);
+                    // Sort by addedOn descending to find the most recently added credential
+                    const sorted = [...credentials].sort((a, b) => {
+                        const aTime = a.addedOn ? new Date(a.addedOn).getTime() : 0;
+                        const bTime = b.addedOn ? new Date(b.addedOn).getTime() : 0;
+                        return bTime - aTime;
+                    });
+                    navigateTo(`/wallet/${currentWallet.value}/credentials/${sorted[0].id}`);
                     return;
                 }
             } catch {

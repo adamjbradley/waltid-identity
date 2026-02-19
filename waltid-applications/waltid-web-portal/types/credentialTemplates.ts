@@ -2,7 +2,7 @@ export interface CredentialTemplate {
   id: string;
   name: string;
   description: string;
-  category: 'EUDI' | 'Financial' | 'Identity' | 'Custom';
+  category: 'EUDI' | 'Financial' | 'Identity' | 'India' | 'Australia' | 'UK' | 'Custom';
   format: string;
   config: Record<string, any>;
 }
@@ -86,6 +86,153 @@ export const credentialTemplates: CredentialTemplate[] = [
         credential_signing_alg_values_supported: ['ES256'],
         proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
         vct: 'PaymentWalletAttestation',
+      },
+    },
+  },
+  // -- India --
+  {
+    id: 'urn:in:gov:aadhaar:pid:1',
+    name: 'Aadhaar Identity',
+    description: 'Indian national identity (Aadhaar) in dc+sd-jwt format',
+    category: 'India',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:in:gov:aadhaar:pid:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:in:gov:aadhaar:pid:1',
+      },
+    },
+  },
+  {
+    id: 'urn:in:gov:pan:1',
+    name: 'PAN Card',
+    description: 'Indian Permanent Account Number card in dc+sd-jwt format',
+    category: 'India',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:in:gov:pan:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:in:gov:pan:1',
+      },
+    },
+  },
+  {
+    id: 'urn:in:gov:dl:1',
+    name: 'Driving Licence (India)',
+    description: 'Indian driving licence in dc+sd-jwt format',
+    category: 'India',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:in:gov:dl:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:in:gov:dl:1',
+      },
+    },
+  },
+  // -- Australia --
+  {
+    id: 'urn:au:gov:mygovid:pid:1',
+    name: 'myGovID Identity',
+    description: 'Australian myGovID identity in dc+sd-jwt format',
+    category: 'Australia',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:au:gov:mygovid:pid:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:au:gov:mygovid:pid:1',
+      },
+    },
+  },
+  {
+    id: 'urn:au:gov:dl:1',
+    name: 'Driving Licence (Australia)',
+    description: 'Australian driving licence in dc+sd-jwt format',
+    category: 'Australia',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:au:gov:dl:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:au:gov:dl:1',
+      },
+    },
+  },
+  {
+    id: 'urn:au:gov:medicare:1',
+    name: 'Medicare Card',
+    description: 'Australian Medicare card in dc+sd-jwt format',
+    category: 'Australia',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:au:gov:medicare:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:au:gov:medicare:1',
+      },
+    },
+  },
+  // -- UK --
+  {
+    id: 'urn:uk:gov:onelogin:pid:1',
+    name: 'GOV.UK Identity',
+    description: 'UK GOV.UK One Login identity in dc+sd-jwt format',
+    category: 'UK',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:uk:gov:onelogin:pid:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:uk:gov:onelogin:pid:1',
+      },
+    },
+  },
+  {
+    id: 'urn:uk:gov:dvla:dl:1',
+    name: 'Driving Licence (UK)',
+    description: 'UK DVLA driving licence in dc+sd-jwt format',
+    category: 'UK',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:uk:gov:dvla:dl:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:uk:gov:dvla:dl:1',
+      },
+    },
+  },
+  {
+    id: 'urn:uk:gov:rtw:1',
+    name: 'Right to Work',
+    description: 'UK Right to Work credential in dc+sd-jwt format',
+    category: 'UK',
+    format: 'dc+sd-jwt',
+    config: {
+      'urn:uk:gov:rtw:1': {
+        format: 'dc+sd-jwt',
+        cryptographic_binding_methods_supported: ['jwk'],
+        credential_signing_alg_values_supported: ['ES256'],
+        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+        vct: 'urn:uk:gov:rtw:1',
       },
     },
   },

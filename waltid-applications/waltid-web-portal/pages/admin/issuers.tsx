@@ -895,7 +895,7 @@ function IssuerDetailPanel({
         {/* Template picker */}
         {showTemplatePicker && !editingCredentials && (
           <div className="mt-3 p-3 border border-blue-200 rounded-lg bg-blue-50/50 space-y-4">
-            {(['EUDI', 'Financial', 'Identity'] as const).map(category => (
+            {(['EUDI', 'India', 'Australia', 'UK', 'Financial', 'Identity'] as const).map(category => (
               <div key={category}>
                 <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">{category}</h5>
                 <div className="grid grid-cols-2 gap-2">

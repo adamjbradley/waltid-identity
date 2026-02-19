@@ -27,7 +27,23 @@ export type WalletCredential = {
 export const VCT_DISPLAY_NAMES: Record<string, string> = {
     "urn:eudi:pid:1": "EU Personal ID",
     "PaymentWalletAttestation": "Payment Wallet",
+    "urn:in:gov:aadhaar:pid:1": "Aadhaar Identity",
+    "urn:in:gov:pan:1": "PAN Card",
+    "urn:in:gov:dl:1": "Driving Licence (India)",
+    "urn:au:gov:mygovid:pid:1": "myGovID Identity",
+    "urn:au:gov:dl:1": "Driving Licence (Australia)",
+    "urn:au:gov:medicare:1": "Medicare Card",
+    "urn:uk:gov:onelogin:pid:1": "GOV.UK Identity",
+    "urn:uk:gov:dvla:dl:1": "Driving Licence (UK)",
+    "urn:uk:gov:rtw:1": "Right to Work",
 };
+
+export const VCT_COUNTRY_FLAGS: [string, string][] = [
+    ["urn:in:gov:", "\u{1F1EE}\u{1F1F3}"],
+    ["urn:au:gov:", "\u{1F1E6}\u{1F1FA}"],
+    ["urn:uk:gov:", "\u{1F1EC}\u{1F1E7}"],
+    ["urn:eudi:", "\u{1F1EA}\u{1F1FA}"],
+];
 
 export const MDOC_DOCTYPE_NAMES: Record<string, string> = {
     "org.iso.18013.5.1.mDL": "Mobile Driving Licence",
@@ -105,7 +121,7 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
                 titleTitelized.value = VCT_DISPLAY_NAMES[vct];
             } else {
                 const vctName = await fetchVctName(vct);
-                titleTitelized.value = vctName ?? vct.replace(/^urn:eudi:/, "").replace(/:/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+                titleTitelized.value = vctName ?? vct.replace(/^urn:[a-z]+:(?:gov:)?/, "").replace(/:/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
             }
         } else {
             // Fallback logic if there's no `vct`
@@ -159,6 +175,31 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
         }
     });
 
+    const VCT_COUNTRY_NAMES: [string, string][] = [
+        ["urn:in:gov:", "India"],
+        ["urn:au:gov:", "Australia"],
+        ["urn:uk:gov:", "United Kingdom"],
+        ["urn:eudi:", "EU"],
+    ];
+
+    const issuingCountry = computed(() => {
+        const vct = jwtJson.value?.vct;
+        if (!vct) return null;
+        for (const [prefix, name] of VCT_COUNTRY_NAMES) {
+            if (vct.startsWith(prefix)) return name;
+        }
+        return null;
+    });
+
+    const countryFlag = computed(() => {
+        const vct = jwtJson.value?.vct;
+        if (!vct) return null;
+        for (const [prefix, flag] of VCT_COUNTRY_FLAGS) {
+            if (vct.startsWith(prefix)) return flag;
+        }
+        return null;
+    });
+
     const isNotExpired = computed(() => jwtJson.value?.expirationDate ? new Date(jwtJson.value?.expirationDate).getTime() > new Date().getTime() : jwtJson.value?.validUntil ? new Date(jwtJson.value?.validUntil).getTime() > new Date().getTime() : true);
     const issuanceDate = computed(() => {
         if (jwtJson.value?.issuanceDate) {
@@ -197,6 +238,7 @@ export function useCredential(credential: Ref<WalletCredential | null>) {
         statusLoading,
         checkStatus,
         issuingCountry,
+        countryFlag,
         issuanceDate,
         expirationDate
     };
