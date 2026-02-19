@@ -33,12 +33,12 @@
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"oIoDG-LT3t9WQ4PIDH55i_ef2_vt_KFn5gNZEjet8_Y\",\"y\":\"T38Y-swJ7p9TcO1xqtsxmuzGmu7AXrFUTEuGPTl5IE4\",\"d\":\"atDiWV1Z1Vfqso65b0R-CXKJeaSprnbeeIBD4NoR2Z8\"}}",
     "credentialConfigurations": {
-        "urn:uk:gov:onelogin:pid:1": {
+        "urn:uk:gov:govuk-one-login:pid:1": {
             "format": "dc+sd-jwt",
-            "vct": "urn:uk:gov:onelogin:pid:1",
+            "vct": "urn:uk:gov:govuk-one-login:pid:1",
             "display": [
                 {
-                    "name": "GOV.UK Identity",
+                    "name": "GOV.UK One Login Identity",
                     "locale": "en"
                 }
             ]
