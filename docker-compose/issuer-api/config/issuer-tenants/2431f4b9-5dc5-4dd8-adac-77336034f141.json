@@ -1,1 +1,49 @@
-{"id":"2431f4b9-5dc5-4dd8-adac-77336034f141","legalName":"Government Digital Service","country":"GB","domain":"gds.gov.uk","contactEmail":"admin@gds.gov.uk","iacaCertificate":{"subject":"C=GB,CN=Government Digital Service IACA","issuer":"C=GB,CN=Government Digital Service IACA","notBefore":"2026-02-19T04:43:06Z","notAfter":"2031-02-18T04:43:06Z","serialNumber":"2ac968bde48b8f64c27b1e989cabcbd19a86e1b3","fingerprint":"4E:D9:23:23:6A:AE:0F:25:35:79:64:08:AB:80:01:7A:F0:AD:39:B8:2F:49:FA:9C:CB:80:25:8E:D3:C2:A3:E4"},"signerCertificate":{"subject":"C=GB,CN=Government Digital Service Document Signer","issuer":"C=GB,CN=Government Digital Service IACA","notBefore":"2026-02-19T04:43:06Z","notAfter":"2027-02-19T04:43:06Z","serialNumber":"e3cd7081387ddc44ed6f585692d713a1c657d309","fingerprint":"8D:B3:DA:B7:61:4E:82:8C:59:7A:C2:39:3F:E8:27:30:35:89:70:06:CE:6B:80:B3:94:CC:12:7B:BD:57:CD:A6"},"x5Chain":["MIIB4jCCAYigAwIBAgIVAOPNcIE4fdxE7W9YVpLXE6HGV9MJMAoGCCqGSM49BAMCMDcxKDAmBgNVBAMMH0dvdmVybm1lbnQgRGlnaXRhbCBTZXJ2aWNlIElBQ0ExCzAJBgNVBAYTAkdCMB4XDTI2MDIxOTA0NDMwNloXDTI3MDIxOTA0NDMwNlowQjEzMDEGA1UEAwwqR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOmTFzgXmlVir3s6IpXS7XPW69qeQ3mN614A0zl7H61ucx2s0jSUkfSu6SNY0BL3CRwSFVR5JnTRogK9YkWcDryjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBQn/+EWBiXwyF+HNMc07ZHybHLCWzAfBgNVHSMEGDAWgBQ9bAi5lTNG5a8IK4THhdV/G29M+TAKBggqhkjOPQQDAgNIADBFAiB3OF8hDTTGvhMcfDT985UGiM+cDXsFbqPdPSfm65aEhwIhAMKCO34AEPZr7VYNLSOQorZeLX8BuqsgplRxU8om3iYM","MIIB1DCCAXmgAwIBAgIUKsloveSLj2TCex6YnKvL0ZqG4bMwCgYIKoZIzj0EAwIwNzEoMCYGA1UEAwwfR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgSUFDQTELMAkGA1UEBhMCR0IwHhcNMjYwMjE5MDQ0MzA2WhcNMzEwMjE4MDQ0MzA2WjA3MSgwJgYDVQQDDB9Hb3Zlcm5tZW50IERpZ2l0YWwgU2VydmljZSBJQUNBMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOOXJ+2ZuS1MVpvEbjDS7qtjMyU2zncqwFtjyf8XBy5CMM5T6tDeTuCAXpSijYub2o7kuhwD48JPw0OhQIGxbZyjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQ9bAi5lTNG5a8IK4THhdV/G29M+TAfBgNVHSMEGDAWgBQ9bAi5lTNG5a8IK4THhdV/G29M+TAKBggqhkjOPQQDAgNJADBGAiEAsIudPbTpzfAMLoZZL0GtJA8WEU2JKU+lRza3mu8sGW8CIQCy++HYN7+YO3eWjehEBIVr3KpxlXHm67Um2RWeUABb/w=="],"credentialConfigurations":{"credentials":[{"configId":"urn:uk:gov:govuk-one-login:pid:1","format":"dc+sd-jwt","vct":"urn:uk:gov:govuk-one-login:pid:1"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:00.546873304Z","updatedAt":"2026-02-19T04:43:06.260239626Z"}
+{
+    "id": "2431f4b9-5dc5-4dd8-adac-77336034f141",
+    "legalName": "Government Digital Service",
+    "country": "GB",
+    "domain": "gds.gov.uk",
+    "contactEmail": "admin@gds.gov.uk",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "MvXADn74TENOVrdSdgB0ISK0btT2pX_EldzYg_MU6Ak",
+        "y": "5FvJyPG6GXNG-bajUEd-qCty1SqQPbacVd_N-c9Q0ro",
+        "d": "HmmqQ6A4JIvBUrk65K6qjD5E1KpLNXJ9cDEGFBvfWeA"
+    },
+    "x5Chain": [
+        "MIIB4TCCAYigAwIBAgIVAMgEs1Ak3440BrWHM2YADy8Lgj7CMAoGCCqGSM49BAMCMDcxKDAmBgNVBAMMH0dvdmVybm1lbnQgRGlnaXRhbCBTZXJ2aWNlIElBQ0ExCzAJBgNVBAYTAkdCMB4XDTI2MDIxOTA3MDU0OVoXDTI3MDIxOTA3MDU0OVowQjEzMDEGA1UEAwwqR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDL1wA5++ExDTla3UnYAdCEitG7U9qV/xJXc2IPzFOgJ5FvJyPG6GXNG+bajUEd+qCty1SqQPbacVd/N+c9Q0rqjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBQKiuvZdzrjoi/riI1Dpz+AjEWG/jAfBgNVHSMEGDAWgBSKi5wnb/RAs778qdcUD2Tsz7LTmDAKBggqhkjOPQQDAgNHADBEAiBNA1l5uMX+M3rgCZiwC5in9iqI2H3+0FdbFrGA0K6WpwIgawa6AxckH8CMdofin2p0Usij9gEXlUmJi3UcDprrM0w=",
+        "MIIB1TCCAXqgAwIBAgIVAIKJmmNmomCfWqrnIJ9amwyfxPv3MAoGCCqGSM49BAMCMDcxKDAmBgNVBAMMH0dvdmVybm1lbnQgRGlnaXRhbCBTZXJ2aWNlIElBQ0ExCzAJBgNVBAYTAkdCMB4XDTI2MDIxOTA3MDU0OVoXDTMxMDIxODA3MDU0OVowNzEoMCYGA1UEAwwfR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgSUFDQTELMAkGA1UEBhMCR0IwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQbmJyRu9/y4DcTqdd4uQIGypWQVtbTJNFLdMHpMzviC/z7MuIHA9qfHINNpDMPK8k7Jm0BB/artGFRlp6uXJQVo2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUioucJ2/0QLO+/KnXFA9k7M+y05gwHwYDVR0jBBgwFoAUioucJ2/0QLO+/KnXFA9k7M+y05gwCgYIKoZIzj0EAwIDSQAwRgIhANjqmySH0HWXcd/3TXy3v2CPxcpySSBWKHw03GlRfSRrAiEAxrSG0/8p9pyC2bDjck6rbhxNrAFHfzBjvXU8xgc12vc="
+    ],
+    "iacaCertificate": {
+        "subject": "C=GB,CN=Government Digital Service IACA",
+        "issuer": "C=GB,CN=Government Digital Service IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2031-02-18T07:05:49Z",
+        "serialNumber": "82899a6366a2609f5aaae7209f5a9b0c9fc4fbf7",
+        "fingerprint": "E1:50:77:A9:5B:55:7A:59:F9:81:B0:30:7F:21:C2:45:F9:28:8F:77:48:94:DE:AD:CC:07:8D:7A:A4:7B:19:F8"
+    },
+    "signerCertificate": {
+        "subject": "C=GB,CN=Government Digital Service Document Signer",
+        "issuer": "C=GB,CN=Government Digital Service IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2027-02-19T07:05:49Z",
+        "serialNumber": "c804b35024df8e3406b5873366000f2f0b823ec2",
+        "fingerprint": "F3:65:17:50:1F:7E:44:79:3D:D6:22:D7:34:F1:8E:5F:E8:65:1E:74:17:A8:FD:4C:AD:17:8B:90:19:43:E8:84"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"wVMAvm0Fo_x8X3Pp66Wk7GsGmhIjeP3muELqSO_asic\",\"y\":\"0uT4_y3R8dJ-SdMuaiv2xXgLExNDspZXDCbJ36ocZDE\",\"d\":\"bIWD-w0FkIgK9zK_vQ8wuKIdDOhmjuokSNNGdrFHUbc\"}}",
+    "credentialConfigurations": {
+        "urn:uk:gov:govuk-one-login:pid:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:govuk-one-login:pid:1",
+            "display": [
+                {
+                    "name": "urn:uk:gov:govuk-one-login:pid:1",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:00.546873304Z",
+    "updatedAt": "2026-02-19T07:05:49.011678006Z"
+}

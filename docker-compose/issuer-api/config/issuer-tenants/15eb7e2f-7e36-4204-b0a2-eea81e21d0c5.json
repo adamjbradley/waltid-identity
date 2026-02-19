@@ -1,1 +1,49 @@
-{"id":"15eb7e2f-7e36-4204-b0a2-eea81e21d0c5","legalName":"Ministry of Road Transport and Highways","country":"IN","domain":"morth.nic.in","contactEmail":"admin@morth.nic.in","iacaCertificate":{"subject":"C=IN,CN=Ministry of Road Transport and Highways IACA","issuer":"C=IN,CN=Ministry of Road Transport and Highways IACA","notBefore":"2026-02-19T04:42:53Z","notAfter":"2031-02-18T04:42:53Z","serialNumber":"75001d10cd1b69aad6286bfb196b52195b4ace5c","fingerprint":"36:E9:41:9B:86:86:D5:67:5B:6F:42:6D:70:90:B8:91:0F:1F:77:A3:88:5A:05:44:E8:17:AA:1F:E3:0A:36:9C"},"signerCertificate":{"subject":"C=IN,CN=Ministry of Road Transport and Highways Document Signer","issuer":"C=IN,CN=Ministry of Road Transport and Highways IACA","notBefore":"2026-02-19T04:42:53Z","notAfter":"2027-02-19T04:42:53Z","serialNumber":"9cd6939eff4487e85c03de370ba0bc55a2b53f6d","fingerprint":"3C:CB:13:15:2C:DF:56:A8:CC:9B:D0:03:BE:7A:86:CE:B9:F3:0A:93:26:16:3B:67:18:2C:3C:95:14:0F:51:23"},"x5Chain":["MIIB/DCCAaKgAwIBAgIVAJzWk57/RIfoXAPeNwugvFWitT9tMAoGCCqGSM49BAMCMEQxNTAzBgNVBAMMLE1pbmlzdHJ5IG9mIFJvYWQgVHJhbnNwb3J0IGFuZCBIaWdod2F5cyBJQUNBMQswCQYDVQQGEwJJTjAeFw0yNjAyMTkwNDQyNTNaFw0yNzAyMTkwNDQyNTNaME8xQDA+BgNVBAMMN01pbmlzdHJ5IG9mIFJvYWQgVHJhbnNwb3J0IGFuZCBIaWdod2F5cyBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAklOMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVwOhRFiJnJ3FOPC7YF31gFmQb3RyUe5ZKz7VS42AMIM0DZB9JXq7f17Yxf2py82JI+9pcewJUXpQwp9xZLj5OaNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFFJ2BYk443QIViViGbzBKfLv+bUwMB8GA1UdIwQYMBaAFBS96ilBrscIPlTjKqSYnt3oyHXRMAoGCCqGSM49BAMCA0gAMEUCIGefC1tiUzdO8JH+lLY+C5zagyF/pBWYSAE2zjk6h33mAiEAklPSJavUa8r4mwgA8eEAbedIfbnriDKlEfNTL/zREm4=","MIIB7TCCAZOgAwIBAgIUdQAdEM0baarWKGv7GWtSGVtKzlwwCgYIKoZIzj0EAwIwRDE1MDMGA1UEAwwsTWluaXN0cnkgb2YgUm9hZCBUcmFuc3BvcnQgYW5kIEhpZ2h3YXlzIElBQ0ExCzAJBgNVBAYTAklOMB4XDTI2MDIxOTA0NDI1M1oXDTMxMDIxODA0NDI1M1owRDE1MDMGA1UEAwwsTWluaXN0cnkgb2YgUm9hZCBUcmFuc3BvcnQgYW5kIEhpZ2h3YXlzIElBQ0ExCzAJBgNVBAYTAklOMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExkpH0s7kpwzwenJuIOiQvhGc4ANOobns6E9+WTaBHir9reAYtLY4jezgJOVwlG6xBSpB9frw6cWchvc51BB2qqNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFBS96ilBrscIPlTjKqSYnt3oyHXRMB8GA1UdIwQYMBaAFBS96ilBrscIPlTjKqSYnt3oyHXRMAoGCCqGSM49BAMCA0gAMEUCIB9c6XeHvsiJuSwdUzEn+sfLrxpxerg1iHf/G3Odn1UkAiEAiOKNCMgH/0FjkyfQLZRfMWiDHKRmkkQj41hdl1MsC9M="],"credentialConfigurations":{"credentials":[{"configId":"urn:in:gov:dl:1","format":"dc+sd-jwt","vct":"urn:in:gov:dl:1"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:42:47.020912923Z","updatedAt":"2026-02-19T04:42:53.468001301Z"}
+{
+    "id": "15eb7e2f-7e36-4204-b0a2-eea81e21d0c5",
+    "legalName": "Ministry of Road Transport and Highways",
+    "country": "IN",
+    "domain": "morth.nic.in",
+    "contactEmail": "admin@morth.nic.in",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "_qKebQCPV-LKqynpp8cYGt3KcPqxHbqZgYs7jJCSHIM",
+        "y": "g22ewLd6G6KHxE6o5ZvqYtP4_HKlORz3XhZzIBUJFag",
+        "d": "9wbIX0Woz5jDu1G5KuIjhsQtSHnyyI3m9A2ib6EKJ34"
+    },
+    "x5Chain": [
+        "MIIB/TCCAaKgAwIBAgIVAJ2xBp1Mb1y0jYojb0/4klohmYcBMAoGCCqGSM49BAMCMEQxNTAzBgNVBAMMLE1pbmlzdHJ5IG9mIFJvYWQgVHJhbnNwb3J0IGFuZCBIaWdod2F5cyBJQUNBMQswCQYDVQQGEwJJTjAeFw0yNjAyMTkwNzA1NDlaFw0yNzAyMTkwNzA1NDlaME8xQDA+BgNVBAMMN01pbmlzdHJ5IG9mIFJvYWQgVHJhbnNwb3J0IGFuZCBIaWdod2F5cyBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAklOMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/qKebQCPV+LKqynpp8cYGt3KcPqxHbqZgYs7jJCSHIODbZ7At3oboofETqjlm+pi0/j8cqU5HPdeFnMgFQkVqKNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFAclDzYxCVQsLnbwsaCgzgt6d5JNMB8GA1UdIwQYMBaAFCiUqms8mcD8t2XWGhqwBXpVWKqjMAoGCCqGSM49BAMCA0kAMEYCIQDzlNHLCdcFO2pSK7CVVojcKL1TrKbk9gqBNkGAfe8hGAIhAKzDWgzBwN6qnmLCOx+QUrXAymF/S6HCN++O4p3ij4VM",
+        "MIIB7jCCAZOgAwIBAgIUU3xFpzey8EUay2oAB41WdXmaAG4wCgYIKoZIzj0EAwIwRDE1MDMGA1UEAwwsTWluaXN0cnkgb2YgUm9hZCBUcmFuc3BvcnQgYW5kIEhpZ2h3YXlzIElBQ0ExCzAJBgNVBAYTAklOMB4XDTI2MDIxOTA3MDU0OVoXDTMxMDIxODA3MDU0OVowRDE1MDMGA1UEAwwsTWluaXN0cnkgb2YgUm9hZCBUcmFuc3BvcnQgYW5kIEhpZ2h3YXlzIElBQ0ExCzAJBgNVBAYTAklOMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEC1ynieViQ2EM3ZSIbTQfQ0KOFt8PFixOuV8l/Ti3jdR63RH4Bw0pkfZ1LLLjqLzyOyMwkT0iaoXqYDQfYo/uyqNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFCiUqms8mcD8t2XWGhqwBXpVWKqjMB8GA1UdIwQYMBaAFCiUqms8mcD8t2XWGhqwBXpVWKqjMAoGCCqGSM49BAMCA0kAMEYCIQDKaYKrqfxMcMC5dkuodZaToEf4IP3ZjUJlU00h5PUNcgIhANriSGEu86DSRB2pWsir2uPLBTjU62cvPVhZHg+YYBh9"
+    ],
+    "iacaCertificate": {
+        "subject": "C=IN,CN=Ministry of Road Transport and Highways IACA",
+        "issuer": "C=IN,CN=Ministry of Road Transport and Highways IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2031-02-18T07:05:49Z",
+        "serialNumber": "537c45a737b2f0451acb6a00078d5675799a006e",
+        "fingerprint": "8A:0E:E8:10:08:C5:34:9C:11:2D:69:74:3B:58:01:19:1E:0A:27:8D:0C:54:8F:7D:C1:54:39:D4:68:CC:9F:53"
+    },
+    "signerCertificate": {
+        "subject": "C=IN,CN=Ministry of Road Transport and Highways Document Signer",
+        "issuer": "C=IN,CN=Ministry of Road Transport and Highways IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2027-02-19T07:05:49Z",
+        "serialNumber": "9db1069d4c6f5cb48d8a236f4ff8925a21998701",
+        "fingerprint": "8A:93:5A:3D:DC:02:0A:28:5A:2B:14:BE:08:36:D3:2A:FA:1B:E9:2B:B8:52:A0:91:EF:4E:13:CF:4B:A5:5D:82"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"H5ZvW9ZUTQXlJdh1VazfY8Tv5UCj0wHo8lmTR8KrIXs\",\"y\":\"HgVIpMEiuQuOXnewqCaehiXQf65eHUejCu_BYpAiT1g\",\"d\":\"XbAAeWVNQjop3OuAfupaoRQ37yA-U2Q0wi2_N1npNRk\"}}",
+    "credentialConfigurations": {
+        "urn:in:gov:dl:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:in:gov:dl:1",
+            "display": [
+                {
+                    "name": "urn:in:gov:dl:1",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:42:47.020912923Z",
+    "updatedAt": "2026-02-19T07:05:49.053089714Z"
+}
