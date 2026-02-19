@@ -501,6 +501,11 @@ function decodeJwt(token: string): any {
   return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
 }
 
+function decodeJwt(token: string): any {
+  const payload = token.split('.')[1];
+  return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+}
+
 const signInRedirectUrl = ref("/");
 const route = useRoute();
 

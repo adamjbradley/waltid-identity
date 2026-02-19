@@ -12,24 +12,24 @@
         "d": "mIcNmZEVXz1Br-MLE6MucYNXewJYNtMgh7LAFYCKh_g"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=SG,CN=GlobalPay Corp IACA",
         "issuer": "C=SG,CN=GlobalPay Corp IACA",
-        "notBefore": "2026-02-19T07:05:49Z",
-        "notAfter": "2031-02-18T07:05:49Z",
-        "serialNumber": "615ae6dcba6eb135749a65301bf43224eab66383",
-        "fingerprint": "A8:E6:BE:02:A2:68:45:AE:9E:8E:23:2D:DF:D2:17:F5:86:E5:4E:2B:31:12:BC:2D:E8:94:DA:08:DB:E9:A7:BE"
+        "notBefore": "2026-02-19T04:16:26Z",
+        "notAfter": "2031-02-18T04:16:26Z",
+        "serialNumber": "9c59728ac7a8cefccac0b8dbdab46670b30f616",
+        "fingerprint": "1A:32:7D:36:3D:08:FB:DC:21:90:B6:CC:00:F9:99:6C:BB:41:75:51:A5:CB:BB:17:CA:25:8D:DB:72:E4:17:2E"
     },
     "signerCertificate": {
         "subject": "C=SG,CN=GlobalPay Corp Document Signer",
         "issuer": "C=SG,CN=GlobalPay Corp IACA",
-        "notBefore": "2026-02-19T07:05:49Z",
-        "notAfter": "2027-02-19T07:05:49Z",
-        "serialNumber": "c8198582db372034993be85385d1d99f49de28bf",
-        "fingerprint": "A3:E6:B1:13:29:17:C2:EA:A8:F9:F2:7C:71:69:F1:11:C1:76:7C:82:B5:E7:06:A5:D5:5A:FE:95:93:2C:EF:5C"
+        "notBefore": "2026-02-19T04:16:26Z",
+        "notAfter": "2027-02-19T04:16:26Z",
+        "serialNumber": "f2584de52f670c6ec73ad7ee9bda85c9e678dfab",
+        "fingerprint": "8A:99:CF:16:0E:6F:10:B5:45:42:69:A7:B9:F7:CB:82:A1:B7:DE:97:EC:92:C3:C1:51:46:2F:32:C2:2E:B6:0D"
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"9oM4Z3WDE59Xf8Qk9ej1xNRR4dDUXoHC1u-DbTF0ll0\",\"y\":\"AGiE2Sj8WPgxXAkiwt30eFpEw0k5hsjjIwoSa73D838\",\"d\":\"5Ga8HFuDOBkSuInybkMrMd98ib72xqHZ1Xa7ivWAs-s\"}}",
     "credentialConfigurations": {
@@ -42,8 +42,19 @@
                     "locale": "en"
                 }
             ]
+        },
+        "eu.europa.ec.eudi.pid.1": {
+            "format": "mso_mdoc",
+            "doctype": "eu.europa.ec.eudi.pid.1",
+            "display": [
+                {
+                    "name": "eu.europa.ec.eudi.pid.1",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-12T00:12:26.784589966Z",
-    "updatedAt": "2026-02-19T07:05:49.045868089Z"
+    "updatedAt": "2026-02-19T04:43:26.639222927Z",
+    "status": "ACTIVE"
 }

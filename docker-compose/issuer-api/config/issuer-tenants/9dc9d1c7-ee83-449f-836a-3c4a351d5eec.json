@@ -12,24 +12,24 @@
         "d": "E87enoHyDmyhyJHJ5tito8Mua-tlmmAiAAPHNhsDcGs"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=DE,CN=Bundesdruckerei GmbH IACA",
         "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
-        "notBefore": "2026-02-19T07:05:48Z",
-        "notAfter": "2031-02-18T07:05:48Z",
-        "serialNumber": "e91aa0865e3857374a00ee7a16814a0b50e9dce3",
-        "fingerprint": "80:3E:39:68:22:AB:7C:FE:9C:AC:8F:75:49:F7:7E:E9:20:26:73:BF:88:DB:4D:F6:A6:1D:E1:A5:E1:DF:3A:A7"
+        "notBefore": "2026-02-19T04:39:56Z",
+        "notAfter": "2031-02-18T04:39:56Z",
+        "serialNumber": "b01c51cdc70ee52cdd5801d46114347f6b1059a2",
+        "fingerprint": "1B:AA:F0:49:01:78:6E:A3:8E:CE:B5:B7:24:52:14:C2:D0:61:80:D6:59:21:3B:1F:E0:74:F3:1B:A2:55:30:31"
     },
     "signerCertificate": {
         "subject": "C=DE,CN=Bundesdruckerei GmbH Document Signer",
         "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
-        "notBefore": "2026-02-19T07:05:48Z",
-        "notAfter": "2027-02-19T07:05:48Z",
-        "serialNumber": "1eaf77cabfc43845b600f4437575070e4fafa104",
-        "fingerprint": "37:27:27:35:82:A8:96:6E:1B:CC:24:BE:0A:BC:D9:86:B3:43:B3:C1:A3:57:1E:A9:DF:9D:D5:5B:4B:E1:E3:32"
+        "notBefore": "2026-02-19T04:39:56Z",
+        "notAfter": "2027-02-19T04:39:56Z",
+        "serialNumber": "b9955d0d579486d66845f2eada0be06406ef2e7d",
+        "fingerprint": "BC:79:AD:AD:EC:06:AB:C7:8F:C0:BF:3D:D0:56:89:B2:CF:E5:74:4B:77:39:ED:93:37:9F:0D:6E:4D:4A:9C:C8"
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"5jF-8EXRtTxjZXITrEdM2hfj7nSyLv85PC8ug1aIMbE\",\"y\":\"EP2USkRnhOvXvbXP4FVoKz9lW_qIDKIMmdA3k3xhaVc\",\"d\":\"Xqc6f35YsqqpR0CkeaM1XrGKGcNs7yMIsF5f0hJt9tw\"}}",
     "credentialConfigurations": {
@@ -52,8 +52,19 @@
                     "locale": "en"
                 }
             ]
+        },
+        "org.iso.18013.5.1.mDL": {
+            "format": "mso_mdoc",
+            "doctype": "org.iso.18013.5.1.mDL",
+            "display": [
+                {
+                    "name": "org.iso.18013.5.1.mDL",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-13T04:57:22.158299760Z",
-    "updatedAt": "2026-02-19T07:05:48.991558298Z"
+    "updatedAt": "2026-02-19T04:43:15.959928547Z",
+    "status": "ACTIVE"
 }
