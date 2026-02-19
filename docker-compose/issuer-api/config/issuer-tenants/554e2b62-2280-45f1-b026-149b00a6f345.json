@@ -12,24 +12,24 @@
         "d": "EXfa-axrFtO_6AKaqUHFO84Yg7rH9Dc-VbNJjm_Ytao"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=GB,CN=DVLA United Kingdom IACA",
         "issuer": "C=GB,CN=DVLA United Kingdom IACA",
-        "notBefore": "2026-02-19T07:05:49Z",
-        "notAfter": "2031-02-18T07:05:49Z",
-        "serialNumber": "414f063b161809e200578fd7d0f2df9719f41cf4",
-        "fingerprint": "83:4A:C6:66:B0:C8:1C:69:1E:37:2B:59:4C:7F:1F:49:BA:51:DB:32:4C:1F:A4:F0:B3:F4:BF:4A:5E:98:9D:52"
+        "notBefore": "2026-02-19T04:17:44Z",
+        "notAfter": "2031-02-18T04:17:44Z",
+        "serialNumber": "83bc0200c3b115199857d5ffdda242ecfc758010",
+        "fingerprint": "4B:42:BD:01:A6:72:84:E0:EA:B0:E1:A7:F8:AE:94:05:DD:54:19:50:DE:BC:9E:25:DC:BD:DA:01:CA:CB:3D:9B"
     },
     "signerCertificate": {
         "subject": "C=GB,CN=DVLA United Kingdom Document Signer",
         "issuer": "C=GB,CN=DVLA United Kingdom IACA",
-        "notBefore": "2026-02-19T07:05:49Z",
-        "notAfter": "2027-02-19T07:05:49Z",
-        "serialNumber": "4ee4c27269a386e2ee6149f34dbc15632f96f4bb",
-        "fingerprint": "04:3D:F9:F2:4C:8F:B5:18:74:47:CA:43:3E:CF:F9:F6:03:69:5C:3E:92:30:6D:35:FB:14:31:1F:64:02:8E:12"
+        "notBefore": "2026-02-19T04:17:44Z",
+        "notAfter": "2027-02-19T04:17:44Z",
+        "serialNumber": "3043a77dd6deaafb184d860aefc6680d83a75a0f",
+        "fingerprint": "66:DE:AF:C9:F3:16:0E:FF:56:E6:0F:FA:65:82:4D:D9:A2:C9:F0:1B:0E:D1:5A:5C:E8:62:6C:44:AC:A6:60:43"
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"TRw1OlRYnrMWcKK__mPj4MgL2drz7lXoFS85cKC8gPE\",\"y\":\"jpwfMoEAmJsciJOtFePtFH-FF6ue4JcfY1QF0_YRXHE\",\"d\":\"JaV_wGHW8Jaan39-owDtfncVtrQH3WYH6IglLnnbH3I\"}}",
     "credentialConfigurations": {
@@ -42,8 +42,29 @@
                     "locale": "en"
                 }
             ]
+        },
+        "urn:uk:gov:govuk-one-login:pid:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:govuk-one-login:pid:1",
+            "display": [
+                {
+                    "name": "urn:uk:gov:govuk-one-login:pid:1",
+                    "locale": "en"
+                }
+            ]
+        },
+        "urn:uk:gov:nhs:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:uk:gov:nhs:1",
+            "display": [
+                {
+                    "name": "urn:uk:gov:nhs:1",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-19T04:17:34.519905375Z",
-    "updatedAt": "2026-02-19T07:05:49.029203006Z"
+    "updatedAt": "2026-02-19T04:18:02.819569472Z",
+    "status": "ACTIVE"
 }

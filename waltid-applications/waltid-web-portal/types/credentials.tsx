@@ -110,223 +110,62 @@ export const EudiCredentials: AvailableCredential[] = [
       { path: ['funding_source', 'scheme'] },
     ]
   },
-  // --- India ---
-  {
-    id: 'urn:in:gov:aadhaar:pid:1',
-    title: 'Aadhaar Identity',
-    offer: {
-      credentialSubject: {
-        name: 'Priya Sharma',
-        date_of_birth: '1992-07-10',
-        age_over_18: true,
-        age_over_21: true,
-        gender: 'Female',
-        address_district: 'Mumbai Suburban',
-        address_state: 'Maharashtra',
-        address_pincode: '400001',
-        aadhaar_number_last4: '4321',
-      },
-      vct: 'urn:in:gov:aadhaar:pid:1',
-    },
-    defaultClaims: [
-      { path: ['name'] },
-      { path: ['date_of_birth'] },
-      { path: ['aadhaar_number_last4'] },
-    ]
-  },
-  {
-    id: 'urn:in:gov:pan:1',
-    title: 'PAN Card',
-    offer: {
-      credentialSubject: {
-        name: 'Priya Sharma',
-        pan_number: 'ABCPS1234K',
-        date_of_birth: '1992-07-10',
-        father_name: 'Rajesh Sharma',
-        category: 'Individual',
-      },
-      vct: 'urn:in:gov:pan:1',
-    },
-    defaultClaims: [
-      { path: ['name'] },
-      { path: ['pan_number'] },
-      { path: ['date_of_birth'] },
-    ]
-  },
-  {
-    id: 'urn:in:gov:dl:1',
-    title: 'Driving Licence (India)',
-    offer: {
-      credentialSubject: {
-        name: 'Priya Sharma',
-        date_of_birth: '1992-07-10',
-        age_over_18: true,
-        dl_number: 'MH0120240001234',
-        issue_date: '2024-01-01',
-        expiry_date: '2044-01-01',
-        issuing_authority: 'RTO Mumbai',
-        vehicle_classes: 'LMV, MCWG',
-      },
-      vct: 'urn:in:gov:dl:1',
-    },
-    defaultClaims: [
-      { path: ['name'] },
-      { path: ['dl_number'] },
-      { path: ['vehicle_classes'] },
-    ]
-  },
-  // --- Australia ---
+  // Australia
   {
     id: 'urn:au:gov:mygovid:pid:1',
     title: 'myGovID Identity',
-    offer: {
-      credentialSubject: {
-        family_name: 'Mitchell',
-        given_name: 'Sarah',
-        date_of_birth: '1988-03-22',
-        age_over_18: true,
-        age_over_21: true,
-        identity_assurance_level: 'IP2',
-        address_suburb: 'Surry Hills',
-        address_state: 'NSW',
-        address_postcode: '2010',
-      },
-      vct: 'urn:au:gov:mygovid:pid:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['date_of_birth'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'AU' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['birth_date'] }],
   },
   {
     id: 'urn:au:gov:dl:1',
     title: 'Driving Licence (Australia)',
-    offer: {
-      credentialSubject: {
-        family_name: 'Mitchell',
-        given_name: 'Sarah',
-        date_of_birth: '1988-03-22',
-        age_over_18: true,
-        licence_number: 'DL987654321',
-        state_of_issue: 'NSW',
-        expiry_date: '2034-01-01',
-        licence_class: 'C',
-        conditions: 'None',
-      },
-      vct: 'urn:au:gov:dl:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['licence_number'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', document_number: 'DL000000', issuing_country: 'AU' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['document_number'] }],
   },
   {
     id: 'urn:au:gov:medicare:1',
     title: 'Medicare Card',
-    offer: {
-      credentialSubject: {
-        family_name: 'Mitchell',
-        given_name: 'Sarah',
-        medicare_number_last4: '7890',
-        irn: '1',
-        card_colour: 'Green',
-        expiry_date: '2029-06',
-      },
-      vct: 'urn:au:gov:medicare:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['medicare_number_last4'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', medicare_number: '0000 00000 0', issuing_country: 'AU' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['medicare_number'] }],
   },
-  // --- UK ---
+  // India
+  {
+    id: 'urn:in:gov:aadhaar:pid:1',
+    title: 'Aadhaar Identity',
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'IN' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['birth_date'] }],
+  },
+  {
+    id: 'urn:in:gov:dl:1',
+    title: 'Driving Licence (India)',
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', document_number: 'DL000000', issuing_country: 'IN' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['document_number'] }],
+  },
+  {
+    id: 'urn:in:gov:pan:1',
+    title: 'PAN Card',
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', pan_number: 'AAAAA0000A', issuing_country: 'IN' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['pan_number'] }],
+  },
+  // United Kingdom
   {
     id: 'urn:uk:gov:govuk-one-login:pid:1',
     title: 'GOV.UK One Login Identity',
-    offer: {
-      credentialSubject: {
-        family_name: 'Williams',
-        given_name: 'James',
-        date_of_birth: '1987-04-15',
-        age_over_18: true,
-        age_over_21: true,
-        address_postcode: 'SW1A 1AA',
-        address_locality: 'London',
-        identity_confidence_level: 'Cl.250',
-      },
-      vct: 'urn:uk:gov:govuk-one-login:pid:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['date_of_birth'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'GB' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['birth_date'] }],
   },
   {
-    id: 'urn:uk:gov:dvla:dl:1',
+    id: 'urn:uk:gov:dl:1',
     title: 'Driving Licence (UK)',
-    offer: {
-      credentialSubject: {
-        family_name: 'Williams',
-        given_name: 'James',
-        date_of_birth: '1987-04-15',
-        age_over_18: true,
-        licence_number: 'WILLI874150J99AB',
-        issue_date: '2022-06-01',
-        expiry_date: '2032-04-15',
-        categories: 'B, B1, AM',
-        address: '10 Downing Street, London, SW1A 2AA',
-      },
-      vct: 'urn:uk:gov:dvla:dl:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['licence_number'] },
-    ]
-  },
-  {
-    id: 'urn:uk:gov:rtw:1',
-    title: 'Right to Work',
-    offer: {
-      credentialSubject: {
-        family_name: 'Williams',
-        given_name: 'James',
-        date_of_birth: '1987-04-15',
-        age_over_18: true,
-        nationality: 'British',
-        immigration_status: 'British Citizen',
-        work_restriction: 'None',
-        expiry_date: '',
-      },
-      vct: 'urn:uk:gov:rtw:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['nationality'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', document_number: 'DL000000', issuing_country: 'GB' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['document_number'] }],
   },
   {
     id: 'urn:uk:gov:nhs:1',
     title: 'NHS Number',
-    offer: {
-      credentialSubject: {
-        family_name: 'Williams',
-        given_name: 'James',
-        nhs_number: '000 000 0000',
-        issuing_country: 'GB',
-      },
-      vct: 'urn:uk:gov:nhs:1',
-    },
-    defaultClaims: [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['nhs_number'] },
-    ]
+    offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', nhs_number: '000 000 0000', issuing_country: 'GB' } },
+    defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['nhs_number'] }],
   },
 ];
 
@@ -364,20 +203,19 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Mitchell',
               given_name: 'Sarah',
-              date_of_birth: '1988-03-22',
+              birth_date: '1988-03-22',
               age_over_18: true,
               age_over_21: true,
-              identity_assurance_level: 'IP2',
-              address_suburb: 'Surry Hills',
-              address_state: 'NSW',
-              address_postcode: '2010',
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Australian Digital Identity Office',
+              issuing_country: 'AU',
             },
-            vct: 'urn:au:gov:mygovid:pid:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
-            { path: ['date_of_birth'] },
+            { path: ['birth_date'] },
           ],
         },
       },
@@ -390,20 +228,21 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Mitchell',
               given_name: 'Sarah',
-              date_of_birth: '1988-03-22',
-              age_over_18: true,
-              licence_number: 'DL987654321',
-              state_of_issue: 'NSW',
+              birth_date: '1988-03-22',
+              issue_date: '2024-01-01',
               expiry_date: '2034-01-01',
-              licence_class: 'C',
-              conditions: 'None',
+              issuing_country: 'AU',
+              issuing_authority: 'Roads and Maritime Services NSW',
+              document_number: 'DL987654321',
+              driving_privileges: [
+                { vehicle_category_code: 'C', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
             },
-            vct: 'urn:au:gov:dl:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
-            { path: ['licence_number'] },
+            { path: ['document_number'] },
           ],
         },
       },
@@ -416,44 +255,17 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Mitchell',
               given_name: 'Sarah',
-              medicare_number_last4: '7890',
-              irn: '1',
-              card_colour: 'Green',
-              expiry_date: '2029-06',
+              birth_date: '1988-03-22',
+              medicare_number: '2123 45670 1',
+              card_expiry: '2029-01',
+              issuing_authority: 'Services Australia',
+              issuing_country: 'AU',
             },
-            vct: 'urn:au:gov:medicare:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
-            { path: ['medicare_number_last4'] },
-          ],
-        },
-      },
-      {
-        id: 'PaymentWalletAttestation',
-        title: 'Payment Wallet Attestation',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              funding_source: {
-                type: 'CARD',
-                panLastFour: '4321',
-                iin: '512345',
-                scheme: 'mastercard',
-                currency: 'AUD',
-                icon: 'https://example.com/mc-icon.png',
-                aliasId: 'pwa_mc_4321',
-              },
-            },
-            vct: 'PaymentWalletAttestation',
-          },
-          defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['medicare_number'] },
           ],
         },
       },
@@ -471,45 +283,20 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              name: 'Priya Sharma',
-              date_of_birth: '1992-07-10',
+              family_name: 'Sharma',
+              given_name: 'Priya',
+              birth_date: '1992-07-10',
               age_over_18: true,
-              age_over_21: true,
-              gender: 'Female',
-              address_district: 'Mumbai Suburban',
-              address_state: 'Maharashtra',
-              address_pincode: '400001',
-              aadhaar_number_last4: '4321',
-              photo: '',
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Unique Identification Authority of India',
+              issuing_country: 'IN',
             },
-            vct: 'urn:in:gov:aadhaar:pid:1',
           },
           defaultClaims: [
-            { path: ['name'] },
-            { path: ['date_of_birth'] },
-            { path: ['aadhaar_number_last4'] },
-          ],
-        },
-      },
-      {
-        id: 'urn:in:gov:pan:1',
-        title: 'PAN Card',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              name: 'Priya Sharma',
-              pan_number: 'ABCPS1234K',
-              date_of_birth: '1992-07-10',
-              father_name: 'Rajesh Sharma',
-              category: 'Individual',
-            },
-            vct: 'urn:in:gov:pan:1',
-          },
-          defaultClaims: [
-            { path: ['name'] },
-            { path: ['pan_number'] },
-            { path: ['date_of_birth'] },
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['birth_date'] },
           ],
         },
       },
@@ -520,48 +307,45 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              name: 'Priya Sharma',
-              date_of_birth: '1992-07-10',
-              age_over_18: true,
-              dl_number: 'MH0120240001234',
+              family_name: 'Sharma',
+              given_name: 'Priya',
+              birth_date: '1992-07-10',
               issue_date: '2024-01-01',
-              expiry_date: '2044-01-01',
-              issuing_authority: 'RTO Mumbai',
-              vehicle_classes: 'LMV, MCWG',
+              expiry_date: '2034-01-01',
+              issuing_country: 'IN',
+              issuing_authority: 'Ministry of Road Transport',
+              document_number: 'MH0120240001234',
+              driving_privileges: [
+                { vehicle_category_code: 'LMV', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
             },
-            vct: 'urn:in:gov:dl:1',
           },
           defaultClaims: [
-            { path: ['name'] },
-            { path: ['dl_number'] },
-            { path: ['vehicle_classes'] },
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['document_number'] },
           ],
         },
       },
       {
-        id: 'PaymentWalletAttestation',
-        title: 'Payment Wallet Attestation',
+        id: 'urn:in:gov:pan:1',
+        title: 'PAN Card',
         format: 'DC+SD-JWT',
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
-                panLastFour: '5678',
-                iin: '512345',
-                scheme: 'mastercard',
-                currency: 'INR',
-                icon: 'https://example.com/mc-icon.png',
-                aliasId: 'pwa_mc_5678',
-              },
+              family_name: 'Sharma',
+              given_name: 'Priya',
+              birth_date: '1992-07-10',
+              pan_number: 'ABCPS1234F',
+              issuing_authority: 'Income Tax Department',
+              issuing_country: 'IN',
             },
-            vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['family_name'] },
+            { path: ['given_name'] },
+            { path: ['pan_number'] },
           ],
         },
       },
@@ -581,24 +365,23 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Williams',
               given_name: 'James',
-              date_of_birth: '1987-04-15',
+              birth_date: '1987-04-12',
               age_over_18: true,
-              age_over_21: true,
-              address_postcode: 'SW1A 1AA',
-              address_locality: 'London',
-              identity_confidence_level: 'Cl.250',
+              issuance_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_authority: 'Government Digital Service',
+              issuing_country: 'GB',
             },
-            vct: 'urn:uk:gov:govuk-one-login:pid:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
-            { path: ['date_of_birth'] },
+            { path: ['birth_date'] },
           ],
         },
       },
       {
-        id: 'urn:uk:gov:dvla:dl:1',
+        id: 'urn:uk:gov:dl:1',
         title: 'Driving Licence (UK)',
         format: 'DC+SD-JWT',
         data: {
@@ -606,45 +389,21 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Williams',
               given_name: 'James',
-              date_of_birth: '1987-04-15',
-              age_over_18: true,
-              licence_number: 'WILLI874150J99AB',
-              issue_date: '2022-06-01',
-              expiry_date: '2032-04-15',
-              categories: 'B, B1, AM',
-              address: '10 Downing Street, London, SW1A 2AA',
+              birth_date: '1987-04-12',
+              issue_date: '2024-01-01',
+              expiry_date: '2034-01-01',
+              issuing_country: 'GB',
+              issuing_authority: 'DVLA',
+              document_number: 'WILLI874120JA9AB',
+              driving_privileges: [
+                { vehicle_category_code: 'B', issue_date: '2024-01-01', expiry_date: '2034-01-01' },
+              ],
             },
-            vct: 'urn:uk:gov:dvla:dl:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
-            { path: ['licence_number'] },
-          ],
-        },
-      },
-      {
-        id: 'urn:uk:gov:rtw:1',
-        title: 'Right to Work',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              family_name: 'Williams',
-              given_name: 'James',
-              date_of_birth: '1987-04-15',
-              age_over_18: true,
-              nationality: 'British',
-              immigration_status: 'British Citizen',
-              work_restriction: 'None',
-              expiry_date: '',
-            },
-            vct: 'urn:uk:gov:rtw:1',
-          },
-          defaultClaims: [
-            { path: ['family_name'] },
-            { path: ['given_name'] },
-            { path: ['nationality'] },
+            { path: ['document_number'] },
           ],
         },
       },
@@ -657,42 +416,16 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             credentialSubject: {
               family_name: 'Williams',
               given_name: 'James',
-              nhs_number: '000 000 0000',
+              birth_date: '1987-04-12',
+              nhs_number: '943 476 5919',
+              issuing_authority: 'NHS Digital',
               issuing_country: 'GB',
             },
-            vct: 'urn:uk:gov:nhs:1',
           },
           defaultClaims: [
             { path: ['family_name'] },
             { path: ['given_name'] },
             { path: ['nhs_number'] },
-          ],
-        },
-      },
-      {
-        id: 'PaymentWalletAttestation',
-        title: 'Payment Wallet Attestation',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              funding_source: {
-                type: 'CARD',
-                panLastFour: '7890',
-                iin: '512345',
-                scheme: 'mastercard',
-                currency: 'GBP',
-                icon: 'https://example.com/mc-icon.png',
-                aliasId: 'pwa_mc_7890',
-              },
-            },
-            vct: 'PaymentWalletAttestation',
-          },
-          defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
           ],
         },
       },
@@ -840,33 +573,6 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
           ],
         },
       },
-      {
-        id: 'PaymentWalletAttestation',
-        title: 'Payment Wallet Attestation',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              funding_source: {
-                type: 'CARD',
-                panLastFour: '2345',
-                iin: '512345',
-                scheme: 'mastercard',
-                currency: 'EUR',
-                icon: 'https://example.com/mc-icon.png',
-                aliasId: 'pwa_mc_2345',
-              },
-            },
-            vct: 'PaymentWalletAttestation',
-          },
-          defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
-          ],
-        },
-      },
     ],
   },
   FR: {
@@ -927,33 +633,6 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
           ],
         },
       },
-      {
-        id: 'PaymentWalletAttestation',
-        title: 'Payment Wallet Attestation',
-        format: 'DC+SD-JWT',
-        data: {
-          offer: {
-            credentialSubject: {
-              funding_source: {
-                type: 'CARD',
-                panLastFour: '6789',
-                iin: '512345',
-                scheme: 'mastercard',
-                currency: 'EUR',
-                icon: 'https://example.com/mc-icon.png',
-                aliasId: 'pwa_mc_6789',
-              },
-            },
-            vct: 'PaymentWalletAttestation',
-          },
-          defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
-          ],
-        },
-      },
     ],
   },
 };
@@ -994,15 +673,14 @@ const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
   'urn:eudi:pid:1': ['DC+SD-JWT (EUDI)'],
   'PaymentWalletAttestation': ['DC+SD-JWT (EUDI)'],
   // Country-specific (non-EU)
-  'urn:in:gov:aadhaar:pid:1': ['DC+SD-JWT (EUDI)'],
-  'urn:in:gov:pan:1': ['DC+SD-JWT (EUDI)'],
-  'urn:in:gov:dl:1': ['DC+SD-JWT (EUDI)'],
   'urn:au:gov:mygovid:pid:1': ['DC+SD-JWT (EUDI)'],
   'urn:au:gov:dl:1': ['DC+SD-JWT (EUDI)'],
   'urn:au:gov:medicare:1': ['DC+SD-JWT (EUDI)'],
+  'urn:in:gov:aadhaar:pid:1': ['DC+SD-JWT (EUDI)'],
+  'urn:in:gov:dl:1': ['DC+SD-JWT (EUDI)'],
+  'urn:in:gov:pan:1': ['DC+SD-JWT (EUDI)'],
   'urn:uk:gov:govuk-one-login:pid:1': ['DC+SD-JWT (EUDI)'],
-  'urn:uk:gov:dvla:dl:1': ['DC+SD-JWT (EUDI)'],
-  'urn:uk:gov:rtw:1': ['DC+SD-JWT (EUDI)'],
+  'urn:uk:gov:dl:1': ['DC+SD-JWT (EUDI)'],
   'urn:uk:gov:nhs:1': ['DC+SD-JWT (EUDI)'],
 };
 
@@ -1120,56 +798,6 @@ function getDefaultClaimsForCredential(credentialId: string, format: string): { 
       { path: ['funding_source', 'type'] },
       { path: ['funding_source', 'panLastFour'] },
       { path: ['funding_source', 'scheme'] },
-    ],
-    'urn:in:gov:aadhaar:pid:1': [
-      { path: ['name'] },
-      { path: ['date_of_birth'] },
-      { path: ['aadhaar_number_last4'] },
-    ],
-    'urn:in:gov:pan:1': [
-      { path: ['name'] },
-      { path: ['pan_number'] },
-      { path: ['date_of_birth'] },
-    ],
-    'urn:in:gov:dl:1': [
-      { path: ['name'] },
-      { path: ['dl_number'] },
-      { path: ['vehicle_classes'] },
-    ],
-    'urn:au:gov:mygovid:pid:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['date_of_birth'] },
-    ],
-    'urn:au:gov:dl:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['licence_number'] },
-    ],
-    'urn:au:gov:medicare:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['medicare_number_last4'] },
-    ],
-    'urn:uk:gov:govuk-one-login:pid:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['date_of_birth'] },
-    ],
-    'urn:uk:gov:dvla:dl:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['licence_number'] },
-    ],
-    'urn:uk:gov:rtw:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['nationality'] },
-    ],
-    'urn:uk:gov:nhs:1': [
-      { path: ['family_name'] },
-      { path: ['given_name'] },
-      { path: ['nhs_number'] },
     ],
   };
 
