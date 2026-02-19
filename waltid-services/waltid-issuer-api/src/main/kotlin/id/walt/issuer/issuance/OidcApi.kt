@@ -888,8 +888,10 @@ object OidcApi : CIProvider(), Klogging {
                 // intercept request and store the state
                 this.insertPhaseBefore(ApplicationCallPipeline.Call, authorizationPhase)
                 this.intercept(authorizationPhase) {
+                    val locationHeaders = call.response.headers.allValues().toMap()["Location"]
+                    logger.info { "AuthPhase intercept: path=${call.request.uri}, Location headers=$locationHeaders, all response headers=${call.response.headers.allValues().toMap().keys}" }
                     val externalAuthReq =
-                        when (val externalAuthReqStr = call.response.headers.allValues().toMap()["Location"]) {
+                        when (val externalAuthReqStr = locationHeaders) {
                             null -> null
                             else -> runBlocking {
                                 AuthorizationRequest.fromHttpQueryString(externalAuthReqStr[0].substringAfter("?"))
@@ -899,14 +901,26 @@ object OidcApi : CIProvider(), Klogging {
                         null -> null
                         else -> runBlocking { AuthorizationRequest.fromHttpQueryString(internalAuthReqParams) }
                     }
+                    logger.info { "AuthPhase intercept: externalAuthReq=${externalAuthReq != null}, authReq=${authReq != null}" }
                     if (authReq != null && externalAuthReq != null) {
-                        initializeIssuanceSession(authReq, 5.minutes, externalAuthReq.state)
+                        // Create session directly — skip validateAuthorizationRequest which checks
+                        // global credential configs, not tenant-specific ones
+                        val newSession = IssuanceSession(
+                            id = randomUUIDString(),
+                            authorizationRequest = authReq,
+                            expirationTimestamp = Clock.System.now().plus(5.minutes),
+                            issuanceRequests = listOf(),
+                            authServerState = externalAuthReq.state
+                        )
+                        putSession(newSession.id, newSession, 5.minutes)
+                        logger.info { "AuthPhase: Created session ${newSession.id} with authServerState=${externalAuthReq.state}" }
 
-                        // Track tenant ID for callback resolution
+                        // Track tenant ID for callback resolution (even if session creation failed)
                         val tenantId = call.parameters["internalAuthReq"]
                             ?.let { Url("http://dummy?$it").parameters["_tenantId"] }
                         if (tenantId != null && externalAuthReq.state != null) {
                             tenantByAuthState[externalAuthReq.state!!] = tenantId
+                            logger.info { "AuthPhase: Stored tenantId=$tenantId for state=${externalAuthReq.state}" }
                         }
                         val tenantSessionId = call.parameters["internalAuthReq"]
                             ?.let { Url("http://dummy?$it").parameters["_tenantSessionId"] }
@@ -929,17 +943,26 @@ object OidcApi : CIProvider(), Klogging {
                     val currentPrincipal: OAuthAccessTokenResponse.OAuth2? = call.principal()
 
                     val state = call.request.rawQueryParameters.toMap()["state"]!![0]
+                    logger.info { "Callback: state=$state, principal=${currentPrincipal != null}" }
                     val session = getSessionByAuthServerState(state)
+                    logger.info { "Callback: session=${session?.id}, tenantByAuthState keys=${tenantByAuthState.keys}" }
 
                     // Resolve tenant-specific metadata and token key if this callback originated from a tenant flow
                     val tenantId: String? = tenantByAuthState.remove(state)
                     val tenantSessionId: String? = tenantSessionByAuthState.remove(state)
+                    logger.info { "Callback: tenantId=$tenantId, tenantSessionId=$tenantSessionId" }
                     val tenant: IssuerTenant? = tenantId?.let { id -> IssuerTenantStore.instanceOrNull()?.get(id) }
                     val effectiveMetadata = if (tenant != null) IssuerTenantRegistry.getOrCreate(tenant).metadata else metadata
                     val effectiveTokenKey = if (tenant != null) IssuerTenantRegistry.getTokenKey(tenant) else CI_TOKEN_KEY
 
+                    if (session == null) {
+                        logger.warn { "Callback: No session found for state=$state" }
+                        call.respondText("Session expired. Please retry credential issuance.", status = io.ktor.http.HttpStatusCode.BadRequest)
+                        return@get
+                    }
+
                     val authResp = OpenID4VC.processCodeFlowAuthorization(
-                        session?.authorizationRequest!!,
+                        session.authorizationRequest!!,
                         session.id,
                         effectiveMetadata,
                         effectiveTokenKey

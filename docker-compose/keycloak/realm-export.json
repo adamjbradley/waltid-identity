@@ -16,8 +16,8 @@
       "publicClient": false,
       "secret": "issuer-api-secret",
       "redirectUris": [
-        "https://issuer.theaustraliahack.com/callback",
-        "http://localhost:7002/callback"
+        "https://issuer.theaustraliahack.com/*",
+        "http://localhost:7002/*"
       ],
       "webOrigins": [
         "https://issuer.theaustraliahack.com",
@@ -309,6 +309,31 @@
         {
           "type": "password",
           "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "adam_j_bradley",
+      "enabled": true,
+      "firstName": "Adam",
+      "lastName": "Bradley",
+      "email": "adam_j_bradley@yahoo.com",
+      "attributes": {
+        "birthdate": ["1974-01-01"],
+        "nationality": ["AU"],
+        "resident_address": ["1 Demo Street"],
+        "resident_city": ["Sydney"],
+        "resident_state": ["NSW"],
+        "resident_postal_code": ["2000"],
+        "resident_country": ["AU"],
+        "gender": ["male"],
+        "document_number": ["AU-PID-00002"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "1password2",
           "temporary": false
         }
       ]
