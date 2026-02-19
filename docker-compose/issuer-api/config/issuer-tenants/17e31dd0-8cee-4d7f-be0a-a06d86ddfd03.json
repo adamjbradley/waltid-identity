@@ -1,1 +1,49 @@
-{"id":"17e31dd0-8cee-4d7f-be0a-a06d86ddfd03","legalName":"Services Australia","country":"AU","domain":"servicesaustralia.gov.au","contactEmail":"admin@servicesaustralia.gov.au","iacaCertificate":{"subject":"C=AU,CN=Services Australia IACA","issuer":"C=AU,CN=Services Australia IACA","notBefore":"2026-02-19T04:41:30Z","notAfter":"2031-02-18T04:41:30Z","serialNumber":"629d5b1f082328436fab9bb10207f839a90a2eea","fingerprint":"F2:B2:AE:AA:98:5E:8C:E5:8F:66:24:EA:3B:03:FA:68:95:67:F9:15:A6:C4:8E:13:79:9F:DC:C0:34:0A:5A:08"},"signerCertificate":{"subject":"C=AU,CN=Services Australia Document Signer","issuer":"C=AU,CN=Services Australia IACA","notBefore":"2026-02-19T04:41:30Z","notAfter":"2027-02-19T04:41:30Z","serialNumber":"535de1a80a2a922ae6017485c846cda14a8654a3","fingerprint":"B4:32:E8:92:56:AA:D9:51:4E:AD:C0:46:E1:CE:24:EF:14:DD:87:75:94:1A:D1:2A:FD:D4:03:BB:5D:BC:4A:A3"},"x5Chain":["MIIB0jCCAXegAwIBAgIUU13hqAoqkirmAXSFyEbNoUqGVKMwCgYIKoZIzj0EAwIwLzEgMB4GA1UEAwwXU2VydmljZXMgQXVzdHJhbGlhIElBQ0ExCzAJBgNVBAYTAkFVMB4XDTI2MDIxOTA0NDEzMFoXDTI3MDIxOTA0NDEzMFowOjErMCkGA1UEAwwiU2VydmljZXMgQXVzdHJhbGlhIERvY3VtZW50IFNpZ25lcjELMAkGA1UEBhMCQVUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARueA1uoxWVm8NydWdLazw8W5JnqrMAnQiPOTZ99uBr2BUGlKlTQWmK2TvBRobxyii545aljUrYtZLGwtsai+4Co2YwZDAOBgNVHQ8BAf8EBAMCB4AwEgYDVR0lBAswCQYHKIGMXQUBAjAdBgNVHQ4EFgQU5UDCJDsdV8zAcplearfQZDcC6rgwHwYDVR0jBBgwFoAU6ZX77yysLYwC3dVOR5hxc/2STpMwCgYIKoZIzj0EAwIDSQAwRgIhANqi/vseswa6aPqvuGuyO7leThXQ9XO6QrbdJUsMtXy1AiEAi+fbgxNQXtoFaakiY27ckgbTvGFnL5LLdQnbgVlecI8=","MIIBwjCCAWmgAwIBAgIUYp1bHwgjKENvq5uxAgf4OakKLuowCgYIKoZIzj0EAwIwLzEgMB4GA1UEAwwXU2VydmljZXMgQXVzdHJhbGlhIElBQ0ExCzAJBgNVBAYTAkFVMB4XDTI2MDIxOTA0NDEzMFoXDTMxMDIxODA0NDEzMFowLzEgMB4GA1UEAwwXU2VydmljZXMgQXVzdHJhbGlhIElBQ0ExCzAJBgNVBAYTAkFVMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+5n+Y2e/m5dhChL1NAzRIeIG1AQo9hSkLPRPZBc4lRPzAnMmfhyOBDdCg8PcfwvHETFOanfnMObGJ5MoFySGuKNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFOmV++8srC2MAt3VTkeYcXP9kk6TMB8GA1UdIwQYMBaAFOmV++8srC2MAt3VTkeYcXP9kk6TMAoGCCqGSM49BAMCA0cAMEQCIFH3aDe+EnCZIgKKYd5ATwFv8BWbxPn7MvSJX4KcJllYAiBkLhSXMiB8G0kNkrhrsWkuntfNNzJ8scOQCG2JtSrKSw=="],"credentialConfigurations":{"credentials":[{"configId":"urn:au:gov:medicare:1","format":"dc+sd-jwt","vct":"urn:au:gov:medicare:1"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:41:22.158226425Z","updatedAt":"2026-02-19T04:41:30.171065971Z"}
+{
+    "id": "17e31dd0-8cee-4d7f-be0a-a06d86ddfd03",
+    "legalName": "Services Australia",
+    "country": "AU",
+    "domain": "servicesaustralia.gov.au",
+    "contactEmail": "admin@servicesaustralia.gov.au",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "v7WkZ8b-nRUB437BR2EI2SP7j8_bTFupcw9l5D7evE0",
+        "y": "lrqTsrD1f7F3mbckzmECEqPvYViPGz65FnJR59HN6nU",
+        "d": "rvQhC9u1f2QuDS99ip_QB_jFf_j579EIFpRhuzSIA_8"
+    },
+    "x5Chain": [
+        "MIIB0TCCAXigAwIBAgIVAOJ9Z9UOCOgn9pRufejxmHezi93iMAoGCCqGSM49BAMCMC8xIDAeBgNVBAMMF1NlcnZpY2VzIEF1c3RyYWxpYSBJQUNBMQswCQYDVQQGEwJBVTAeFw0yNjAyMTkwNzA1NDlaFw0yNzAyMTkwNzA1NDlaMDoxKzApBgNVBAMMIlNlcnZpY2VzIEF1c3RyYWxpYSBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAkFVMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEv7WkZ8b+nRUB437BR2EI2SP7j8/bTFupcw9l5D7evE2WupOysPV/sXeZtyTOYQISo+9hWI8bPrkWclHn0c3qdaNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFIZT0cxSGiOWE1+QqMzX4VoqbR+QMB8GA1UdIwQYMBaAFKrCzgTsDi80X6llmvhX8CMrFAlpMAoGCCqGSM49BAMCA0cAMEQCICGLahN16B9VSKicP+jLCPAa2FUtrsHtOBhV28J2vWiFAiA0U9y3NwvOjivs7xODjrvx7+Irmn9QtOhja8MGxz+jgA==",
+        "MIIBxDCCAWqgAwIBAgIVAJIChVz4rqNfmssxG6Ke/9U1T6WVMAoGCCqGSM49BAMCMC8xIDAeBgNVBAMMF1NlcnZpY2VzIEF1c3RyYWxpYSBJQUNBMQswCQYDVQQGEwJBVTAeFw0yNjAyMTkwNzA1NDlaFw0zMTAyMTgwNzA1NDlaMC8xIDAeBgNVBAMMF1NlcnZpY2VzIEF1c3RyYWxpYSBJQUNBMQswCQYDVQQGEwJBVTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABBd94iIH40M4g4thuQMAox4oymMJIUWCs6zi+GfBwnK8SEiQrNx3eCCHrfWvCAyk9f3OyVBDy1TpGzglgCHXaQ6jYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBSqws4E7A4vNF+pZZr4V/AjKxQJaTAfBgNVHSMEGDAWgBSqws4E7A4vNF+pZZr4V/AjKxQJaTAKBggqhkjOPQQDAgNIADBFAiA9/lwNtH99FQLyInv4pWrqUgGhFrxHi6a4JVmGdb/TrgIhAKGaSnwHHfr1LaSpSpyxL8uy9zE29pH8cVStfufZxA1M"
+    ],
+    "iacaCertificate": {
+        "subject": "C=AU,CN=Services Australia IACA",
+        "issuer": "C=AU,CN=Services Australia IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2031-02-18T07:05:49Z",
+        "serialNumber": "9202855cf8aea35f9acb311ba29effd5354fa595",
+        "fingerprint": "9F:17:1D:6F:A5:06:40:5A:75:6D:08:13:E7:5E:83:20:33:4D:61:03:65:95:25:5B:3D:69:80:6F:D0:5E:1B:9B"
+    },
+    "signerCertificate": {
+        "subject": "C=AU,CN=Services Australia Document Signer",
+        "issuer": "C=AU,CN=Services Australia IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2027-02-19T07:05:49Z",
+        "serialNumber": "e27d67d50e08e827f6946e7de8f19877b38bdde2",
+        "fingerprint": "8B:48:E6:73:32:68:69:78:CF:17:AF:3D:43:BF:33:87:F6:9A:9D:7D:1B:A6:D9:D4:C1:2D:04:ED:07:CC:BE:F5"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"lAT65zXtvHGE_eguOPEvUXo4kDvmrVkllQBZcDfktMs\",\"y\":\"W8D6SO5bXSljOpUacnN29MOk3l4BQJ7nOkGEvCE1LfU\",\"d\":\"Lzl-5z9lgMYcyQB-3biIDJtHzWlloGvXKPaCwJig1t0\"}}",
+    "credentialConfigurations": {
+        "urn:au:gov:medicare:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:au:gov:medicare:1",
+            "display": [
+                {
+                    "name": "urn:au:gov:medicare:1",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:41:22.158226425Z",
+    "updatedAt": "2026-02-19T07:05:49.020501256Z"
+}

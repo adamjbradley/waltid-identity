@@ -1,1 +1,49 @@
-{"id":"62dd93d3-ae80-4db0-8b3d-294a097d228a","legalName":"Kraftfahrt-Bundesamt","country":"DE","domain":"kba.de","contactEmail":"admin@kba.de","iacaCertificate":{"subject":"C=DE,CN=Kraftfahrt-Bundesamt IACA","issuer":"C=DE,CN=Kraftfahrt-Bundesamt IACA","notBefore":"2026-02-19T04:43:26Z","notAfter":"2031-02-18T04:43:26Z","serialNumber":"b989eb600e73a7d645f95903f814d6065bc9a5a5","fingerprint":"2B:74:C1:78:D1:73:86:FB:D0:E8:FC:48:EA:A5:F3:4E:FF:3B:FC:90:D0:2F:F1:1C:B3:C2:31:5B:36:D6:E0:4B"},"signerCertificate":{"subject":"C=DE,CN=Kraftfahrt-Bundesamt Document Signer","issuer":"C=DE,CN=Kraftfahrt-Bundesamt IACA","notBefore":"2026-02-19T04:43:26Z","notAfter":"2027-02-19T04:43:26Z","serialNumber":"75838dde1454b62f85140ffd1f86490e2f62a862","fingerprint":"7F:C1:F8:A3:1D:F1:8D:FB:D9:E7:C1:E2:EE:CF:5B:FA:02:23:AA:23:91:D0:28:51:24:6B:67:18:C1:7D:96:A5"},"x5Chain":["MIIB1DCCAXugAwIBAgIUdYON3hRUti+FFA/9H4ZJDi9iqGIwCgYIKoZIzj0EAwIwMTEiMCAGA1UEAwwZS3JhZnRmYWhydC1CdW5kZXNhbXQgSUFDQTELMAkGA1UEBhMCREUwHhcNMjYwMjE5MDQ0MzI2WhcNMjcwMjE5MDQ0MzI2WjA8MS0wKwYDVQQDDCRLcmFmdGZhaHJ0LUJ1bmRlc2FtdCBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAkRFMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2JaYqrsxWlSibyPeHqgyv/X6q5p+7obRaZgu0v4m7BLOwHdh3iqXMOsIB+h8ieTVdzIXUfXO8csfcb/r9CRtQqNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFGyxgWDs5BkbDTHS/ZGsIe3+xdDZMB8GA1UdIwQYMBaAFOkAIgkt9U8hY5VunMOe+3WbPKr9MAoGCCqGSM49BAMCA0cAMEQCIG5VBUgW1gvGDlf7J/Lr7zzRYR/7HmI9HGZqVeOo2eQcAiArL+VllguVzOpAo5GQwpr75bCvyGRECvpzTOBKCX/aYg==","MIIByDCCAW6gAwIBAgIVALmJ62AOc6fWRflZA/gU1gZbyaWlMAoGCCqGSM49BAMCMDExIjAgBgNVBAMMGUtyYWZ0ZmFocnQtQnVuZGVzYW10IElBQ0ExCzAJBgNVBAYTAkRFMB4XDTI2MDIxOTA0NDMyNloXDTMxMDIxODA0NDMyNlowMTEiMCAGA1UEAwwZS3JhZnRmYWhydC1CdW5kZXNhbXQgSUFDQTELMAkGA1UEBhMCREUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARfGjjknZQccCZMgTK9qfYt1nVcfynI+4x2+gbta9gREP/EUx1BBooL8stYnklBK+TwI/MEBj/StSZS9pKj8+18o2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQU6QAiCS31TyFjlW6cw577dZs8qv0wHwYDVR0jBBgwFoAU6QAiCS31TyFjlW6cw577dZs8qv0wCgYIKoZIzj0EAwIDSAAwRQIhAMb2+YOZTLj8Pt4IM1K76citKMpNn0jUsKT82xs1HtDyAiA7tNzeIX7EN/hYvDls02wXa4PoiHs/QRotkQ3yCLZ6Kg=="],"credentialConfigurations":{"credentials":[{"configId":"org.iso.18013.5.1.mDL","format":"mso_mdoc","doctype":"org.iso.18013.5.1.mDL"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:15.973161214Z","updatedAt":"2026-02-19T04:43:26.625177635Z"}
+{
+    "id": "62dd93d3-ae80-4db0-8b3d-294a097d228a",
+    "legalName": "Kraftfahrt-Bundesamt",
+    "country": "DE",
+    "domain": "kba.de",
+    "contactEmail": "admin@kba.de",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "94dX9DcqBJpox3gYFZ2Vu75zTGXmXFT39XHSjIl63bk",
+        "y": "SWsnV6gsu3VmRLkqG9WOKmQ7hZBCNXXix15G9en_n_w",
+        "d": "HuOlN0KVSAd7vKQtw3sdXbT98ZjbcnZi390yfJf7DG0"
+    },
+    "x5Chain": [
+        "MIIB1DCCAXugAwIBAgIUC4af+704v74fbmI65yC+lymFEqswCgYIKoZIzj0EAwIwMTEiMCAGA1UEAwwZS3JhZnRmYWhydC1CdW5kZXNhbXQgSUFDQTELMAkGA1UEBhMCREUwHhcNMjYwMjE5MDcwNTQ4WhcNMjcwMjE5MDcwNTQ4WjA8MS0wKwYDVQQDDCRLcmFmdGZhaHJ0LUJ1bmRlc2FtdCBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAkRFMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE94dX9DcqBJpox3gYFZ2Vu75zTGXmXFT39XHSjIl63blJaydXqCy7dWZEuSob1Y4qZDuFkEI1deLHXkb16f+f/KNmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFFj/WlwVfUo3q8VtL5X/HeNLatBkMB8GA1UdIwQYMBaAFE8R3S5cy1VKn5enzQdxMAEkAOLIMAoGCCqGSM49BAMCA0cAMEQCICb0fwKke9jU9Znar6oie3kBDOqBloAzjALbGbrvg0jEAiBh9SQjs2KFNwqck+MBboTXo7GGIQ8lagBI/u+9asUccw==",
+        "MIIBxzCCAW2gAwIBAgIULv9XgGYuW78D7yW4BnZBGxpZDzkwCgYIKoZIzj0EAwIwMTEiMCAGA1UEAwwZS3JhZnRmYWhydC1CdW5kZXNhbXQgSUFDQTELMAkGA1UEBhMCREUwHhcNMjYwMjE5MDcwNTQ4WhcNMzEwMjE4MDcwNTQ4WjAxMSIwIAYDVQQDDBlLcmFmdGZhaHJ0LUJ1bmRlc2FtdCBJQUNBMQswCQYDVQQGEwJERTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABO/GZowSdR/z8kVk716RF37a5wCWsM7rI+KOixSSYkpDky38kcVE22c/6PCyXVbrgmqbje2HQcguuTYk9M/Ds2yjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRPEd0uXMtVSp+Xp80HcTABJADiyDAfBgNVHSMEGDAWgBRPEd0uXMtVSp+Xp80HcTABJADiyDAKBggqhkjOPQQDAgNIADBFAiEApf50P+2CWSdtPFFS432Fz4l3AwiR9YegF31j4eVnpjUCIDv6xw60w5/yQD9PdJN3OqEYjM8xnDlY9/aCh47JUg1x"
+    ],
+    "iacaCertificate": {
+        "subject": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
+        "issuer": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2031-02-18T07:05:48Z",
+        "serialNumber": "2eff5780662e5bbf03ef25b80676411b1a590f39",
+        "fingerprint": "D1:EC:3C:54:D5:F7:3C:00:9F:C1:C6:D5:87:DD:AC:BB:8B:36:92:CB:BE:07:F5:FA:DB:F8:AA:CF:0A:FF:2C:5E"
+    },
+    "signerCertificate": {
+        "subject": "C=DE,CN=Kraftfahrt-Bundesamt Document Signer",
+        "issuer": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2027-02-19T07:05:48Z",
+        "serialNumber": "b869ffbbd38bfbe1f6e623ae720be97298512ab",
+        "fingerprint": "C8:D6:C9:77:1F:64:2C:E8:EB:AB:ED:A3:6F:8C:74:F6:A7:0A:D6:87:E4:EF:63:5E:F3:43:E1:CB:92:3B:1F:BD"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"U2gU4MCU3CfMmc7Jg4Jih6Qra9W7Fm_qyRO8jjRUZ6Y\",\"y\":\"JZbRjvg8pLM8Gor6opx-DrsCuSJFwYD9V7aNie_3fFk\",\"d\":\"YpJN8_wPAZ1ZAx3vQU6Y4_NQfszYy_wk1DR8tpJ5zv8\"}}",
+    "credentialConfigurations": {
+        "org.iso.18013.5.1.mDL": {
+            "format": "mso_mdoc",
+            "doctype": "org.iso.18013.5.1.mDL",
+            "display": [
+                {
+                    "name": "org.iso.18013.5.1.mDL",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:15.973161214Z",
+    "updatedAt": "2026-02-19T07:05:48.972919673Z"
+}

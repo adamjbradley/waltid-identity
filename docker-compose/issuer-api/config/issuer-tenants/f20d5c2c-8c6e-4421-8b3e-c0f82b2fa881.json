@@ -1,1 +1,49 @@
-{"id":"f20d5c2c-8c6e-4421-8b3e-c0f82b2fa881","legalName":"Barclays Bank","country":"GB","domain":"barclays.co.uk","contactEmail":"admin@barclays.co.uk","iacaCertificate":{"subject":"C=GB,CN=Barclays Bank IACA","issuer":"C=GB,CN=Barclays Bank IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2031-02-18T04:43:54Z","serialNumber":"ce41716f36cb89288a16935d229da4f07bd9aec8","fingerprint":"C6:2F:B3:71:8D:C3:12:2B:ED:44:C1:40:A9:9D:8A:B2:AA:50:CB:EA:BE:0A:65:98:60:90:B4:73:11:7D:CD:37"},"signerCertificate":{"subject":"C=GB,CN=Barclays Bank Document Signer","issuer":"C=GB,CN=Barclays Bank IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2027-02-19T04:43:54Z","serialNumber":"7d1d92c562e148f13f07e630f99d870dfe777994","fingerprint":"04:05:96:4D:86:4E:40:E0:3C:20:E5:C1:D8:77:CE:A3:5F:09:83:69:26:FD:54:DE:63:F2:EE:01:4F:E6:DF:E8"},"x5Chain":["MIIByDCCAW2gAwIBAgIUfR2SxWLhSPE/B+Yw+Z2HDf53eZQwCgYIKoZIzj0EAwIwKjEbMBkGA1UEAwwSQmFyY2xheXMgQmFuayBJQUNBMQswCQYDVQQGEwJHQjAeFw0yNjAyMTkwNDQzNTRaFw0yNzAyMTkwNDQzNTRaMDUxJjAkBgNVBAMMHUJhcmNsYXlzIEJhbmsgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABImLci6HPxXgnIyFs2AEKaACf2UOY0Z3aWm6J/xtVxGamImFGhCb32+sNuI/W193Tqbj0zhV36DrLad/dk4xTPyjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBT/rnYLpTkJ1YFJw2Hxcyde4tCBXzAfBgNVHSMEGDAWgBQEz/pPLRQ3njXq++CysIhgZP2KUzAKBggqhkjOPQQDAgNJADBGAiEAiAE38Xey1MMCRuIExR/3jpDpfmhKJCTiBdrdAKHMEFYCIQDY4VWahf6bQJeeQLNNoZkiN/rubhoAdss/cWjA6juNlg==","MIIBujCCAWCgAwIBAgIVAM5BcW82y4koihaTXSKdpPB72a7IMAoGCCqGSM49BAMCMCoxGzAZBgNVBAMMEkJhcmNsYXlzIEJhbmsgSUFDQTELMAkGA1UEBhMCR0IwHhcNMjYwMjE5MDQ0MzU0WhcNMzEwMjE4MDQ0MzU0WjAqMRswGQYDVQQDDBJCYXJjbGF5cyBCYW5rIElBQ0ExCzAJBgNVBAYTAkdCMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEv1R/aKRyDO6vpQfog4PEF297OS1msUgdPu0DDkQvn32hysmNlB9G9B4HP7/8RKOYzHx7IatRiO0zuV1mN4R+RqNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFATP+k8tFDeeNer74LKwiGBk/YpTMB8GA1UdIwQYMBaAFATP+k8tFDeeNer74LKwiGBk/YpTMAoGCCqGSM49BAMCA0gAMEUCIDE0keAKsWXhAgypFyKXENRkaEyxiEVMLe8tFJtEdTb6AiEAwtdEY85KBTRokIcz4l4hqIO0Qw5/PW7M5tX8i4aTAUE="],"credentialConfigurations":{"credentials":[{"configId":"PaymentWalletAttestation","format":"dc+sd-jwt","vct":"PaymentWalletAttestation"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:42.738536296Z","updatedAt":"2026-02-19T04:43:54.494138259Z"}
+{
+    "id": "f20d5c2c-8c6e-4421-8b3e-c0f82b2fa881",
+    "legalName": "Barclays Bank",
+    "country": "GB",
+    "domain": "barclays.co.uk",
+    "contactEmail": "admin@barclays.co.uk",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "_cVYx3qcEhhlFfZ_4cgqg0JPKV5f53Y9zYWO6Lt1JKc",
+        "y": "Vw69LYgbBHSstPLTxKQ25fFv1VnDBd670nZ3RwOfzU4",
+        "d": "Rhy5srcT4-S3U8GDAxeyC1SN3zOdkQfQ0xRAhogBUpA"
+    },
+    "x5Chain": [
+        "MIIByDCCAW2gAwIBAgIUXmJSt2fSfPBXcd/2WuJ4vV4V96YwCgYIKoZIzj0EAwIwKjEbMBkGA1UEAwwSQmFyY2xheXMgQmFuayBJQUNBMQswCQYDVQQGEwJHQjAeFw0yNjAyMTkwNzA1NDlaFw0yNzAyMTkwNzA1NDlaMDUxJjAkBgNVBAMMHUJhcmNsYXlzIEJhbmsgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABP3FWMd6nBIYZRX2f+HIKoNCTyleX+d2Pc2Fjui7dSSnVw69LYgbBHSstPLTxKQ25fFv1VnDBd670nZ3RwOfzU6jZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBTX5L+Jdju6JHzAAu3mxqDglsJiQDAfBgNVHSMEGDAWgBSlM08s6GgoPZUDlXNsFsGiNjaB+zAKBggqhkjOPQQDAgNJADBGAiEA3+Q+Du52RGbqymgPMNU1l6yk6eiJf+n0UaDiHqsJXK0CIQCkQ3dBUaw9C+a/LSuRRK0mDDE5BvbWXi0XF3AdMT6j2w==",
+        "MIIBuDCCAV+gAwIBAgIUdxypRT3Lxu0bSSKqHylxq4eHNjowCgYIKoZIzj0EAwIwKjEbMBkGA1UEAwwSQmFyY2xheXMgQmFuayBJQUNBMQswCQYDVQQGEwJHQjAeFw0yNjAyMTkwNzA1NDlaFw0zMTAyMTgwNzA1NDlaMCoxGzAZBgNVBAMMEkJhcmNsYXlzIEJhbmsgSUFDQTELMAkGA1UEBhMCR0IwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATWPzZmHUhW/DBsSxtol6nuEj3+yd0kKHPb0ZL5sMC4o4syrhUWn+2ddKdyLTGgMXJPSB59o9aakdFQPz+DaQupo2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUpTNPLOhoKD2VA5VzbBbBojY2gfswHwYDVR0jBBgwFoAUpTNPLOhoKD2VA5VzbBbBojY2gfswCgYIKoZIzj0EAwIDRwAwRAIgY8bfVSLMOki8ObeoovJiV1OjfvnC1gTC818v+oHzIwkCIBcLoKbr6pLwR7NWNK+oQY8qT9lCTbhKUVYzlPOdaLGi"
+    ],
+    "iacaCertificate": {
+        "subject": "C=GB,CN=Barclays Bank IACA",
+        "issuer": "C=GB,CN=Barclays Bank IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2031-02-18T07:05:49Z",
+        "serialNumber": "771ca9453dcbc6ed1b4922aa1f2971ab8787363a",
+        "fingerprint": "F4:FA:85:7C:5C:7B:A9:91:C4:EA:8E:1E:31:DA:8F:6E:11:E8:9F:F4:DD:93:92:01:12:DD:D2:F8:8A:9F:24:CA"
+    },
+    "signerCertificate": {
+        "subject": "C=GB,CN=Barclays Bank Document Signer",
+        "issuer": "C=GB,CN=Barclays Bank IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2027-02-19T07:05:49Z",
+        "serialNumber": "5e6252b767d27cf05771dff65ae278bd5e15f7a6",
+        "fingerprint": "68:7B:24:05:E9:F0:9B:3F:64:4E:FF:B9:EE:08:8C:05:E3:32:50:8F:F6:63:82:63:FC:85:47:4A:C1:2E:BA:84"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"Py6kzNBITAxUZzifRAupnwQA2RCLklck4VsVgAPRoGA\",\"y\":\"WubFKdXeVLdAduUcR_ABhOy6sdhK50annD5rmy-pT3Y\",\"d\":\"zIjydfFWAucQs9FSsHvNYP4kRabBkc4rpnewh_ddgjc\"}}",
+    "credentialConfigurations": {
+        "PaymentWalletAttestation": {
+            "format": "dc+sd-jwt",
+            "vct": "PaymentWalletAttestation",
+            "display": [
+                {
+                    "name": "PaymentWalletAttestation",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:42.738536296Z",
+    "updatedAt": "2026-02-19T07:05:49.075636548Z"
+}

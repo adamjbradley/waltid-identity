@@ -1,1 +1,49 @@
-{"id":"7430f84e-def5-4ef0-afcf-5d38718b027d","legalName":"Government Technology Agency","country":"SG","domain":"tech.gov.sg","contactEmail":"admin@tech.gov.sg","iacaCertificate":{"subject":"C=SG,CN=Government Technology Agency IACA","issuer":"C=SG,CN=Government Technology Agency IACA","notBefore":"2026-02-19T04:43:33Z","notAfter":"2031-02-18T04:43:33Z","serialNumber":"b85a455b6911da354aa9d9dd67d9299bf6f60adf","fingerprint":"F5:7B:BF:7D:0D:62:31:DA:59:61:BD:09:1F:70:58:EB:17:8C:A4:DD:D0:AD:1F:EF:4E:06:F8:28:DD:01:35:7C"},"signerCertificate":{"subject":"C=SG,CN=Government Technology Agency Document Signer","issuer":"C=SG,CN=Government Technology Agency IACA","notBefore":"2026-02-19T04:43:33Z","notAfter":"2027-02-19T04:43:33Z","serialNumber":"2c6554407e7649c1f9643fa1f125adcd0905f8c2","fingerprint":"AF:C4:78:E2:B6:A3:0C:9D:E0:D3:97:86:1C:87:E7:7A:8C:08:37:DC:3C:FE:44:B7:49:AA:19:54:E3:29:AF:E8"},"x5Chain":["MIIB5jCCAYugAwIBAgIULGVUQH52ScH5ZD+h8SWtzQkF+MIwCgYIKoZIzj0EAwIwOTEqMCgGA1UEAwwhR292ZXJubWVudCBUZWNobm9sb2d5IEFnZW5jeSBJQUNBMQswCQYDVQQGEwJTRzAeFw0yNjAyMTkwNDQzMzNaFw0yNzAyMTkwNDQzMzNaMEQxNTAzBgNVBAMMLEdvdmVybm1lbnQgVGVjaG5vbG9neSBBZ2VuY3kgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJTRzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABLhewSLSoZQZP85lTbdzvtSd/YT46+vODN+XMNzDuIDovLBP71eVqScYeqoBS7oW1e8sCJ3Ai4Fz8bfEKaiF1+KjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBR0Xqg9YX54wGimNAF62qLAU+zqMzAfBgNVHSMEGDAWgBQm/wC36Dk36pxqc8Ozz0+HboIcYjAKBggqhkjOPQQDAgNJADBGAiEA14ZPzIeyBrQi59Wg1y0kDoCOyMQPYxJRE3k/dmbvInYCIQDghK+lDiOmTF7xdVlzF9Vx9Gm+gzamM7YKeDnrvd6WIQ==","MIIB2TCCAX6gAwIBAgIVALhaRVtpEdo1SqnZ3WfZKZv29grfMAoGCCqGSM49BAMCMDkxKjAoBgNVBAMMIUdvdmVybm1lbnQgVGVjaG5vbG9neSBBZ2VuY3kgSUFDQTELMAkGA1UEBhMCU0cwHhcNMjYwMjE5MDQ0MzMzWhcNMzEwMjE4MDQ0MzMzWjA5MSowKAYDVQQDDCFHb3Zlcm5tZW50IFRlY2hub2xvZ3kgQWdlbmN5IElBQ0ExCzAJBgNVBAYTAlNHMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFV2Sw1VCaq4owm9+/jJ+LbZDXeeeCjFh0er29lwMp1w2FampIPFwSFVoGjUS8XtDLB80W+POJuo+SiIdGqlx0aNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFCb/ALfoOTfqnGpzw7PPT4dughxiMB8GA1UdIwQYMBaAFCb/ALfoOTfqnGpzw7PPT4dughxiMAoGCCqGSM49BAMCA0kAMEYCIQC6NCQPQA7IdLDwQkeeenmH4yAtM0d+SoXnYxCDnA3osAIhAPNqm0JXPFG0649L8ibAzoZoXaSNKsWyzlJuLScHqU3P"],"credentialConfigurations":{"credentials":[{"configId":"eu.europa.ec.eudi.pid.1","format":"mso_mdoc","doctype":"eu.europa.ec.eudi.pid.1"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:26.651560552Z","updatedAt":"2026-02-19T04:43:33.748009125Z"}
+{
+    "id": "7430f84e-def5-4ef0-afcf-5d38718b027d",
+    "legalName": "Government Technology Agency",
+    "country": "SG",
+    "domain": "tech.gov.sg",
+    "contactEmail": "admin@tech.gov.sg",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "N5VTpQdNlv9682SInKlkQlSPCcPbM1TKiCTaxmy_MYc",
+        "y": "fizPZvh5IeXtj15NLweEpAPjqdfGYtNpmMooDtOjfUw",
+        "d": "Yt_zryHlpGTWod2a_ljTJHmmYPQgQBDzBp_MArRJlpQ"
+    },
+    "x5Chain": [
+        "MIIB5TCCAYugAwIBAgIUK0lo29ZiuLJyu4PG6B6jaozilbswCgYIKoZIzj0EAwIwOTEqMCgGA1UEAwwhR292ZXJubWVudCBUZWNobm9sb2d5IEFnZW5jeSBJQUNBMQswCQYDVQQGEwJTRzAeFw0yNjAyMTkwNzA1NDlaFw0yNzAyMTkwNzA1NDlaMEQxNTAzBgNVBAMMLEdvdmVybm1lbnQgVGVjaG5vbG9neSBBZ2VuY3kgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJTRzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDeVU6UHTZb/evNkiJypZEJUjwnD2zNUyogk2sZsvzGHfizPZvh5IeXtj15NLweEpAPjqdfGYtNpmMooDtOjfUyjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBSMci2A0Nn6Zf1Q60rTe9yQ13id2zAfBgNVHSMEGDAWgBTvY+67H03dx39Qz5lBE8H6Pp81+DAKBggqhkjOPQQDAgNIADBFAiA07wrhLrVXzXpNxR1HefCKwS5wh5TzNJjUS5L+m/N0EwIhAMVqOjkIoZhOCXx5iTF8WZsa/fD/ocPRMzp8qL8GxESv",
+        "MIIB1zCCAX6gAwIBAgIVALqCdxvcbCV9WEhng+XY7yxhYEVhMAoGCCqGSM49BAMCMDkxKjAoBgNVBAMMIUdvdmVybm1lbnQgVGVjaG5vbG9neSBBZ2VuY3kgSUFDQTELMAkGA1UEBhMCU0cwHhcNMjYwMjE5MDcwNTQ5WhcNMzEwMjE4MDcwNTQ5WjA5MSowKAYDVQQDDCFHb3Zlcm5tZW50IFRlY2hub2xvZ3kgQWdlbmN5IElBQ0ExCzAJBgNVBAYTAlNHMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8zVXvTc84opbAczgX8EhEd0NnEK3h46U3cQYh/QDICR0oAX3o2QkPulSWdJ5frxdjmRXDkZnxm0xEyW981gX7KNjMGEwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFO9j7rsfTd3Hf1DPmUETwfo+nzX4MB8GA1UdIwQYMBaAFO9j7rsfTd3Hf1DPmUETwfo+nzX4MAoGCCqGSM49BAMCA0cAMEQCIBWvL9iJiVmiE5B7PlCnZsfacTZex3SEJLYs2W5rq5NiAiBqaM2ZbuEbPcx1718XLI+L79pY5u43vssTt83H96iNtw=="
+    ],
+    "iacaCertificate": {
+        "subject": "C=SG,CN=Government Technology Agency IACA",
+        "issuer": "C=SG,CN=Government Technology Agency IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2031-02-18T07:05:49Z",
+        "serialNumber": "ba82771bdc6c257d58486783e5d8ef2c61604561",
+        "fingerprint": "17:AB:15:5C:21:47:24:5E:C6:3E:E5:0E:03:E2:9F:30:A7:00:23:B6:B3:8B:58:F1:B4:C7:65:E8:B5:7A:AD:B6"
+    },
+    "signerCertificate": {
+        "subject": "C=SG,CN=Government Technology Agency Document Signer",
+        "issuer": "C=SG,CN=Government Technology Agency IACA",
+        "notBefore": "2026-02-19T07:05:49Z",
+        "notAfter": "2027-02-19T07:05:49Z",
+        "serialNumber": "2b4968dbd662b8b272bb83c6e81ea36a8ce295bb",
+        "fingerprint": "8F:6A:94:B7:32:64:17:8E:EB:D9:68:9D:B1:D4:CA:23:D0:E9:1A:99:4A:5F:E4:35:F8:5F:8A:F1:AA:6D:32:CB"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"eO_pCKdRLbhELVGD6xgC_6r9c44gw_XkzlLI3SH6khA\",\"y\":\"bZXwwSAjebPCLFp3iGswr9jQ-tAuDZK6y9bafrlZQ2k\",\"d\":\"8iWcVhqXVm0TJJ7ecJewHJBNuIyJSBI5_ONgsbPwdBU\"}}",
+    "credentialConfigurations": {
+        "eu.europa.ec.eudi.pid.1": {
+            "format": "mso_mdoc",
+            "doctype": "eu.europa.ec.eudi.pid.1",
+            "display": [
+                {
+                    "name": "eu.europa.ec.eudi.pid.1",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:26.651560552Z",
+    "updatedAt": "2026-02-19T07:05:49.060369006Z"
+}

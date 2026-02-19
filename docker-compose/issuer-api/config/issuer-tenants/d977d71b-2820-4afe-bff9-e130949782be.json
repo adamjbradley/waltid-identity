@@ -1,1 +1,49 @@
-{"id":"d977d71b-2820-4afe-bff9-e130949782be","legalName":"BNP Paribas","country":"FR","domain":"bnpparibas.com","contactEmail":"admin@bnpparibas.com","iacaCertificate":{"subject":"C=FR,CN=BNP Paribas IACA","issuer":"C=FR,CN=BNP Paribas IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2031-02-18T04:43:54Z","serialNumber":"c62f19a8dfcb378896c391119859d4122ff43335","fingerprint":"69:72:C2:DA:C4:B1:74:DC:CA:8D:67:03:FB:F7:E5:F1:50:C5:8E:B2:C2:15:D8:FC:D2:C7:11:F1:82:F2:95:EF"},"signerCertificate":{"subject":"C=FR,CN=BNP Paribas Document Signer","issuer":"C=FR,CN=BNP Paribas IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2027-02-19T04:43:54Z","serialNumber":"2b39ab04cc7bae03733ae9d598a775c416a91154","fingerprint":"95:67:06:98:BA:C9:1B:C2:39:35:E2:73:B5:AA:C4:95:09:DF:E0:4E:C2:1A:95:4D:2E:75:E3:0D:11:DD:89:08"},"x5Chain":["MIIBwzCCAWmgAwIBAgIUKzmrBMx7rgNzOunVmKd1xBapEVQwCgYIKoZIzj0EAwIwKDEZMBcGA1UEAwwQQk5QIFBhcmliYXMgSUFDQTELMAkGA1UEBhMCRlIwHhcNMjYwMjE5MDQ0MzU0WhcNMjcwMjE5MDQ0MzU0WjAzMSQwIgYDVQQDDBtCTlAgUGFyaWJhcyBEb2N1bWVudCBTaWduZXIxCzAJBgNVBAYTAkZSMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETSSXN1XfjM7ewzVYk7m2ZnB0FFAeYqmveu3SG48Wqim9Zu9Owk9hSq2Wki8HyXhaGc+DpYDyBmqddQYhDK8p46NmMGQwDgYDVR0PAQH/BAQDAgeAMBIGA1UdJQQLMAkGByiBjF0FAQIwHQYDVR0OBBYEFIFGORQXj+trHtvj3bDcVP0Vv0vyMB8GA1UdIwQYMBaAFDisTn9F6XNORGbZhH9BKvDh+TroMAoGCCqGSM49BAMCA0gAMEUCIQCxByVB1Hb3+ZfTjaXH6yXDAhZTN9RSg7vdIQ3tvzg5fgIgRUe7fOmmMtJEfSJjh/n9icCmHvAKbwuoCGh3vZj32aI=","MIIBtjCCAVygAwIBAgIVAMYvGajfyzeIlsOREZhZ1BIv9DM1MAoGCCqGSM49BAMCMCgxGTAXBgNVBAMMEEJOUCBQYXJpYmFzIElBQ0ExCzAJBgNVBAYTAkZSMB4XDTI2MDIxOTA0NDM1NFoXDTMxMDIxODA0NDM1NFowKDEZMBcGA1UEAwwQQk5QIFBhcmliYXMgSUFDQTELMAkGA1UEBhMCRlIwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAThlUTNfxZ0YynuMu9+HpZiP76MsfPZYnWq3XBBBSGnH+2YTFFm8Jw4Oxl/g+ENLXll5WUSW0QChPBa5kUJdCQQo2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUOKxOf0Xpc05EZtmEf0Eq8OH5OugwHwYDVR0jBBgwFoAUOKxOf0Xpc05EZtmEf0Eq8OH5OugwCgYIKoZIzj0EAwIDSAAwRQIhAOqqB9nyn3Dvx+JLpqzWq/5apKXYvHWZIMSCx1X0Iyr9AiBVR92SRSt7R9nuugJ60T5kvwh1dP94p4ItrapXwBdgnQ=="],"credentialConfigurations":{"credentials":[{"configId":"PaymentWalletAttestation","format":"dc+sd-jwt","vct":"PaymentWalletAttestation"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:42.767363921Z","updatedAt":"2026-02-19T04:43:54.549011510Z"}
+{
+    "id": "d977d71b-2820-4afe-bff9-e130949782be",
+    "legalName": "BNP Paribas",
+    "country": "FR",
+    "domain": "bnpparibas.com",
+    "contactEmail": "admin@bnpparibas.com",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "Sx7CRTfNxYbgto_f1kKUwWXmAr3vNGslpOw15IvAFuQ",
+        "y": "3vBszELBjMfigrIUwWMlXRqOv33ESYLtRNA5OUXb0Yw",
+        "d": "jyxV5NmwY_Bp7wYflJXWnL2EJAd7pClPTLBiaRTpM_I"
+    },
+    "x5Chain": [
+        "MIIBxDCCAWqgAwIBAgIVAPJWbADUw3hd8Q1FPfL5Fm4ZcaY5MAoGCCqGSM49BAMCMCgxGTAXBgNVBAMMEEJOUCBQYXJpYmFzIElBQ0ExCzAJBgNVBAYTAkZSMB4XDTI2MDIxOTA3MDU0OFoXDTI3MDIxOTA3MDU0OFowMzEkMCIGA1UEAwwbQk5QIFBhcmliYXMgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJGUjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABEsewkU3zcWG4LaP39ZClMFl5gK97zRrJaTsNeSLwBbk3vBszELBjMfigrIUwWMlXRqOv33ESYLtRNA5OUXb0YyjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBS7w3kKjYCPTUZBP1pHW6AMtwd2+jAfBgNVHSMEGDAWgBT6nq4B1SaM5Tv2euBa3p8bqc30STAKBggqhkjOPQQDAgNIADBFAiAg5adMSPA2pPYhpBSQLzTdSfl6TYOmhpdJwLXhVBiQmwIhAJstAMW3rD875CyLRwENN24fSixnXoyF139JQkYJZiqi",
+        "MIIBtTCCAVugAwIBAgIUZNAz8VQ2CiLcjBK+g1KP8IgIlgUwCgYIKoZIzj0EAwIwKDEZMBcGA1UEAwwQQk5QIFBhcmliYXMgSUFDQTELMAkGA1UEBhMCRlIwHhcNMjYwMjE5MDcwNTQ4WhcNMzEwMjE4MDcwNTQ4WjAoMRkwFwYDVQQDDBBCTlAgUGFyaWJhcyBJQUNBMQswCQYDVQQGEwJGUjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABPHdBjoEy7R3UdtPAlFsUa/2nJm/DrdbNM/sRvLx2T8PEiJ/iYVqlhVxgoOrO7GrI6LSVKqgeTopTfAm0TeeT6CjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBT6nq4B1SaM5Tv2euBa3p8bqc30STAfBgNVHSMEGDAWgBT6nq4B1SaM5Tv2euBa3p8bqc30STAKBggqhkjOPQQDAgNIADBFAiB8AtcneNa6a0gRbEmsgy4qjwL64l0NYnXlA7zjHMrZuQIhAPOtafar4oLd0n9fAOiBUZt/C1jsrF6orJp8sbFgub/j"
+    ],
+    "iacaCertificate": {
+        "subject": "C=FR,CN=BNP Paribas IACA",
+        "issuer": "C=FR,CN=BNP Paribas IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2031-02-18T07:05:48Z",
+        "serialNumber": "64d033f154360a22dc8c12be83528ff088089605",
+        "fingerprint": "44:D5:F4:D9:43:DE:3F:3E:98:F7:93:07:CC:0A:25:60:95:E2:A6:26:11:C8:1A:33:1E:E2:44:55:F8:2F:BE:28"
+    },
+    "signerCertificate": {
+        "subject": "C=FR,CN=BNP Paribas Document Signer",
+        "issuer": "C=FR,CN=BNP Paribas IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2027-02-19T07:05:48Z",
+        "serialNumber": "f2566c00d4c3785df10d453df2f9166e1971a639",
+        "fingerprint": "F2:70:17:A2:D3:07:02:39:7B:B6:96:90:AE:7E:25:FB:8A:91:73:57:42:57:0D:17:FF:4A:B0:08:3B:97:48:A5"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"PV5iJ8mXvoxG_YK6aS4L0ywV06zBoPBZHkA_KsSpQI0\",\"y\":\"tASa1dk1_BoIARWlFllXGOIX_NhHh3DfxlMRThTni1E\",\"d\":\"EEdf4B85Z8e5yxoIVh-Rbsd6RuK4PL-6JikhQz9sx_s\"}}",
+    "credentialConfigurations": {
+        "PaymentWalletAttestation": {
+            "format": "dc+sd-jwt",
+            "vct": "PaymentWalletAttestation",
+            "display": [
+                {
+                    "name": "PaymentWalletAttestation",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:42.767363921Z",
+    "updatedAt": "2026-02-19T07:05:48.961591589Z"
+}

@@ -1,1 +1,49 @@
-{"id":"a84e7c3a-b399-48e9-9345-2d8f062c614f","legalName":"State Bank of India","country":"IN","domain":"sbi.co.in","contactEmail":"admin@sbi.co.in","iacaCertificate":{"subject":"C=IN,CN=State Bank of India IACA","issuer":"C=IN,CN=State Bank of India IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2031-02-18T04:43:54Z","serialNumber":"69cab72e7c6b0e80d1fb4c61977e86c8ab604668","fingerprint":"D2:43:F6:3D:DB:F5:E4:1C:63:8D:2B:A2:BA:E6:02:29:47:FE:18:39:AA:B1:20:AE:91:D1:6D:1C:4D:CD:0B:4D"},"signerCertificate":{"subject":"C=IN,CN=State Bank of India Document Signer","issuer":"C=IN,CN=State Bank of India IACA","notBefore":"2026-02-19T04:43:54Z","notAfter":"2027-02-19T04:43:54Z","serialNumber":"d3258cfd8129c6bba45e14762203e27f674c97ea","fingerprint":"97:51:EC:DF:FD:25:CA:A1:FB:D4:95:29:E4:C0:3E:F8:3A:60:C3:8D:6B:25:5F:08:05:1B:D8:6F:0D:CA:0E:D5"},"x5Chain":["MIIB1TCCAXqgAwIBAgIVANMljP2BKca7pF4UdiID4n9nTJfqMAoGCCqGSM49BAMCMDAxITAfBgNVBAMMGFN0YXRlIEJhbmsgb2YgSW5kaWEgSUFDQTELMAkGA1UEBhMCSU4wHhcNMjYwMjE5MDQ0MzU0WhcNMjcwMjE5MDQ0MzU0WjA7MSwwKgYDVQQDDCNTdGF0ZSBCYW5rIG9mIEluZGlhIERvY3VtZW50IFNpZ25lcjELMAkGA1UEBhMCSU4wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATPT+IXyQe5f6wk4cpF9dkf81E7+cIS5BBxslcp5eey2c22NJCxOn/qW5183hsT9Jfg8ea4g9QDnI7K5aLL3qh4o2YwZDAOBgNVHQ8BAf8EBAMCB4AwEgYDVR0lBAswCQYHKIGMXQUBAjAdBgNVHQ4EFgQUq8QPZAXLAxQd2LZu6nUi00/wQ4swHwYDVR0jBBgwFoAUorQ+kfK59jai6jzTFrhgD0ClgmUwCgYIKoZIzj0EAwIDSQAwRgIhAPU2NouyqI+AAbIdXDNOV8No4pwR8uA/7DTG8hIUrkNIAiEA6iTDDleFBTHWI2C/8y1B1tS/eemTcVC6a5Ll9r7NzIY=","MIIBxDCCAWugAwIBAgIUacq3LnxrDoDR+0xhl36GyKtgRmgwCgYIKoZIzj0EAwIwMDEhMB8GA1UEAwwYU3RhdGUgQmFuayBvZiBJbmRpYSBJQUNBMQswCQYDVQQGEwJJTjAeFw0yNjAyMTkwNDQzNTRaFw0zMTAyMTgwNDQzNTRaMDAxITAfBgNVBAMMGFN0YXRlIEJhbmsgb2YgSW5kaWEgSUFDQTELMAkGA1UEBhMCSU4wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARJwKr2jpnF6vFFVs9Fg6NGMes1vcqZLP74RARbq4awiGtdLZN7/jeA8jL7j4RX/65hImJ0xC+N2mbeoQZeqNZqo2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUorQ+kfK59jai6jzTFrhgD0ClgmUwHwYDVR0jBBgwFoAUorQ+kfK59jai6jzTFrhgD0ClgmUwCgYIKoZIzj0EAwIDRwAwRAIgbGViK1hCoF7MYsED1CxNBaEARuhNrUxlFP//d13Nu8cCIGXcGFp7yjDu+1RrCGQq/z23UnbHlT7Lsmz+fCSHr80b"],"credentialConfigurations":{"credentials":[{"configId":"PaymentWalletAttestation","format":"dc+sd-jwt","vct":"PaymentWalletAttestation"}]},"status":"ACTIVE","createdAt":"2026-02-19T04:43:42.724219171Z","updatedAt":"2026-02-19T04:43:54.467108884Z"}
+{
+    "id": "a84e7c3a-b399-48e9-9345-2d8f062c614f",
+    "legalName": "State Bank of India",
+    "country": "IN",
+    "domain": "sbi.co.in",
+    "contactEmail": "admin@sbi.co.in",
+    "issuerKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "kDpmgbluMYm_Y7L5isDDPcz7yWbjf8SjU8_F5TvPVxs",
+        "y": "laU0vJSISxW_ajX4wYM47V2J0VI28xe_K4SNqnGuvWI",
+        "d": "2WPyjXlAbcaZnBOXxM7Htz494hmcBOgVb0SUVUQcMYQ"
+    },
+    "x5Chain": [
+        "MIIB0zCCAXmgAwIBAgIUYQB4vACbH2Wd03poxnP4HQMmKJUwCgYIKoZIzj0EAwIwMDEhMB8GA1UEAwwYU3RhdGUgQmFuayBvZiBJbmRpYSBJQUNBMQswCQYDVQQGEwJJTjAeFw0yNjAyMTkwNzA1NDhaFw0yNzAyMTkwNzA1NDhaMDsxLDAqBgNVBAMMI1N0YXRlIEJhbmsgb2YgSW5kaWEgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJJTjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJA6ZoG5bjGJv2Oy+YrAwz3M+8lm43/Eo1PPxeU7z1cblaU0vJSISxW/ajX4wYM47V2J0VI28xe/K4SNqnGuvWKjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBQntvbRnSHEeSwMXFyITuZMcBfrJTAfBgNVHSMEGDAWgBRU/1t80u2Z/op1x+T7Gaiz6EmwnjAKBggqhkjOPQQDAgNIADBFAiEAgDDqpub5DGzoun7kwt7gnJD3BdGgU7F4bzl/GmBmTFcCIGZYMvyku5pKF3PSiXmXPh4g1Vs/U7Schs0PxcQBS8SN",
+        "MIIBxTCCAWugAwIBAgIUYVJKu/fsncFcWXXmhL908EO3aA8wCgYIKoZIzj0EAwIwMDEhMB8GA1UEAwwYU3RhdGUgQmFuayBvZiBJbmRpYSBJQUNBMQswCQYDVQQGEwJJTjAeFw0yNjAyMTkwNzA1NDhaFw0zMTAyMTgwNzA1NDhaMDAxITAfBgNVBAMMGFN0YXRlIEJhbmsgb2YgSW5kaWEgSUFDQTELMAkGA1UEBhMCSU4wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASVxAxTE7xk4M03mdolVc1em1tlItbssa03nhu9VzdP9wS6IqN+87scbUI6h+Rdjc0CQKqhc8Z3UvcZx57juBY6o2MwYTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUVP9bfNLtmf6Kdcfk+xmos+hJsJ4wHwYDVR0jBBgwFoAUVP9bfNLtmf6Kdcfk+xmos+hJsJ4wCgYIKoZIzj0EAwIDSAAwRQIhAJiNpoS6V/BQuxV0wUldX1lKS1gnshxYNCzx4S2Dl5UUAiBKesFTtdvzlFtERJUf0dqieCbAXlDSaO0ZKqt3kWkLbw=="
+    ],
+    "iacaCertificate": {
+        "subject": "C=IN,CN=State Bank of India IACA",
+        "issuer": "C=IN,CN=State Bank of India IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2031-02-18T07:05:48Z",
+        "serialNumber": "61524abbf7ec9dc15c5975e684bf74f043b7680f",
+        "fingerprint": "5B:59:4D:38:C9:50:C1:B5:28:57:A3:88:FC:ED:AF:B8:A4:07:4B:0F:DA:49:B7:7E:8B:7E:88:AE:EC:48:82:AA"
+    },
+    "signerCertificate": {
+        "subject": "C=IN,CN=State Bank of India Document Signer",
+        "issuer": "C=IN,CN=State Bank of India IACA",
+        "notBefore": "2026-02-19T07:05:48Z",
+        "notAfter": "2027-02-19T07:05:48Z",
+        "serialNumber": "610078bc009b1f659dd37a68c673f81d03262895",
+        "fingerprint": "CC:A0:83:8F:47:5D:24:3E:04:EC:66:6F:5E:04:BD:52:7D:CF:37:A3:6C:BD:CE:1E:E4:96:4F:3C:26:1F:65:77"
+    },
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"sRGDtb2jhiggt6RbbElo2JwWWEl_9vXu-21yVBcK9iQ\",\"y\":\"C30ihpxcEbZfUWCLneA5VUZKTkcZqFKpidbLQfSUK9w\",\"d\":\"QLTWUghGUP6WikopyreETtO6eRqWNQyID0krjgTpqJM\"}}",
+    "credentialConfigurations": {
+        "PaymentWalletAttestation": {
+            "format": "dc+sd-jwt",
+            "vct": "PaymentWalletAttestation",
+            "display": [
+                {
+                    "name": "PaymentWalletAttestation",
+                    "locale": "en"
+                }
+            ]
+        }
+    },
+    "createdAt": "2026-02-19T04:43:42.724219171Z",
+    "updatedAt": "2026-02-19T07:05:48.952231881Z"
+}
