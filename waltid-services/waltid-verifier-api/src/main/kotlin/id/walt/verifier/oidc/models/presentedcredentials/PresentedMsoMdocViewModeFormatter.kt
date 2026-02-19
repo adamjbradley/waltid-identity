@@ -136,7 +136,7 @@ object PresentedMsoMdocViewModeFormatter {
                                             put("keyAuthorizations", it.toUIJson())
                                         }
                                     }.toMap(),
-                                    status = mso.status?.toMapElement().toJsonElement(),
+                                    status = mso.status?.toMapElement()?.toUIJson(),
                                 )
                             },
                         ),
@@ -147,7 +147,7 @@ object PresentedMsoMdocViewModeFormatter {
                             deviceAuth = deviceSigned.deviceAuth.toMapElement().toUIJson().jsonObject,
                         )
                     },
-                    errors = mDoc.errors?.toJsonElement(),
+                    errors = mDoc.errors?.toUIJson(),
                 )
             },
         )
