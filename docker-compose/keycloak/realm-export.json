@@ -31,6 +31,28 @@
         "email",
         "pid-attributes"
       ]
+    },
+    {
+      "clientId": "waltid_backend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "wallet-api-secret",
+      "redirectUris": [
+        "https://wallet.theaustraliahack.com/wallet-api/auth/oidc-session",
+        "http://localhost:7101/wallet-api/auth/oidc-session"
+      ],
+      "webOrigins": [
+        "https://wallet.theaustraliahack.com",
+        "http://localhost:7101"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
     }
   ],
   "clientScopes": [
