@@ -26,7 +26,10 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.interfaces.ECPublicKey
 import java.security.interfaces.RSAPublicKey
@@ -173,7 +176,29 @@ object KeycloakAccountStrategy : PasswordAccountStrategy<KeycloakAccountRequest>
             if (AccountsService.hasAccountOidcId(jwt.subject)) {
                 AccountsService.getAccountByOidcId(jwt.subject)!!.id
             } else {
-                AccountsService.register(tenant, request).getOrThrow().id
+                // Check if an account with the same email already exists (e.g. from email/password signup)
+                val email = jwt.getClaim("email")?.asString()
+                val existingAccount = email?.let {
+                    transaction {
+                        Accounts.selectAll()
+                            .where { (Accounts.tenant eq tenant) and (Accounts.email eq it) }
+                            .firstOrNull()
+                            ?.let { row -> row[Accounts.id] }
+                    }
+                }
+                if (existingAccount != null) {
+                    // Link existing account to this OIDC subject
+                    transaction {
+                        OidcLogins.insert {
+                            it[OidcLogins.tenant] = tenant
+                            it[OidcLogins.accountId] = existingAccount
+                            it[oidcId] = jwt.subject
+                        }
+                    }
+                    existingAccount
+                } else {
+                    AccountsService.register(tenant, request).getOrThrow().id
+                }
             }
         // TODO: change id to wallet-id (also in the frontend)
         return KeycloakAuthenticatedUser(registeredUserId, jwt.subject)

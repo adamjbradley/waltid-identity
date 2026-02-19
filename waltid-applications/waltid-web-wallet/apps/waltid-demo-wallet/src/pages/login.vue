@@ -120,6 +120,18 @@
                   </button>
                 </div>
               </form>
+              <div class="flex items-center mt-4">
+                <div class="flex-1 border-t border-gray-300"></div>
+                <div class="mx-3 text-gray-400 text-sm">or</div>
+                <div class="flex-1 border-t border-gray-300"></div>
+              </div>
+              <button
+                class="mt-4 flex w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold text-[#0573F0] bg-white border border-[#0573F0] hover:bg-blue-50"
+                type="button"
+                @click="connectOidc()"
+              >
+                Sign in with Keycloak
+              </button>
             </div>
           </div>
         </div>
@@ -292,6 +304,18 @@
                   </button>
                 </div>
               </form>
+              <div class="flex items-center mt-4">
+                <div class="flex-1 border-t border-gray-300"></div>
+                <div class="mx-3 text-gray-400 text-sm">or</div>
+                <div class="flex-1 border-t border-gray-300"></div>
+              </div>
+              <button
+                class="mt-4 flex w-full justify-center rounded-xl px-3 py-2 text-sm font-semibold text-[#0573F0] bg-white border border-[#0573F0] hover:bg-blue-50"
+                type="button"
+                @click="connectOidc()"
+              >
+                Sign in with Keycloak
+              </button>
 
               <div class="flex justify-center items-center mt-5 gap-2">
                 <h1 class="text-center text-sm text-gray-400">
@@ -472,6 +496,11 @@ import {listWallets, setWallet} from "@waltid-web-wallet/composables/accountWall
 import {useUserStore} from "@waltid-web-wallet/stores/user.ts";
 import {storeToRefs} from "pinia";
 
+function decodeJwt(token: string): any {
+  const payload = token.split('.')[1];
+  return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+}
+
 const signInRedirectUrl = ref("/");
 const route = useRoute();
 
@@ -536,6 +565,58 @@ async function login() {
       };
       isLoggingIn.value = false;
     });
+}
+
+async function connectOidc() {
+  navigateTo("/wallet-api/auth/oidc-login", { external: true });
+}
+
+const isOidcLogin = ref(route.query.oidc_login == "true");
+
+async function tryLoginWithOidcSession() {
+  isLoggingIn.value = true;
+  const token = await fetch("/wallet-api/auth/oidc-token", {
+    redirect: "manual",
+  });
+
+  const tokenText = await token.text();
+
+  await signIn(
+    {
+      token: tokenText,
+      type: "oidc",
+    },
+    { redirect: false },
+  )
+    .then(async () => {
+      const decoded = decodeJwt(tokenText);
+      const wallets = (await listWallets())?.value?.wallets;
+
+      user.value = {
+        id: "",
+        email: decoded.email as string,
+      };
+      success.value = true;
+      isLoggingIn.value = false;
+
+      if (wallets && wallets.length > 0) {
+        setWallet(wallets[0].id, undefined);
+        navigateTo(`/wallet/${wallets[0].id}`);
+      }
+    })
+    .catch((err) => {
+      console.log("Could not sign in with OIDC", err);
+      error.value = {
+        isError: true,
+        message: "Your Keycloak sign in failed.",
+      };
+      isLoggingIn.value = false;
+      isOidcLogin.value = false;
+    });
+}
+
+if (isOidcLogin.value) {
+  tryLoginWithOidcSession();
 }
 
 function closeModal() {
