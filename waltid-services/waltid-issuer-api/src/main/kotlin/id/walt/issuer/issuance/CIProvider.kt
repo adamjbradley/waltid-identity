@@ -391,7 +391,7 @@ open class CIProvider(
                 StatusListIssuanceHook.allocateForCredential(
                     credentialConfigurationId = request.credentialConfigurationId,
                     issuerDid = request.issuerDid,
-                    baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl,
+                    baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().let { it.externalBaseUrl ?: it.baseUrl },
                 )?.let { StatusListIssuanceHook.buildStatusClaim(it) }
             } else null
 
@@ -563,7 +563,7 @@ open class CIProvider(
             val mdocStatus = StatusListIssuanceHook.allocateForCredential(
                 credentialConfigurationId = request.credentialConfigurationId,
                 issuerDid = request.issuerDid,
-                baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().baseUrl,
+                baseUrl = ConfigManager.getConfig<OIDCIssuerServiceConfig>().let { it.externalBaseUrl ?: it.baseUrl },
             )?.let { allocation ->
                 Status(statusList = StatusListInfo(index = allocation.index.toUInt(), uri = allocation.uri))
             }
