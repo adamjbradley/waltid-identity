@@ -52,8 +52,29 @@
                     "locale": "en"
                 }
             ]
+        },
+        "urn:eudi:pid:1": {
+            "format": "dc+sd-jwt",
+            "vct": "urn:eudi:pid:1",
+            "display": [
+                {
+                    "name": "urn:eudi:pid:1",
+                    "locale": "en"
+                }
+            ]
+        },
+        "org.iso.18013.5.1.mDL": {
+            "format": "mso_mdoc",
+            "doctype": "org.iso.18013.5.1.mDL",
+            "display": [
+                {
+                    "name": "org.iso.18013.5.1.mDL",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-12T00:02:17.926452212Z",
-    "updatedAt": "2026-02-19T04:41:14.443212963Z"
+    "updatedAt": "2026-02-13T04:57:22.290092343Z",
+    "status": "ACTIVE"
 }
