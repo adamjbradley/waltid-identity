@@ -80,6 +80,7 @@ import id.walt.webwallet.web.controllers.exchange.PresentationRequestParameter
 import id.walt.webwallet.web.parameter.CredentialRequestParameter
 import io.klogging.Klogging
 import io.ktor.client.*
+import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -229,11 +230,19 @@ class SSIKit2WalletService(
     override suspend fun usePresentationRequest(parameter: PresentationRequestParameter): Result<String?> {
         val credentialWallet = getCredentialWallet(accountId, walletId, parameter.did)
 
-        val authorizationRequest =
+        var authorizationRequest =
             AuthorizationRequest.fromHttpParametersAuto(
                 parseQueryString(Url(parameter.request).encodedQuery).toMap()
             )
         logger.debug { "Authorization Request $authorizationRequest" }
+
+        // Resolve presentation_definition_uri if presentation_definition is not inline
+        if (authorizationRequest.presentationDefinition == null && authorizationRequest.presentationDefinitionUri != null) {
+            logger.debug { "Resolving presentation_definition_uri: ${authorizationRequest.presentationDefinitionUri}" }
+            val pdJson = http.get(authorizationRequest.presentationDefinitionUri!!).bodyAsText()
+            val pd = Json.decodeFromString<id.walt.oid4vc.data.dif.PresentationDefinition>(pdJson)
+            authorizationRequest = authorizationRequest.copy(presentationDefinition = pd)
+        }
 
         logger.debug { "Using presentation request, selected credentials: ${parameter.selectedCredentials}" }
 

@@ -51,12 +51,11 @@ class EudiPidSdJwtE2ETest(
         val TEST_KEY = buildJsonObject {
             put("type", JsonPrimitive("jwk"))
             put("jwk", buildJsonObject {
-                put("kty", JsonPrimitive("EC"))
-                put("d", JsonPrimitive("mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc"))
-                put("crv", JsonPrimitive("P-256"))
-                put("kid", JsonPrimitive("eudi-pid-sdjwt-key"))
-                put("x", JsonPrimitive("dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g"))
-                put("y", JsonPrimitive("L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"))
+                put("kty", JsonPrimitive("OKP"))
+                put("d", JsonPrimitive("mDhpwaH6JYSrD2Bq7Cs-pzmsjlLj4EOhxyI-9DM1mFI"))
+                put("crv", JsonPrimitive("Ed25519"))
+                put("kid", JsonPrimitive("Vzx7l5fh56F3Pf9aR3DECU5BwfrY6ZJe05aiWYWzan8"))
+                put("x", JsonPrimitive("T3T4-u1Xz3vAV2JwPNxWfs4pik_JLiArz_WTCvrCFUM"))
             })
         }
 

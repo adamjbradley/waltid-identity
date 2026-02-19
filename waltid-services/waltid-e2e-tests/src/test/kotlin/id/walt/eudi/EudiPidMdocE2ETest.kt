@@ -43,11 +43,11 @@ class EudiPidMdocE2ETest(
             put("type", JsonPrimitive("jwk"))
             put("jwk", buildJsonObject {
                 put("kty", JsonPrimitive("EC"))
-                put("d", JsonPrimitive("mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc"))
+                put("d", JsonPrimitive("SoKcf23Px1iF2RuPY33jFPOG79V1-2fVY5BOt_jVDU8"))
                 put("crv", JsonPrimitive("P-256"))
                 put("kid", JsonPrimitive("eudi-pid-test-key"))
-                put("x", JsonPrimitive("dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g"))
-                put("y", JsonPrimitive("L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"))
+                put("x", JsonPrimitive("Od0ADsEcnbZozeaYzAlE_nHogvOELqVyZWkTZYO9z8M"))
+                put("y", JsonPrimitive("oHVaB01NoeKHx1QXN3ZmE_VPjeUkxjl3CtgnJVZfKtQ"))
             })
         }
 

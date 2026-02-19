@@ -32,12 +32,11 @@ class Draft13IssuanceE2ETest(
         val TEST_KEY = buildJsonObject {
             put("type", JsonPrimitive("jwk"))
             put("jwk", buildJsonObject {
-                put("kty", JsonPrimitive("EC"))
-                put("d", JsonPrimitive("mJJv_Hzv8--BHJaJlvB9KM8XQnM9M8J7KNZ8K_z9qdc"))
-                put("crv", JsonPrimitive("P-256"))
-                put("kid", JsonPrimitive("draft13-test-key"))
-                put("x", JsonPrimitive("dHGO-XVe1E-tEjqLN5EFT_FHQFgXTQ-9U7TL5qm9_0g"))
-                put("y", JsonPrimitive("L8L7_pV9t2qn7B8DJ1_N8pEyEL_WQ8wVBM_FqA7k5tw"))
+                put("kty", JsonPrimitive("OKP"))
+                put("d", JsonPrimitive("mDhpwaH6JYSrD2Bq7Cs-pzmsjlLj4EOhxyI-9DM1mFI"))
+                put("crv", JsonPrimitive("Ed25519"))
+                put("kid", JsonPrimitive("Vzx7l5fh56F3Pf9aR3DECU5BwfrY6ZJe05aiWYWzan8"))
+                put("x", JsonPrimitive("T3T4-u1Xz3vAV2JwPNxWfs4pik_JLiArz_WTCvrCFUM"))
             })
         }
 
@@ -65,6 +64,19 @@ class Draft13IssuanceE2ETest(
         }
 
         const val TEST_ISSUER_DID = "did:key:z6MkjoRhq1jSNJdLiruSXrFFxagqrztZaXHqHGUTKJbcNywp"
+
+        // P-256 key required for mDoc (ECDSA) — Ed25519 cannot sign COSE
+        val TEST_KEY_P256 = buildJsonObject {
+            put("type", JsonPrimitive("jwk"))
+            put("jwk", buildJsonObject {
+                put("kty", JsonPrimitive("EC"))
+                put("d", JsonPrimitive("E4i8vVeNCDvOiMi8233EnIaku4fvAR3eHMlRL0gmtyw"))
+                put("crv", JsonPrimitive("P-256"))
+                put("kid", JsonPrimitive("draft13-mdoc-key"))
+                put("x", JsonPrimitive("pApxN5PjAvKPeYDlFZQgRbepxjGOjgxsJ637PCccpMI"))
+                put("y", JsonPrimitive("xWBDfD48TNMz39p2X1yS54Ufmq-f7WofKq-Z4ue7RIo"))
+            })
+        }
     }
 
     /**
@@ -133,15 +145,11 @@ class Draft13IssuanceE2ETest(
                 newCredential = it.first()
             }
 
-            // Validate SD-JWT structure: document should contain tildes (disclosures)
+            // Validate SD-JWT structure: disclosures stored separately from document
             assertNotNull(newCredential.document)
-            assertTrue(
-                newCredential.document.contains("~"),
-                "SD-JWT credential should contain disclosure separators"
-            )
-            assertTrue(
-                newCredential.document.endsWith("~"),
-                "SD-JWT credential should end with trailing tilde"
+            assertNotNull(
+                newCredential.disclosures,
+                "SD-JWT credential should have disclosures"
             )
         }
 
@@ -167,7 +175,7 @@ class Draft13IssuanceE2ETest(
             }
 
             val issuanceRequest = IssuanceRequest(
-                issuerKey = TEST_KEY,
+                issuerKey = TEST_KEY_P256,
                 credentialData = pidData,
                 credentialConfigurationId = "eu.europa.ec.eudi.pid.1",
                 issuerDid = TEST_ISSUER_DID
