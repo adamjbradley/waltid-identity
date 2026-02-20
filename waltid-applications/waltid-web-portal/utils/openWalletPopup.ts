@@ -31,12 +31,16 @@ export function openWalletPopup(
   walletUrl: string,
   path: string,
   requestUrl: string,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
+  returnUrl?: string
 ): PopupResult {
   const url = buildWalletUrl(walletUrl, path, requestUrl, metadata);
 
   if (isMobileDevice()) {
-    window.location.href = url;
+    const redirectParam = returnUrl
+      ? `&redirect_uri=${encodeURIComponent(returnUrl)}`
+      : '';
+    window.location.href = url + redirectParam;
     return { status: 'redirected', popup: null };
   }
 

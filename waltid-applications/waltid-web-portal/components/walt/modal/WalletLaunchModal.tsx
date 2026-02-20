@@ -121,7 +121,10 @@ export default function WalletLaunchModal({
 
   function handleOpenWebWallet() {
     if (!credentialUrl) return;
-    const result = openWalletPopup(walletUrl, walletPath, credentialUrl, walletMetadata);
+    const returnUrl = sessionId && isApi2
+      ? `${window.location.origin}/success/${sessionId}?api2=true`
+      : undefined;
+    const result = openWalletPopup(walletUrl, walletPath, credentialUrl, walletMetadata, returnUrl);
     if (result.status === 'blocked') {
       setPopupBlocked(true);
     } else if (result.popup) {
