@@ -45,7 +45,19 @@ const CREDENTIAL_TITLES: Record<string, string> = {
   'eu.europa.ec.eudi.pid.1': 'EU Personal ID (mDoc)',
   'org.iso.18013.5.1.mDL': 'Mobile Driving License',
   'eu.europa.ec.eudi.pid_vc_sd_jwt': 'EU Personal ID (SD-JWT)',
+  'urn:eudi:pid:1': 'EU Personal ID (SD-JWT)',
   'PaymentWalletAttestation': 'Payment Wallet Attestation',
+  'urn:au:gov:mygovid:pid:1': 'myGovID Identity',
+  'urn:au:gov:dl:1': 'Driving Licence (Australia)',
+  'urn:au:gov:medicare:1': 'Medicare Card',
+  'urn:in:gov:aadhaar:pid:1': 'Aadhaar Identity',
+  'urn:in:gov:dl:1': 'Driving Licence (India)',
+  'urn:in:gov:pan:1': 'PAN Card',
+  'urn:uk:gov:govuk-one-login:pid:1': 'GOV.UK One Login Identity',
+  'urn:uk:gov:dl:1': 'Driving Licence (UK)',
+  'urn:uk:gov:dvla:dl:1': 'Driving Licence (UK)',
+  'urn:uk:gov:nhs:1': 'NHS Health Record',
+  'urn:uk:gov:rtw:1': 'Right to Work',
 };
 
 const formatBadgeColor: Record<string, string> = {
@@ -211,7 +223,7 @@ export default function Explore() {
                           {credEntries.map(([configId, conf]) => {
                             const formatLabel = FORMAT_LABELS[conf.format] ?? conf.format;
                             const displayName = conf.display?.[0]?.name;
-                            const title = displayName ?? CREDENTIAL_TITLES[configId] ?? configId;
+                            const title = CREDENTIAL_TITLES[configId] ?? displayName ?? configId;
                             return (
                               <div
                                 key={configId}
