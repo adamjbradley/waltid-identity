@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "dtY0KkZ1KcHj-e7yeHR4Idp-BaUKnw3JQiYoZ-2gGcA",
-        "y": "RvT9GLYRAagMa6FVdzSv2tfN73BWDJKUXtR8qTGMCRo",
-        "d": "EXfa-axrFtO_6AKaqUHFO84Yg7rH9Dc-VbNJjm_Ytao"
+        "x": "sk5knORMrbz57WiaU8Qk1azGUijVCih21Pc4PS0Ewdg",
+        "y": "ip-Jfn9DsIchklUujEN5pJgtNQohGAdEo51sgwoPk5I",
+        "d": "ChvCIX2RIHgOFFB77BA6xoyLNO9kIW-d_ue5pbY-H3I"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=GB,CN=DVLA United Kingdom IACA",
         "issuer": "C=GB,CN=DVLA United Kingdom IACA",
-        "notBefore": "2026-02-19T04:17:44Z",
-        "notAfter": "2031-02-18T04:17:44Z",
-        "serialNumber": "83bc0200c3b115199857d5ffdda242ecfc758010",
-        "fingerprint": "4B:42:BD:01:A6:72:84:E0:EA:B0:E1:A7:F8:AE:94:05:DD:54:19:50:DE:BC:9E:25:DC:BD:DA:01:CA:CB:3D:9B"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "347e13b5da319a60d68cf57d9a22cfda06200cb2",
+        "fingerprint": "8C:6F:4E:F5:D3:BC:22:90:D8:48:1D:44:7F:1B:71:32:76:FF:E1:AB:55:C3:EF:2A:54:DF:5E:34:31:60:65:33"
     },
     "signerCertificate": {
         "subject": "C=GB,CN=DVLA United Kingdom Document Signer",
         "issuer": "C=GB,CN=DVLA United Kingdom IACA",
-        "notBefore": "2026-02-19T04:17:44Z",
-        "notAfter": "2027-02-19T04:17:44Z",
-        "serialNumber": "3043a77dd6deaafb184d860aefc6680d83a75a0f",
-        "fingerprint": "66:DE:AF:C9:F3:16:0E:FF:56:E6:0F:FA:65:82:4D:D9:A2:C9:F0:1B:0E:D1:5A:5C:E8:62:6C:44:AC:A6:60:43"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "45b2a1fdb8c91aa29d035ee9b16592ea62347dd1",
+        "fingerprint": "AC:11:21:23:19:95:D8:10:1B:A7:4D:96:51:14:A9:72:78:16:30:BF:0D:99:6B:B8:1D:1B:20:3B:28:46:C5:29"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"TRw1OlRYnrMWcKK__mPj4MgL2drz7lXoFS85cKC8gPE\",\"y\":\"jpwfMoEAmJsciJOtFePtFH-FF6ue4JcfY1QF0_YRXHE\",\"d\":\"JaV_wGHW8Jaan39-owDtfncVtrQH3WYH6IglLnnbH3I\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"iXXPknegEyKBFFsbLAzlJbP6w4afGg4vtno3T7bmXIA\",\"y\":\"JJwXJubUwelyIFND19zwvGGVUApCb8uDWi-kbbRm0Nc\",\"d\":\"yypo1OKo4P0RO339BC8mBt2M4B25ThTlzIV9m4EQ0gU\"}}",
     "credentialConfigurations": {
         "urn:uk:gov:dl:1": {
             "format": "dc+sd-jwt",
@@ -65,6 +65,5 @@
         }
     },
     "createdAt": "2026-02-19T04:17:34.519905375Z",
-    "updatedAt": "2026-02-19T04:43:00.532932137Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.658798013Z"
 }

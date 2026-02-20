@@ -9,6 +9,9 @@ import {CredentialsContext, EnvContext} from "@/pages/_app";
 import {useRouter} from "next/router";
 import axios from "axios";
 import {BuildingOfficeIcon} from "@heroicons/react/24/outline";
+import nextConfig from "@/next.config";
+import WalletLaunchModal from "@/components/walt/modal/WalletLaunchModal";
+import {createVerificationSession} from "@/utils/createVerificationSession";
 
 interface RpTenantSummary {
   id: string;
@@ -36,6 +39,14 @@ export default function VerificationSection() {
   const [trustPolicy, setTrustPolicy] = useState<boolean>(true);
   const [webhookPolicy, setWebhookPolicy] = useState<boolean>(false);
   const [webhook, setWebhook] = useState<string>('');
+
+  // Modal state
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [verifyUrl, setVerifyUrl] = useState('');
+  const [verifySessionId, setVerifySessionId] = useState('');
+  const [verifyIsApi2, setVerifyIsApi2] = useState(false);
+  const [activeVerifierUrl, setActiveVerifierUrl] = useState('');
+  const [verifyRpHintName, setVerifyRpHintName] = useState('');
 
   // Fetch RP tenants when enabled
   useEffect(() => {
@@ -75,23 +86,13 @@ export default function VerificationSection() {
     );
   }, [AvailableCredentials]);
 
-  function handleVerify() {
+  async function handleVerify() {
     const vps = [];
-    if (signaturePolicy) {
-      vps.push('signature');
-    }
-    if (expiredPolicy) {
-      vps.push('expiration');
-    }
-    if (notBeforePolicy) {
-      vps.push('not-before');
-    }
-    if (revocationPolicy) {
-      vps.push('revoked-status-list');
-    }
-    if (trustPolicy) {
-      vps.push('etsi-trusted-issuer');
-    }
+    if (signaturePolicy) vps.push('signature');
+    if (expiredPolicy) vps.push('expiration');
+    if (notBeforePolicy) vps.push('not-before');
+    if (revocationPolicy) vps.push('revoked-status-list');
+    if (trustPolicy) vps.push('etsi-trusted-issuer');
     if (webhookPolicy) {
       if (webhook.length == 0) {
         alert('Please enter a webhook url');
@@ -100,20 +101,40 @@ export default function VerificationSection() {
       vps.push('webhook=' + webhook);
     }
 
-    const params = new URLSearchParams();
-    params.append('ids', idsToIssue.join(','));
-    if (vps.length) {
-      params.append('vps', vps.join(','));
-    }
+    const format = (credentialsToIssue[0]?.selectedFormat ?? getDefaultFormatForCredential(credentialsToIssue[0]?.id || '')) as string;
 
-    params.append(
-      'format',
-      (credentialsToIssue[0]?.selectedFormat ?? getDefaultFormatForCredential(credentialsToIssue[0]?.id || '')) as string
-    );
-    if (selectedRpId) {
-      params.append('rpId', selectedRpId);
+    // Open modal immediately, fetch session async
+    setVerifyUrl('');
+    setVerifySessionId('');
+    setVerifyModalOpen(true);
+
+    try {
+      const result = await createVerificationSession({
+        credentials: credentialsToIssue,
+        format,
+        vps,
+        rpId: selectedRpId || undefined,
+        env: env as Record<string, string | undefined>,
+        runtimeConfig: (nextConfig.publicRuntimeConfig ?? {}) as Record<string, string | undefined>,
+      });
+
+      if (result.error) {
+        console.error(result.error);
+        setVerifyModalOpen(false);
+        return;
+      }
+
+      setVerifyUrl(result.verifyUrl);
+      setVerifySessionId(result.sessionId);
+      setVerifyIsApi2(result.isApi2);
+      setActiveVerifierUrl(result.verifierUrl);
+      if (result.rpHintName) setVerifyRpHintName(result.rpHintName);
+    } catch (err: any) {
+      const detail = err?.response?.data?.message || err?.response?.data || err?.message || String(err);
+      console.error('Error creating verification session:', detail, err);
+      alert(`Verification error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`);
+      setVerifyModalOpen(false);
     }
-    router.push(`/verify?${params.toString()}`);
   }
 
   if (params.ids === undefined) {
@@ -232,6 +253,20 @@ export default function VerificationSection() {
           <WaltIcon height={15} width={15} type="gray" />
         </div>
       </div>
+
+      <WalletLaunchModal
+        show={verifyModalOpen}
+        onClose={() => setVerifyModalOpen(false)}
+        mode="verify"
+        credentialUrl={verifyUrl}
+        sessionId={verifySessionId}
+        isApi2={verifyIsApi2}
+        verifierUrl={activeVerifierUrl}
+        walletUrl={env.NEXT_PUBLIC_WALLET ?? nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_WALLET as string}
+        walletPath="api/siop/initiatePresentation"
+        walletMetadata={verifyRpHintName ? {rpName: verifyRpHintName} : undefined}
+        isEudi={verifyIsApi2}
+      />
     </>
   );
 }

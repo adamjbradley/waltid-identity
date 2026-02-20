@@ -67,15 +67,22 @@ test.describe('Verification Flow', () => {
     await expect(formatDropdown).toBeVisible();
   });
 
-  test('verify navigates to verify page', async ({ page }) => {
+  test('verify button opens modal (stays on credentials page)', async ({ page }) => {
     // Click the Verify button
     const verifyButton = page.getByRole('button', { name: /^Verify$/i }).last();
     await expect(verifyButton).toBeVisible();
+
+    // Listen for any page navigations
+    const navigationPromise = page.waitForURL(/\/verify/, { timeout: 5_000 }).catch(() => null);
     await verifyButton.click();
 
-    // Wait for navigation to /verify page
-    await page.waitForURL(/\/verify/, { timeout: 15_000 });
-    expect(page.url()).toContain('/verify');
+    // Should stay on /credentials page — modal opens inline, no navigation to /verify
+    await page.waitForTimeout(3_000);
+    expect(page.url()).toContain('/credentials');
+
+    // Verify no navigation happened
+    const navigated = await navigationPromise;
+    expect(navigated).toBeNull();
   });
 
   test('default verifier option available', async ({ page }) => {

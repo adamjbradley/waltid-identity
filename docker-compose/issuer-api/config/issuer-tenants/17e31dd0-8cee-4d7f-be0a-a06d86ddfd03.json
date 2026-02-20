@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "v7WkZ8b-nRUB437BR2EI2SP7j8_bTFupcw9l5D7evE0",
-        "y": "lrqTsrD1f7F3mbckzmECEqPvYViPGz65FnJR59HN6nU",
-        "d": "rvQhC9u1f2QuDS99ip_QB_jFf_j579EIFpRhuzSIA_8"
+        "x": "IwkuALNkGHz1itmrE36DyqlEtUK-8bxvv0hhFIdgQCs",
+        "y": "0S_pt4m3taA77KLSX7We5n0s_X25Ct8KoXHARlNKvlg",
+        "d": "RIUOLOnUGn5DEYpOIdFtS3OdzSSg7s0W1WtbKoBnQNM"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=AU,CN=Services Australia IACA",
         "issuer": "C=AU,CN=Services Australia IACA",
-        "notBefore": "2026-02-19T04:41:30Z",
-        "notAfter": "2031-02-18T04:41:30Z",
-        "serialNumber": "629d5b1f082328436fab9bb10207f839a90a2eea",
-        "fingerprint": "F2:B2:AE:AA:98:5E:8C:E5:8F:66:24:EA:3B:03:FA:68:95:67:F9:15:A6:C4:8E:13:79:9F:DC:C0:34:0A:5A:08"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "a4d5769c92cf4779acbcfa6b290a6098c04d746f",
+        "fingerprint": "F7:19:12:AA:72:98:53:AF:7B:D3:FD:EF:A9:9F:5D:1D:A9:57:FF:32:BB:A3:86:D6:EF:A2:71:A8:9A:F3:E2:94"
     },
     "signerCertificate": {
         "subject": "C=AU,CN=Services Australia Document Signer",
         "issuer": "C=AU,CN=Services Australia IACA",
-        "notBefore": "2026-02-19T04:41:30Z",
-        "notAfter": "2027-02-19T04:41:30Z",
-        "serialNumber": "535de1a80a2a922ae6017485c846cda14a8654a3",
-        "fingerprint": "B4:32:E8:92:56:AA:D9:51:4E:AD:C0:46:E1:CE:24:EF:14:DD:87:75:94:1A:D1:2A:FD:D4:03:BB:5D:BC:4A:A3"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "85bf78ccdb44a885a4e1d5ef84b980c48174c4de",
+        "fingerprint": "D1:37:08:C7:CA:F2:A2:3F:EF:74:A2:68:B5:9A:F3:69:C7:53:01:B6:81:F5:EB:DF:09:9C:2B:EC:C8:70:5D:4E"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"lAT65zXtvHGE_eguOPEvUXo4kDvmrVkllQBZcDfktMs\",\"y\":\"W8D6SO5bXSljOpUacnN29MOk3l4BQJ7nOkGEvCE1LfU\",\"d\":\"Lzl-5z9lgMYcyQB-3biIDJtHzWlloGvXKPaCwJig1t0\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"m1AB2DPNI7MDCLCouqDmnlN8R6UAOKamMAUrpCyk988\",\"y\":\"KVT_PZLgeQUCZNj6Jug7jyEuoydJ1UoBA5eEF9mzvBM\",\"d\":\"0w8QUGUYGZ0-_FF4RDzJpAc3molZYX6utNur1jXx9tM\"}}",
     "credentialConfigurations": {
         "urn:au:gov:medicare:1": {
             "format": "dc+sd-jwt",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:41:22.158226425Z",
-    "updatedAt": "2026-02-19T04:41:30.171065971Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.639115055Z"
 }

@@ -10,7 +10,8 @@ const getOfferUrl = async (
   vpRequestValue?: string,
   vpProfile?: string,
   useServerKeys?: boolean,
-  issuerId?: string
+  issuerId?: string,
+  statusCallbackUri?: string
 ) => {
   // When issuerId is provided, use tenant-scoped URLs
   const basePath = issuerId ? `/issuers/${issuerId}` : '';
@@ -276,7 +277,18 @@ const getOfferUrl = async (
   const issueUrl =
     NEXT_PUBLIC_ISSUER +
     `${basePath}/openid4vc/${issueEndpoint}/${payload.length > 1 ? 'issueBatch' : 'issue'}`;
-  return axios.post(issueUrl, payload.length > 1 ? payload : payload[0]);
+
+  const headers: Record<string, string> = {};
+  if (statusCallbackUri) {
+    headers['statusCallbackUri'] = statusCallbackUri;
+    console.log('[getOfferUrl] statusCallbackUri:', statusCallbackUri);
+  } else {
+    console.log('[getOfferUrl] no statusCallbackUri provided');
+  }
+
+  return axios.post(issueUrl, payload.length > 1 ? payload : payload[0], {
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
+  });
 };
 
 export { getOfferUrl };

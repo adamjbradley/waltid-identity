@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "N5VTpQdNlv9682SInKlkQlSPCcPbM1TKiCTaxmy_MYc",
-        "y": "fizPZvh5IeXtj15NLweEpAPjqdfGYtNpmMooDtOjfUw",
-        "d": "Yt_zryHlpGTWod2a_ljTJHmmYPQgQBDzBp_MArRJlpQ"
+        "x": "oueNIQOouHA8bMvvYueq_BYKNJxmwx6_HLIBe72HvEk",
+        "y": "d5uOPBPmfaJRAZRTvClgXvYt7mbVyjPrGrAkWpdRAx4",
+        "d": "hoVvMoketJNSE2BiIn8BwMOVowV1qe7dFVOg6bOTZEk"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=SG,CN=Government Technology Agency IACA",
         "issuer": "C=SG,CN=Government Technology Agency IACA",
-        "notBefore": "2026-02-19T04:43:33Z",
-        "notAfter": "2031-02-18T04:43:33Z",
-        "serialNumber": "b85a455b6911da354aa9d9dd67d9299bf6f60adf",
-        "fingerprint": "F5:7B:BF:7D:0D:62:31:DA:59:61:BD:09:1F:70:58:EB:17:8C:A4:DD:D0:AD:1F:EF:4E:06:F8:28:DD:01:35:7C"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "b68ac7d7584639110606d44e2e08b8e6b4af6af6",
+        "fingerprint": "A5:29:F2:37:D9:17:46:37:BA:BB:1B:D3:E1:B5:77:83:D1:EC:EB:DA:B9:98:CB:B4:FB:33:46:1B:A1:9C:A1:E5"
     },
     "signerCertificate": {
         "subject": "C=SG,CN=Government Technology Agency Document Signer",
         "issuer": "C=SG,CN=Government Technology Agency IACA",
-        "notBefore": "2026-02-19T04:43:33Z",
-        "notAfter": "2027-02-19T04:43:33Z",
-        "serialNumber": "2c6554407e7649c1f9643fa1f125adcd0905f8c2",
-        "fingerprint": "AF:C4:78:E2:B6:A3:0C:9D:E0:D3:97:86:1C:87:E7:7A:8C:08:37:DC:3C:FE:44:B7:49:AA:19:54:E3:29:AF:E8"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "d102b48becdbd4982f4a1af2b3724e0a29eecf2d",
+        "fingerprint": "D1:9D:0F:62:7E:2C:7E:85:C2:D0:16:FA:BE:5A:0C:AA:79:19:C1:7B:B9:0B:CE:C5:97:C0:C8:A0:0B:D3:D5:58"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"eO_pCKdRLbhELVGD6xgC_6r9c44gw_XkzlLI3SH6khA\",\"y\":\"bZXwwSAjebPCLFp3iGswr9jQ-tAuDZK6y9bafrlZQ2k\",\"d\":\"8iWcVhqXVm0TJJ7ecJewHJBNuIyJSBI5_ONgsbPwdBU\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"x7crCzuA3viC9qNP6z6LpY5RGTRmWv5q_pT6kCyR3Tc\",\"y\":\"tC_PqpQhT5B2x5en8G1CB1jykI0vB_ACOahQlgT4Mss\",\"d\":\"PoubwhAMP487UILmQxw6h2_alRq3Mo8qTUK9SsSnN6Q\"}}",
     "credentialConfigurations": {
         "eu.europa.ec.eudi.pid.1": {
             "format": "mso_mdoc",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:43:26.651560552Z",
-    "updatedAt": "2026-02-19T04:43:33.748009125Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.741849680Z"
 }

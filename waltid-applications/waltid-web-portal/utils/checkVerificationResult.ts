@@ -14,10 +14,12 @@ export function getStateFromUrl(url: string) {
 export async function checkVerificationResult(
     verifierURL: string,
     sessionId: string,
-    isApi2: boolean = false
+    isApi2: boolean = false,
+    timeoutMs: number = 300_000
 ): Promise<boolean> {
+    const startTime = Date.now();
     const endpoint = isApi2
-        ? `${verifierURL}/verification-session/${encodeURIComponent(sessionId)}`
+        ? `${verifierURL}/verification-session/${encodeURIComponent(sessionId)}/info`
         : `${verifierURL}/openid4vc/session/${encodeURIComponent(sessionId)}`;
 
     return new Promise((resolve) => {
@@ -29,11 +31,11 @@ export async function checkVerificationResult(
 
                 const data = response.data;
 
-                // API2 uses 'state' field, legacy uses 'verificationResult'
+                // API2 uses 'status' field from /info endpoint, legacy uses 'verificationResult'
                 if (isApi2) {
-                    if (data.state === 'SUCCESS') {
+                    if (data.status === 'SUCCESSFUL' || data.status === 'SUCCESS') {
                         return resolve(true);
-                    } else if (data.state === 'FAILED') {
+                    } else if (data.status === 'UNSUCCESSFUL' || data.status === 'FAILED') {
                         return resolve(false);
                     }
                 } else {
@@ -45,9 +47,13 @@ export async function checkVerificationResult(
                 }
 
                 setTimeout(poll, 1000);
-            } catch (error) {
-                console.error("Error fetching session:", error);
-                return resolve(false);
+            } catch (error: any) {
+                // On network error or 4xx/5xx, retry instead of failing
+                // (the session may not be ready yet)
+                if (Date.now() - startTime > timeoutMs) {
+                    return resolve(false);
+                }
+                setTimeout(poll, 2000);
             }
         };
 

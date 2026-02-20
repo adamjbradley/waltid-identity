@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "mHA0pl2GvjSgydL_evJH2fYlb9M4ri1SS4uZq7W5z_M",
-        "y": "06JMgIra1sEQa3fllKm1tz410yv3Dcwmz6h4B-SX86E",
-        "d": "0HqPs_2dVtGo12k423BJQdanIu2jwT7f4mB7iGMEja0"
+        "x": "byZ3T772bqLgG-wejHeNGd7WXwL454fbRGYiHJqIyn8",
+        "y": "p6_lv8mjaVxXWT6cq6EUNpwxeaU1B5F-vcsPxD7vwl0",
+        "d": "8mEfklMSxjnSFc4Gg6Gy0aNKwDnnzvMGPMb3IR-tRsc"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=AU,CN=Transport for NSW IACA",
         "issuer": "C=AU,CN=Transport for NSW IACA",
-        "notBefore": "2026-02-19T04:41:22Z",
-        "notAfter": "2031-02-18T04:41:22Z",
-        "serialNumber": "295af8d015a741f5d59f6de64565c94167aae0ce",
-        "fingerprint": "AF:03:0A:AD:7F:17:AD:C4:DC:E8:E9:9D:BC:E5:28:40:83:40:93:CA:AE:86:91:9C:3F:4D:DB:ED:2D:5F:30:91"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "11fe3b614ebc77fa26e51998c4800f7a5a8e6fa6",
+        "fingerprint": "94:49:C8:85:A7:41:96:18:CE:63:C8:BE:7D:42:C6:30:99:BB:0C:9E:42:CC:39:14:88:BA:76:FC:AA:0F:7C:68"
     },
     "signerCertificate": {
         "subject": "C=AU,CN=Transport for NSW Document Signer",
         "issuer": "C=AU,CN=Transport for NSW IACA",
-        "notBefore": "2026-02-19T04:41:22Z",
-        "notAfter": "2027-02-19T04:41:22Z",
-        "serialNumber": "6f5b358b226273671671afc26bc0bd8ce3f25e74",
-        "fingerprint": "61:02:48:93:C2:4D:B5:03:CD:FA:41:6A:0C:7E:4A:66:ED:76:28:34:57:F7:29:DF:CF:5C:14:D2:16:35:E0:7C"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "a4b6d6ef79cdf2b173bb9d4963f30d2f45b2a2ac",
+        "fingerprint": "3D:78:AF:C2:42:B5:C5:AF:B1:9D:48:69:3F:33:DC:8D:46:8F:A9:B6:D7:9A:E5:EE:22:88:18:B7:CD:8B:CF:73"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EJXZNOclEnFkUwT-lfdu2qsEgRplyuZj3m-cjJLis8E\",\"y\":\"HdlrBQovyZWWWooW1x76iphj2ga25J7NpiKk-K9_oAo\",\"d\":\"YZ855s9vvZt4Wod1L15TvZ6qpFKV53Qrn7TYCnVep9M\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EmAAGYY1WWZjr3FatfKCl_eYHl7HYMc09wrXQj2ikyA\",\"y\":\"BqMRYE66wGlnuQ5VDcILrQcjL24Guvk5muRX4-XqO2g\",\"d\":\"UTXoy2iYNojcaGKeW8g87P9chZcfUXJ6j6JZ5o240f0\"}}",
     "credentialConfigurations": {
         "urn:au:gov:dl:1": {
             "format": "dc+sd-jwt",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:41:14.466021130Z",
-    "updatedAt": "2026-02-19T04:41:22.140928633Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.684388055Z"
 }

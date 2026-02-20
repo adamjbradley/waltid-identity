@@ -93,6 +93,18 @@ jest.mock('@/components/walt/credential/Credential', () => ({
   ),
 }));
 
+// Mock WalletLaunchModal (uses headless-ui Dialog which doesn't render well in jsdom)
+jest.mock('@/components/walt/modal/WalletLaunchModal', () => ({
+  __esModule: true,
+  default: (props: any) => props.show ? <div data-testid="wallet-launch-modal" data-mode={props.mode} /> : null,
+}));
+
+const mockCreateVerificationSession = jest.fn();
+jest.mock('@/utils/createVerificationSession', () => ({
+  __esModule: true,
+  createVerificationSession: (...args: any[]) => mockCreateVerificationSession(...args),
+}));
+
 jest.mock('@/components/walt/modal/CustomCredentialModal', () => ({
   __esModule: true,
   default: () => <div data-testid="custom-modal" />,
@@ -564,8 +576,14 @@ describe('VerificationSection', () => {
       expect(defaultOption.value).toBe('');
     });
 
-    it('verify button includes rpId in the pushed URL', async () => {
+    it('verify button passes rpId to createVerificationSession', async () => {
       mockAxiosGet.mockResolvedValueOnce({ data: mockRpList });
+      mockCreateVerificationSession.mockResolvedValueOnce({
+        verifyUrl: 'https://example.com/verify',
+        sessionId: 'test-session',
+        isApi2: true,
+        verifierUrl: 'https://verifier.example.com',
+      });
 
       await act(async () => {
         renderWithProviders(<VerificationSection />, { env: rpEnv });
@@ -587,9 +605,9 @@ describe('VerificationSection', () => {
         fireEvent.click(verifyButton);
       });
 
-      expect(mockPush).toHaveBeenCalled();
-      const pushedUrl = mockPush.mock.calls[0][0] as string;
-      expect(pushedUrl).toContain('rpId=rp-1');
+      expect(mockCreateVerificationSession).toHaveBeenCalled();
+      const callArgs = mockCreateVerificationSession.mock.calls[0][0];
+      expect(callArgs.rpId).toBe('rp-1');
     });
   });
 
