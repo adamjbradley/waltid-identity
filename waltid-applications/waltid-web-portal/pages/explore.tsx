@@ -13,13 +13,17 @@ interface TenantSummary {
   hasCertificate: boolean;
 }
 
+interface CredentialConfig {
+  format: string;
+  vct?: string;
+  display?: { name: string; locale?: string }[];
+}
+
 interface IssuerDetail {
   id: string;
   legalName: string;
   country: string;
-  credentialConfigurations: {
-    credentials: { configId: string; format: string; vct?: string }[];
-  };
+  credentialConfigurations?: Record<string, CredentialConfig>;
 }
 
 const COUNTRY_META: Record<string, { name: string; flag: string }> = {
@@ -183,58 +187,63 @@ export default function Explore() {
 
         {!loading && !error && countryGroups.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {countryGroups.map((group) =>
-              group.issuers.map((issuer) => {
-                const credentials = issuer.credentialConfigurations?.credentials ?? [];
-                return (
-                  <div
-                    key={issuer.id}
-                    className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center gap-3 mb-1">
-                      {group.flag && <span className="text-2xl">{group.flag}</span>}
-                      <h2 className="text-xl font-semibold text-gray-900">
-                        {group.name}
-                      </h2>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-4 ml-10">
-                      {issuer.legalName}
-                    </p>
+            {countryGroups.map((group) => (
+              <div
+                key={group.name}
+                className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  {group.flag && <span className="text-2xl">{group.flag}</span>}
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {group.name}
+                  </h2>
+                </div>
 
-                    <div className="space-y-3">
-                      {credentials.map((cred) => {
-                        const formatLabel = FORMAT_LABELS[cred.format] ?? cred.format;
-                        const title = CREDENTIAL_TITLES[cred.configId] ?? cred.configId;
-                        return (
-                          <div
-                            key={cred.configId}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm font-medium text-gray-800 truncate">
-                                {title}
-                              </span>
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${formatBadgeColor[formatLabel] || 'bg-gray-100 text-gray-700'}`}>
-                                {formatLabel}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => handleIssue(cred.configId, issuer.id)}
-                              className="ml-3 px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors whitespace-nowrap"
-                            >
-                              Issue &rarr;
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {credentials.length === 0 && (
-                        <p className="text-sm text-gray-400 italic">No credentials configured</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                <div className="space-y-5">
+                  {group.issuers.map((issuer) => {
+                    const credEntries = Object.entries(issuer.credentialConfigurations ?? {});
+                    return (
+                      <div key={issuer.id}>
+                        <h3 className="text-sm font-semibold text-gray-600 mb-2">
+                          {issuer.legalName}
+                        </h3>
+                        <div className="space-y-2">
+                          {credEntries.map(([configId, conf]) => {
+                            const formatLabel = FORMAT_LABELS[conf.format] ?? conf.format;
+                            const displayName = conf.display?.[0]?.name;
+                            const title = displayName ?? CREDENTIAL_TITLES[configId] ?? configId;
+                            return (
+                              <div
+                                key={configId}
+                                className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-sm font-medium text-gray-800 truncate">
+                                    {title}
+                                  </span>
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${formatBadgeColor[formatLabel] || 'bg-gray-100 text-gray-700'}`}>
+                                    {formatLabel}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleIssue(configId, issuer.id)}
+                                  className="ml-3 px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors whitespace-nowrap"
+                                >
+                                  Issue &rarr;
+                                </button>
+                              </div>
+                            );
+                          })}
+                          {credEntries.length === 0 && (
+                            <p className="text-sm text-gray-400 italic">No credentials configured</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
