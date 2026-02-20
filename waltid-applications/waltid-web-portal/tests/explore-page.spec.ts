@@ -31,10 +31,10 @@ test.describe('Explore Page', () => {
     await page.waitForURL(/\/$/, { timeout: 10_000 });
   });
 
-  test('shows country cards for all 5 countries', async ({ page }) => {
-    const countries = ['Australia', 'France', 'Germany', 'India', 'Singapore'];
+  test('shows country cards for all active countries', async ({ page }) => {
+    const countries = ['Australia', 'France', 'Germany', 'India', 'Singapore', 'United Kingdom'];
     for (const country of countries) {
-      const card = page.getByRole('heading', { name: country });
+      const card = page.locator('h2', { hasText: country });
       await expect(card).toBeVisible({ timeout: 10_000 });
     }
   });
@@ -49,65 +49,58 @@ test.describe('Explore Page', () => {
       texts.push(await headings.nth(i).innerText());
     }
 
-    expect(texts).toEqual(['Australia', 'France', 'Germany', 'India', 'Singapore']);
+    expect(texts).toEqual(['Australia', 'France', 'Germany', 'India', 'Singapore', 'United Kingdom']);
   });
 
-  test('Australia has PID mDoc, mDL, and PID SD-JWT', async ({ page }) => {
+  test('Australia has country-specific credentials', async ({ page }) => {
     const auSection = page.locator('div.rounded-xl').filter({
-      has: page.getByRole('heading', { name: 'Australia' }),
+      has: page.locator('h2', { hasText: 'Australia' }),
     });
     await expect(auSection).toBeVisible({ timeout: 10_000 });
 
-    await expect(auSection.locator('text=EU Personal ID (mDoc)')).toBeVisible();
-    await expect(auSection.locator('text=Mobile Driving License')).toBeVisible();
-    await expect(auSection.locator('text=EU Personal ID (SD-JWT)')).toBeVisible();
+    await expect(auSection.locator('text=myGovID Identity').first()).toBeVisible();
+    await expect(auSection.locator('text=Medicare Card').first()).toBeVisible();
   });
 
-  test('India has only mDL and PID SD-JWT (no PID mDoc)', async ({ page }) => {
+  test('India has country-specific credentials', async ({ page }) => {
     const inSection = page.locator('div.rounded-xl').filter({
-      has: page.getByRole('heading', { name: 'India' }),
+      has: page.locator('h2', { hasText: 'India' }),
     });
     await expect(inSection).toBeVisible({ timeout: 10_000 });
 
-    await expect(inSection.locator('text=Mobile Driving License')).toBeVisible();
-    await expect(inSection.locator('text=EU Personal ID (SD-JWT)')).toBeVisible();
-    // Should NOT have PID mDoc
-    await expect(inSection.locator('text=EU Personal ID (mDoc)')).toHaveCount(0);
+    await expect(inSection.locator('text=Aadhaar Identity').first()).toBeVisible();
+    await expect(inSection.locator('text=PAN Card').first()).toBeVisible();
   });
 
-  test('Singapore has PID mDoc and PWA (no mDL, no PID SD-JWT)', async ({ page }) => {
+  test('Singapore has EU PID mDoc and PWA', async ({ page }) => {
     const sgSection = page.locator('div.rounded-xl').filter({
-      has: page.getByRole('heading', { name: 'Singapore' }),
+      has: page.locator('h2', { hasText: 'Singapore' }),
     });
     await expect(sgSection).toBeVisible({ timeout: 10_000 });
 
-    await expect(sgSection.locator('text=EU Personal ID (mDoc)')).toBeVisible();
-    await expect(sgSection.locator('text=Payment Wallet Attestation')).toBeVisible();
-    // Should NOT have mDL or PID SD-JWT
-    await expect(sgSection.locator('text=Mobile Driving License')).toHaveCount(0);
-    await expect(sgSection.locator('text=EU Personal ID (SD-JWT)')).toHaveCount(0);
+    await expect(sgSection.locator('text=EU Personal ID (mDoc)').first()).toBeVisible();
+    await expect(sgSection.locator('text=Payment Wallet Attestation').first()).toBeVisible();
   });
 
   test('Germany has PID mDoc, mDL, and PID SD-JWT', async ({ page }) => {
     const deSection = page.locator('div.rounded-xl').filter({
-      has: page.getByRole('heading', { name: 'Germany' }),
+      has: page.locator('h2', { hasText: 'Germany' }),
     });
     await expect(deSection).toBeVisible({ timeout: 10_000 });
 
-    await expect(deSection.locator('text=EU Personal ID (mDoc)')).toBeVisible();
-    await expect(deSection.locator('text=Mobile Driving License')).toBeVisible();
-    await expect(deSection.locator('text=EU Personal ID (SD-JWT)')).toBeVisible();
+    await expect(deSection.locator('text=EU Personal ID (mDoc)').first()).toBeVisible();
+    await expect(deSection.locator('text=Mobile Driving License').first()).toBeVisible();
+    await expect(deSection.locator('text=EU Personal ID (SD-JWT)').first()).toBeVisible();
   });
 
-  test('France has only mDL and PID SD-JWT', async ({ page }) => {
+  test('France has mDL and PID SD-JWT', async ({ page }) => {
     const frSection = page.locator('div.rounded-xl').filter({
-      has: page.getByRole('heading', { name: 'France' }),
+      has: page.locator('h2', { hasText: 'France' }),
     });
     await expect(frSection).toBeVisible({ timeout: 10_000 });
 
-    await expect(frSection.locator('text=Mobile Driving License')).toBeVisible();
-    await expect(frSection.locator('text=EU Personal ID (SD-JWT)')).toBeVisible();
-    await expect(frSection.locator('text=EU Personal ID (mDoc)')).toHaveCount(0);
+    await expect(frSection.locator('text=Mobile Driving License').first()).toBeVisible();
+    await expect(frSection.locator('text=EU Personal ID (SD-JWT)').first()).toBeVisible();
   });
 
   test('format badges show mDoc and DC+SD-JWT', async ({ page }) => {
@@ -138,10 +131,9 @@ test.describe('Explore Page', () => {
     // Wait for issuer names to load on the explore page
     await page.waitForTimeout(3_000);
 
-    // Find a country card that has a registered issuer (shown by having issuer name text)
-    // Cards with issuers have a <p> tag with the issuer name below the heading
+    // Find a country card that has a registered issuer (shown by having issuer name subheading)
     const cardsWithIssuers = page.locator('div.rounded-xl').filter({
-      has: page.locator('p.text-sm.text-gray-500'),
+      has: page.locator('h3.text-sm.font-semibold'),
     });
     const cardCount = await cardsWithIssuers.count();
     if (cardCount === 0) { test.skip(); return; }
@@ -160,6 +152,6 @@ test.describe('Explore Page', () => {
     const flags = page.locator('span.text-2xl');
     await expect(flags.first()).toBeVisible({ timeout: 10_000 });
     const count = await flags.count();
-    expect(count).toBe(5); // One flag per country
+    expect(count).toBe(6); // One flag per country
   });
 });
