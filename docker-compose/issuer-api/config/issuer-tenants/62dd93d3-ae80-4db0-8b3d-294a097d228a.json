@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "94dX9DcqBJpox3gYFZ2Vu75zTGXmXFT39XHSjIl63bk",
-        "y": "SWsnV6gsu3VmRLkqG9WOKmQ7hZBCNXXix15G9en_n_w",
-        "d": "HuOlN0KVSAd7vKQtw3sdXbT98ZjbcnZi390yfJf7DG0"
+        "x": "ootQdYPwPUSv5PlWLU2qgHPfMkEtmaFbn-xsobecy4A",
+        "y": "Vyji1HXE7pAukVQje91im9AYTj1Flb4sbnRlIpNMJp8",
+        "d": "A7G6qgulQkTaOsUAwr0HU99rFn-Clzy5oHlQzlXII2M"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
         "issuer": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
-        "notBefore": "2026-02-19T04:43:26Z",
-        "notAfter": "2031-02-18T04:43:26Z",
-        "serialNumber": "b989eb600e73a7d645f95903f814d6065bc9a5a5",
-        "fingerprint": "2B:74:C1:78:D1:73:86:FB:D0:E8:FC:48:EA:A5:F3:4E:FF:3B:FC:90:D0:2F:F1:1C:B3:C2:31:5B:36:D6:E0:4B"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "7b24b7cebc336b50bd36a04d059787fcde092719",
+        "fingerprint": "55:7E:12:34:82:B8:E3:63:E9:DC:84:82:80:43:56:3F:48:83:C5:A8:9D:96:C1:C9:F7:6E:CA:2B:70:DD:73:3A"
     },
     "signerCertificate": {
         "subject": "C=DE,CN=Kraftfahrt-Bundesamt Document Signer",
         "issuer": "C=DE,CN=Kraftfahrt-Bundesamt IACA",
-        "notBefore": "2026-02-19T04:43:26Z",
-        "notAfter": "2027-02-19T04:43:26Z",
-        "serialNumber": "75838dde1454b62f85140ffd1f86490e2f62a862",
-        "fingerprint": "7F:C1:F8:A3:1D:F1:8D:FB:D9:E7:C1:E2:EE:CF:5B:FA:02:23:AA:23:91:D0:28:51:24:6B:67:18:C1:7D:96:A5"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "9774d226a3d44e8c1982675b3e8fbab49f9ae389",
+        "fingerprint": "62:CD:B1:6C:DE:19:86:E7:6D:FE:07:A8:C8:2C:36:79:BE:5B:DB:84:CC:85:BC:52:AE:57:83:EC:23:8D:D8:5C"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"U2gU4MCU3CfMmc7Jg4Jih6Qra9W7Fm_qyRO8jjRUZ6Y\",\"y\":\"JZbRjvg8pLM8Gor6opx-DrsCuSJFwYD9V7aNie_3fFk\",\"d\":\"YpJN8_wPAZ1ZAx3vQU6Y4_NQfszYy_wk1DR8tpJ5zv8\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"41tIsCeUdLB6AYe64HsCj80dWwTg14ssUBe1FlteMY8\",\"y\":\"lo0M7iVwKqhg1HxcS78CBc4C9T8SjFq1nCbs3Dmyo8w\",\"d\":\"jsdh4aRe2Gr4lt-oO6MbvwAg0OwNE9S7XJNmMLaw-nw\"}}",
     "credentialConfigurations": {
         "org.iso.18013.5.1.mDL": {
             "format": "mso_mdoc",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:43:15.973161214Z",
-    "updatedAt": "2026-02-19T04:43:26.625177635Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.522822347Z"
 }

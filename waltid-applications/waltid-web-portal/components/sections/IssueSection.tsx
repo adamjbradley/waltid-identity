@@ -13,6 +13,8 @@ import {sendToWebWallet} from "@/utils/sendToWebWallet";
 import nextConfig from "@/next.config";
 import {LockClosedIcon, BuildingLibraryIcon} from "@heroicons/react/24/outline";
 import axios from "axios";
+import WalletLaunchModal from "@/components/walt/modal/WalletLaunchModal";
+import {getIssuanceSessionId} from "@/utils/checkIssuanceResult";
 
 interface IssuerTenantSummary {
   id: string;
@@ -41,6 +43,11 @@ export default function IssueSection() {
     VpProfiles[0]
   );
   const [useServerKeys, setUseServerKeys] = useState<boolean>(true);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [offerUrl, setOfferUrl] = useState('');
+  const [issuanceSessionId, setIssuanceSessionId] = useState('');
 
   // Multi-tenant issuer selection
   const issuerRegistrarEnabled = (env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
@@ -201,28 +208,41 @@ export default function IssueSection() {
         offer.data
       );
     } else {
-      console.log('show qr-offer');
-      localStorage.setItem('offer', JSON.stringify(credentialsToIssue));
-      let url = `/offer?ids=${idsToIssue.join(',')}`;
-      url = url + `&authenticationMethod=${selectedAuthenticationMethod}`;
-      if (requireVpRequestValue && vpRequestValue?.trim().length) {
-        url = url + `&vpRequestValue=${vpRequestValue}`;
-      }
-      if (requireVpProfile && selectedVpProfile?.trim().length) {
-        url = url + `&vpProfile=${selectedVpProfile}`;
-      }
-      if (hasEudiFormat && useServerKeys) {
-        url = url + `&useServerKeys=true`;
-      }
-      if (issuerId) {
-        url = url + `&issuerId=${issuerId}`;
-        const tenant = tenants.find((t) => t.id === issuerId);
-        if (tenant) {
-          url = url + `&issuerName=${encodeURIComponent(tenant.legalName)}`;
-        }
-      }
+      // Open modal immediately, fetch offer URL async
+      setOfferUrl('');
+      setIssuanceSessionId('');
+      setModalOpen(true);
 
-      await router.push(url);
+      try {
+        // Build callback URI so issuer notifies us when credential is claimed
+        // Use configured internal URL if available (Docker: issuer can't reach browser origin)
+        const callbackBase = env.NEXT_PUBLIC_PORTAL_CALLBACK_URL
+          ?? nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_PORTAL_CALLBACK_URL
+          ?? window.location.origin;
+        const callbackUri = `${callbackBase}/api/issuance-status/$id`;
+        console.log('[IssueSection] callbackBase:', callbackBase, 'callbackUri:', callbackUri);
+
+        const response = await getOfferUrl(
+          credentialsToIssue,
+          env.NEXT_PUBLIC_VC_REPO ?? nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VC_REPO,
+          env.NEXT_PUBLIC_ISSUER ?? nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER,
+          selectedAuthenticationMethod,
+          requireVpRequestValue && vpRequestValue?.trim().length ? vpRequestValue : undefined,
+          requireVpProfile && selectedVpProfile?.trim().length ? selectedVpProfile : undefined,
+          hasEudiFormat && useServerKeys,
+          issuerId,
+          callbackUri
+        );
+        const url = response.data;
+        setOfferUrl(url);
+
+        // Extract session ID from the offer URL for status polling
+        const sid = getIssuanceSessionId(url);
+        if (sid) setIssuanceSessionId(sid);
+      } catch (err) {
+        console.error('Error creating offer:', err);
+        setModalOpen(false);
+      }
     }
   }
 
@@ -410,6 +430,22 @@ export default function IssueSection() {
           <WaltIcon height={15} width={15} type="gray" />
         </div>
       </div>
+
+      <WalletLaunchModal
+        show={modalOpen}
+        onClose={() => setModalOpen(false)}
+        mode="issue"
+        credentialUrl={offerUrl}
+        sessionId={issuanceSessionId || undefined}
+        walletUrl={env.NEXT_PUBLIC_WALLET ?? nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_WALLET as string}
+        walletPath="api/siop/initiateIssuance"
+        walletMetadata={
+          selectedTenantId
+            ? {issuerName: tenants.find((t) => t.id === selectedTenantId)?.legalName || ''}
+            : undefined
+        }
+        isEudi={hasEudiFormat}
+      />
     </>
   );
 }

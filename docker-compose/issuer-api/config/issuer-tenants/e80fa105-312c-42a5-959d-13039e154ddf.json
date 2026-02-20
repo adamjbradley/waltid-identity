@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "wWXKOrSFZ3ZDiYuZFM6zm78Q6C8SmomHWuAv_N9ZHPg",
-        "y": "fmBOq25Xoc6oFOuMJGoPgzJY6Z7QkdxwyXrsdCnyXwQ",
-        "d": "aTF-7YBaT61Jgcudrdjh4aNV7cWEQpPY7Fkf5TkvZIE"
+        "x": "jeSfMB1aYsdExLXTMn-gO5Ebtn7xo2ov-r9tPRwu2EU",
+        "y": "tU3fwuCVSqMo_vOlAqJCc_LoDUU2iL_JhghH1jnyY1A",
+        "d": "GXfbe1vBmUunhjRvhQ7t5-BlbfRiTkint3n8X2rPcms"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=AU,CN=Commonwealth Bank of Australia IACA",
         "issuer": "C=AU,CN=Commonwealth Bank of Australia IACA",
-        "notBefore": "2026-02-19T04:43:54Z",
-        "notAfter": "2031-02-18T04:43:54Z",
-        "serialNumber": "2c1a89b58c50126135e39a4ed97f21a53ea755ae",
-        "fingerprint": "0A:91:92:52:06:2E:3F:86:6C:AE:CD:A6:5F:57:5A:48:E5:51:71:60:5C:36:18:8F:EF:EC:BB:5B:1B:17:9F:80"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "37f03f0523f5cd116d921a71803a0601175ddc68",
+        "fingerprint": "2C:F8:3D:30:A2:11:FD:AC:11:3F:AD:D4:E5:86:5C:23:BA:B0:9F:FF:E3:3E:3B:62:DE:61:CD:4D:23:F3:82:69"
     },
     "signerCertificate": {
         "subject": "C=AU,CN=Commonwealth Bank of Australia Document Signer",
         "issuer": "C=AU,CN=Commonwealth Bank of Australia IACA",
-        "notBefore": "2026-02-19T04:43:54Z",
-        "notAfter": "2027-02-19T04:43:54Z",
-        "serialNumber": "28c42ad2f24c105f778d3143186a4bb43c25b6dd",
-        "fingerprint": "95:B1:DB:FC:B4:39:24:CB:10:34:04:FF:C3:55:F7:F4:80:05:69:33:C6:B7:FA:6B:64:3B:62:0A:17:A4:1C:50"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "49d6262805d188db3d6d5291e916bf1ca3593ef4",
+        "fingerprint": "E0:80:C9:DF:51:1A:14:74:EA:9E:7A:37:32:03:B4:B2:FD:3D:F1:0A:CC:C0:A0:EE:4C:E7:69:33:7A:22:FB:24"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"bcMAqGWdnyCvaPQyRu6r7ferxzVorng5hvOcl4rsMAc\",\"y\":\"iymf8Ewgnuo3W7Kc2zE6KIeHherIWEpfwQQKa56T8hk\",\"d\":\"KQ_M5bupyfecINFksUnlxD1nYeIuxICavzP1a81Vjhk\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"mm_Q_egqaDHSQO71gylcMYM0gRc3OpdMVzHlMXZkIHo\",\"y\":\"uE-J67azYZvjHmSDT9lRdo3QjwZTUGXKpZzJgQ-ZmSQ\",\"d\":\"irZGO28-Sv2i0m_fGUQlIXvsc2SjzvXc7VHmSkdz1wc\"}}",
     "credentialConfigurations": {
         "PaymentWalletAttestation": {
             "format": "dc+sd-jwt",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:43:42.708543712Z",
-    "updatedAt": "2026-02-19T04:43:54.439826384Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.589739930Z"
 }

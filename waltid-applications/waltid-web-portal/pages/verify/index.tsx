@@ -5,13 +5,13 @@ import {CredentialsContext, EnvContext} from "@/pages/_app";
 import Icon from "@/components/walt/logo/Icon";
 import {useRouter} from "next/router";
 import QRCode from "react-qr-code";
-import axios from "axios";
 import {sendToWebWallet} from "@/utils/sendToWebWallet";
 import {isMobileDevice} from "@/utils/deviceDetection";
 import nextConfig from "@/next.config";
 import BackButton from "@/components/walt/button/BackButton";
-import {CredentialFormats, mapFormat, isEudiFormat, buildDcqlQuery, buildVerificationSessionRequest, VerificationSigningConfig} from "@/types/credentials";
-import {checkVerificationResult, getStateFromUrl} from "@/utils/checkVerificationResult";
+import {CredentialFormats} from "@/types/credentials";
+import {checkVerificationResult} from "@/utils/checkVerificationResult";
+import {createVerificationSession} from "@/utils/createVerificationSession";
 
 const BUTTON_COPY_TEXT_DEFAULT = 'Copy offer URL';
 const BUTTON_COPY_TEXT_COPIED = 'Copied';
@@ -39,180 +39,46 @@ export default function Verification() {
   }
 
   useEffect(() => {
-    // Wait for router to be ready with query parameters
     if (!router.isReady) return;
 
     const getverifyURL = async () => {
       try {
-        let vps = router.query.vps?.toString().split(',') ?? [];
-        let ids = router.query.ids?.toString().split(',') ?? [];
-        let format = router.query.format?.toString() ?? CredentialFormats[0];
-        let credentials = AvailableCredentials.filter((cred) => {
+        const vps = router.query.vps?.toString().split(',') ?? [];
+        const ids = router.query.ids?.toString().split(',') ?? [];
+        const format = router.query.format?.toString() ?? CredentialFormats[0];
+        const credentials = AvailableCredentials.filter((cred) => {
           for (const id of ids) {
-            if (id.toString() == cred.id.toString()) {
-              return true;
-            }
+            if (id.toString() == cred.id.toString()) return true;
           }
           return false;
         });
 
-        const credFormat = mapFormat(format);
+        const result = await createVerificationSession({
+          credentials,
+          format,
+          vps,
+          rpId: router.query.rpId?.toString(),
+          env: env as Record<string, string | undefined>,
+          runtimeConfig: (nextConfig.publicRuntimeConfig ?? {}) as Record<string, string | undefined>,
+        });
 
-        // Route EUDI formats (dc+sd-jwt, mso_mdoc) to Verifier API2
-        if (isEudiFormat(credFormat)) {
-          const verifier2Url = env.NEXT_PUBLIC_VERIFIER2 || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2;
-
-          if (!verifier2Url) {
-            setError('EUDI verification requires Verifier API2 configuration (NEXT_PUBLIC_VERIFIER2)');
-            setLoading(false);
-            return;
-          }
-
-          const dcqlQuery = buildDcqlQuery(credentials, credFormat);
-
-          // Build signing config - prefer RP-specific config when rpId is present
-          let signingConfig: VerificationSigningConfig | undefined;
-          const rpId = router.query.rpId?.toString();
-
-          if (rpId && verifier2Url) {
-            try {
-              const rpDetail = await axios.get(`${verifier2Url}/admin/rp/${rpId}`);
-              const certResponse = await axios.get(`${verifier2Url}/admin/rp/${rpId}/certificate/download`, {
-                transformResponse: [(data: string) => data],
-              });
-              const rpData = rpDetail.data;
-              if (rpData.legalName) setRpHintName(rpData.legalName);
-              if (rpData.x5c && rpData.x5c.length > 0) {
-                const certDownload = JSON.parse(certResponse.data);
-                signingConfig = {
-                  clientId: rpData.clientId,
-                  key: { type: 'jwk', jwk: certDownload.privateKeyJwk },
-                  x5c: rpData.x5c,
-                };
-              }
-            } catch (e) {
-              console.warn('Failed to fetch RP signing config, falling back to env:', e);
-            }
-          }
-
-          // Fall back to environment variables if no RP config
-          if (!signingConfig) {
-            const clientId = env.NEXT_PUBLIC_VERIFIER2_CLIENT_ID || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_CLIENT_ID;
-            const signingKeyJson = env.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_SIGNING_KEY;
-            const x5c = env.NEXT_PUBLIC_VERIFIER2_X5C || nextConfig.publicRuntimeConfig?.NEXT_PUBLIC_VERIFIER2_X5C;
-
-            if (clientId && signingKeyJson && x5c) {
-              try {
-                signingConfig = {
-                  clientId,
-                  key: JSON.parse(signingKeyJson),
-                  x5c: [x5c],
-                };
-              } catch (e) {
-                console.warn('Failed to parse verifier signing config:', e);
-              }
-            }
-          }
-
-          // Pre-generate sessionId so we can embed it in redirect URLs
-          const preSessionId = crypto.randomUUID();
-          const successUrl = `${window.location.origin}/success/${preSessionId}?api2=true`;
-
-          const requestBody = buildVerificationSessionRequest(
-            dcqlQuery, signingConfig, vps,
-            { success_redirect_uri: successUrl, error_redirect_uri: successUrl },
-            preSessionId
-          );
-
-          const response = await axios.post(
-            `${verifier2Url}/verification-session/create`,
-            requestBody,
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          // API2 returns an object with bootstrapAuthorizationRequestUrl
-          const verificationUrl = response.data.bootstrapAuthorizationRequestUrl;
-          const sessionId = response.data.sessionId;
-
-          setverifyURL(verificationUrl);
-          setUsedApi2(true);
+        if (result.error) {
+          setError(result.error);
           setLoading(false);
+          return;
+        }
 
-          const state = sessionId || getStateFromUrl(verificationUrl);
-          if (state) {
-            checkVerificationResult(verifier2Url, state, true).then((result) => {
-              if (result) {
-                router.push(`/success/${state}?api2=true`);
-              }
-            });
-          }
-        } else {
-          // Legacy formats (jwt_vc_json, vc+sd-jwt) use existing Verifier API
-          const standardVersion = 'draft13'; // ['draft13', 'draft11']
-          const issuerMetadataConfigSelector = {
-            'draft13': 'credential_configurations_supported',
-            'draft11': 'credentials_supported',
-          }
+        setverifyURL(result.verifyUrl);
+        setUsedApi2(result.isApi2);
+        if (result.rpHintName) setRpHintName(result.rpHintName);
+        setLoading(false);
 
-          const issuerMetadata = await axios.get(`${env.NEXT_PUBLIC_ISSUER ? env.NEXT_PUBLIC_ISSUER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_ISSUER}/${standardVersion}/.well-known/openid-credential-issuer`);
-          const request_credentials = credentials.map((credential) => {
-            if (credFormat === 'vc+sd-jwt') {
-              const vct = issuerMetadata.data[issuerMetadataConfigSelector[standardVersion]][`${credential.offer.type[credential.offer.type.length - 1]}_vc+sd-jwt`]?.vct;
-              return {
-                vct,
-                format: 'vc+sd-jwt',
-              };
-            } else {
-              return {
-                type: credential.offer.type?.[credential.offer.type.length - 1] || credential.id,
-                format: credFormat,
-              };
+        if (result.sessionId) {
+          checkVerificationResult(result.verifierUrl, result.sessionId, result.isApi2).then((success) => {
+            if (success) {
+              router.push(`/success/${result.sessionId}${result.isApi2 ? '?api2=true' : ''}`);
             }
           });
-
-          let requestBody: any = {
-            request_credentials: request_credentials,
-          };
-
-          if (credFormat !== 'vc+sd-jwt') {
-            requestBody.vc_policies = vps.map((vp) => {
-              if (vp.includes('=')) {
-                return {
-                  policy: vp.split('=')[0],
-                  args: vp.split('=')[1],
-                };
-              } else {
-                return vp;
-              }
-            });
-          }
-
-          const verifierUrl = env.NEXT_PUBLIC_VERIFIER ? env.NEXT_PUBLIC_VERIFIER : nextConfig.publicRuntimeConfig!.NEXT_PUBLIC_VERIFIER;
-          const response = await axios.post(
-            `${verifierUrl}/openid4vc/verify`,
-            requestBody,
-            {
-              headers: {
-                successRedirectUri: `${window.location.origin}/success/$id`,
-                errorRedirectUri: `${window.location.origin}/success/$id`,
-              },
-            }
-          );
-          setverifyURL(response.data);
-          setLoading(false);
-
-          const state = getStateFromUrl(response.data);
-          if (state) {
-            checkVerificationResult(verifierUrl, state, false).then((result) => {
-              if (result) {
-                router.push(`/success/${state}`);
-              }
-            });
-          }
         }
       } catch (err) {
         console.error('Error creating verification session:', err);
@@ -238,7 +104,6 @@ export default function Verification() {
   }
 
   function openWebWallet() {
-    // Pass RP hints when rpId is present (implies RP registrar enabled)
     const metadata: Record<string, string> = {};
     if (rpHintName) metadata.rpName = rpHintName;
 
@@ -253,7 +118,6 @@ export default function Verification() {
   }
 
   function openInEudiWallet() {
-    // Deep link directly to EUDI wallet app on same device
     window.location.href = verifyURL;
   }
 
@@ -288,7 +152,6 @@ export default function Verification() {
             />
           )}
         </div>
-        {/* Same-device button for EUDI formats - show on all devices for EUDI, mobile detection for UX only */}
         {usedApi2 && !loading && !error && (
           <div className="mb-4">
             <Button onClick={openInEudiWallet} style="button" className="w-full bg-blue-600 hover:bg-blue-700">

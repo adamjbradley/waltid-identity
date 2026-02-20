@@ -6,19 +6,7 @@ import axios from "axios";
 import nextConfig from "@/next.config";
 import Modal from "@/components/walt/modal/BaseModal";
 import {EnvContext} from "@/pages/_app";
-
-interface FlowParticipant {
-  role: string;
-  name: string;
-  detail?: string;
-}
-
-const VCT_DISPLAY_NAMES: Record<string, string> = {
-  'urn:eudi:pid:1': 'EU Personal ID',
-  'eu.europa.ec.eudi.pid.1': 'EU Personal ID (mDoc)',
-  'org.iso.18013.5.1.mDL': 'Mobile Driving Licence',
-  'PaymentWalletAttestation': 'Payment Wallet Attestation',
-};
+import VerificationResultView, {FlowParticipant, VCT_DISPLAY_NAMES} from "@/components/walt/verification/VerificationResultView";
 
 export default function Success() {
   const env = useContext(EnvContext);
@@ -47,6 +35,7 @@ export default function Success() {
   const [modal, setModal] = useState<boolean>(false);
   const [sessionStatus, setSessionStatus] = useState<string>('');
   const [flowParticipants, setFlowParticipants] = useState<FlowParticipant[]>([]);
+  const [api2SessionData, setApi2SessionData] = useState<any | null>(null);
 
   function parseJwt(token: string) {
     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
@@ -75,6 +64,7 @@ export default function Success() {
       axios.get(`${verifier2Url}/verification-session/${router.query.sessionId}/info`)
         .then((response) => {
           const session = response.data;
+          setApi2SessionData(session);
 
           // Extract session status
           setSessionStatus(session.status || '');
@@ -390,6 +380,26 @@ export default function Success() {
       passText: 'Policy check passed',
       failText: 'Policy check failed',
     };
+  }
+
+  // API2 sessions use the shared VerificationResultView component
+  if (api2SessionData) {
+    return (
+      <div className={`min-h-screen flex justify-center items-start sm:items-center py-8 ${isFailure ? 'bg-red-50' : 'bg-gray-50'}`}>
+        <div className="relative w-full sm:w-10/12 md:w-8/12 lg:w-6/12 text-center shadow-2xl rounded-lg pt-8 pb-8 px-10 bg-white">
+          <h1 className="text-3xl text-gray-900 text-center font-bold mb-6">
+            {isFailure ? 'Verification Report' : 'Presented Credentials'}
+          </h1>
+          <VerificationResultView sessionData={api2SessionData} />
+          <div className="flex flex-col items-center mt-8">
+            <div className="flex flex-row gap-2 items-center content-center text-sm text-center text-gray-500">
+              <p>Secured by walt.id</p>
+              <WaltIcon height={15} width={15} type="gray" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

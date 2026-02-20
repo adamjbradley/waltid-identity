@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "QUTVW5ybofYp65MB5wW5faF-iRyADiL6bAdTliYNhn0",
-        "y": "ApU3eSJ4eVGyAGHGfUjw1Sv2E0KFT9Y3EPmNDr4ehx8",
-        "d": "E87enoHyDmyhyJHJ5tito8Mua-tlmmAiAAPHNhsDcGs"
+        "x": "47R3XpVFCfj5bn1-2-1rDjsUACDCoq-GPeVmXwkq1-w",
+        "y": "HVJDVHKkGZRcunLtKtbXKJAIVCij9gM77Ez2XDwkz7M",
+        "d": "yCWifGrwIdqOBaz9KT8HcZurbxLT3hbtib1TdA3R_I4"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=DE,CN=Bundesdruckerei GmbH IACA",
         "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
-        "notBefore": "2026-02-19T04:39:56Z",
-        "notAfter": "2031-02-18T04:39:56Z",
-        "serialNumber": "b01c51cdc70ee52cdd5801d46114347f6b1059a2",
-        "fingerprint": "1B:AA:F0:49:01:78:6E:A3:8E:CE:B5:B7:24:52:14:C2:D0:61:80:D6:59:21:3B:1F:E0:74:F3:1B:A2:55:30:31"
+        "notBefore": "2026-02-20T01:17:33Z",
+        "notAfter": "2031-02-19T01:17:33Z",
+        "serialNumber": "c6d403ab5f1c571c6ec022c20c4bf5eedc3834bc",
+        "fingerprint": "F8:35:31:31:4B:B5:E1:F9:70:C2:49:36:63:41:A3:E4:76:65:54:9E:F2:CA:1E:BA:20:CB:7D:2D:39:4E:13:07"
     },
     "signerCertificate": {
         "subject": "C=DE,CN=Bundesdruckerei GmbH Document Signer",
         "issuer": "C=DE,CN=Bundesdruckerei GmbH IACA",
-        "notBefore": "2026-02-19T04:39:56Z",
-        "notAfter": "2027-02-19T04:39:56Z",
-        "serialNumber": "b9955d0d579486d66845f2eada0be06406ef2e7d",
-        "fingerprint": "BC:79:AD:AD:EC:06:AB:C7:8F:C0:BF:3D:D0:56:89:B2:CF:E5:74:4B:77:39:ED:93:37:9F:0D:6E:4D:4A:9C:C8"
+        "notBefore": "2026-02-20T01:17:33Z",
+        "notAfter": "2027-02-20T01:17:33Z",
+        "serialNumber": "3a76904311cadc71434984ffbb5036e5c95b6db1",
+        "fingerprint": "64:3B:13:C5:F6:3E:DF:56:A5:E8:AA:6C:9B:E1:20:15:1A:AE:5F:4F:37:BC:44:13:D7:76:FA:5B:6A:08:97:0D"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"5jF-8EXRtTxjZXITrEdM2hfj7nSyLv85PC8ug1aIMbE\",\"y\":\"EP2USkRnhOvXvbXP4FVoKz9lW_qIDKIMmdA3k3xhaVc\",\"d\":\"Xqc6f35YsqqpR0CkeaM1XrGKGcNs7yMIsF5f0hJt9tw\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"4cRgmbybC1KmPCv8rJYe14MB5XFWIsa02eaLh4it7lw\",\"y\":\"ot923ixnt_dI6yVn5ZxO4dBckPMvbkGxCITU-o7uvMw\",\"d\":\"Z5sSyNtX0YmZo3koOeWQl4_ulL22N8nLoitHCqi7f0M\"}}",
     "credentialConfigurations": {
         "eu.europa.ec.eudi.pid.1": {
             "format": "mso_mdoc",
@@ -65,6 +65,5 @@
         }
     },
     "createdAt": "2026-02-13T04:57:22.158299760Z",
-    "updatedAt": "2026-02-19T04:43:15.959928547Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:17:33.101616007Z"
 }

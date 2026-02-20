@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "_qKebQCPV-LKqynpp8cYGt3KcPqxHbqZgYs7jJCSHIM",
-        "y": "g22ewLd6G6KHxE6o5ZvqYtP4_HKlORz3XhZzIBUJFag",
-        "d": "9wbIX0Woz5jDu1G5KuIjhsQtSHnyyI3m9A2ib6EKJ34"
+        "x": "zxHrtDUE0OwasDvNUyATqSp7f_H_gIA8J8r3LkIRC9I",
+        "y": "_zoxqDKQCSFuaMF1ldHf-F9vMqO9j-hrsJdf6RPPI38",
+        "d": "Yi0i7MT6-wKkHsV7q8K-NmkcK1Hb0icGiYXsi9RhHHM"
     },
     "x5Chain": [
-        "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"
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=IN,CN=Ministry of Road Transport and Highways IACA",
         "issuer": "C=IN,CN=Ministry of Road Transport and Highways IACA",
-        "notBefore": "2026-02-19T04:42:53Z",
-        "notAfter": "2031-02-18T04:42:53Z",
-        "serialNumber": "75001d10cd1b69aad6286bfb196b52195b4ace5c",
-        "fingerprint": "36:E9:41:9B:86:86:D5:67:5B:6F:42:6D:70:90:B8:91:0F:1F:77:A3:88:5A:05:44:E8:17:AA:1F:E3:0A:36:9C"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "49901e2f82279cbed8a0854d6596654379eb3a96",
+        "fingerprint": "8C:65:A6:37:2B:A5:03:87:C3:DB:F5:8B:20:BE:E4:91:80:2D:C5:B1:F8:6E:E5:AD:B7:4D:93:A5:63:A9:58:F4"
     },
     "signerCertificate": {
         "subject": "C=IN,CN=Ministry of Road Transport and Highways Document Signer",
         "issuer": "C=IN,CN=Ministry of Road Transport and Highways IACA",
-        "notBefore": "2026-02-19T04:42:53Z",
-        "notAfter": "2027-02-19T04:42:53Z",
-        "serialNumber": "9cd6939eff4487e85c03de370ba0bc55a2b53f6d",
-        "fingerprint": "3C:CB:13:15:2C:DF:56:A8:CC:9B:D0:03:BE:7A:86:CE:B9:F3:0A:93:26:16:3B:67:18:2C:3C:95:14:0F:51:23"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "3c07c1fe3684f3bd8124cef501ff904da6ee2013",
+        "fingerprint": "A0:9A:CD:83:62:09:87:73:E4:8E:7E:40:1F:EF:CC:67:BA:91:18:83:4A:F7:BF:A0:ED:E4:CC:85:60:AD:A5:4F"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"H5ZvW9ZUTQXlJdh1VazfY8Tv5UCj0wHo8lmTR8KrIXs\",\"y\":\"HgVIpMEiuQuOXnewqCaehiXQf65eHUejCu_BYpAiT1g\",\"d\":\"XbAAeWVNQjop3OuAfupaoRQ37yA-U2Q0wi2_N1npNRk\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"CRecBk4RPyrg7G6N-sGdj_WfbhxpyA4mvFVqjK507CE\",\"y\":\"8EcL0au-NcgC0LDdCBTPNWUIxQUSwq4QnnqZdK2j8vY\",\"d\":\"uEv122Xi4zh9usvMQhbT_246bn-4lug5cD6itd4jD2A\"}}",
     "credentialConfigurations": {
         "urn:in:gov:dl:1": {
             "format": "dc+sd-jwt",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:42:47.020912923Z",
-    "updatedAt": "2026-02-19T04:42:53.468001301Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.722142014Z"
 }

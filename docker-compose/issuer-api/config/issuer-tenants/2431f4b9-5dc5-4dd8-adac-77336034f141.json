@@ -7,31 +7,31 @@
     "issuerKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "MvXADn74TENOVrdSdgB0ISK0btT2pX_EldzYg_MU6Ak",
-        "y": "5FvJyPG6GXNG-bajUEd-qCty1SqQPbacVd_N-c9Q0ro",
-        "d": "HmmqQ6A4JIvBUrk65K6qjD5E1KpLNXJ9cDEGFBvfWeA"
+        "x": "UIZDPRBnGE_KCrkQ5_-1LEuyt8CUhRa30ORHgIZHPX0",
+        "y": "dSxUWrZrogj7wngpQZNHPI8ouyczZA1J1J0A_2T-tyI",
+        "d": "Hq68IpNK1ZcoGT7j6NuDZz0YaLmOzuKInICGwVhoRWM"
     },
     "x5Chain": [
-        "MIIB4jCCAYigAwIBAgIVAOPNcIE4fdxE7W9YVpLXE6HGV9MJMAoGCCqGSM49BAMCMDcxKDAmBgNVBAMMH0dvdmVybm1lbnQgRGlnaXRhbCBTZXJ2aWNlIElBQ0ExCzAJBgNVBAYTAkdCMB4XDTI2MDIxOTA0NDMwNloXDTI3MDIxOTA0NDMwNlowQjEzMDEGA1UEAwwqR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOmTFzgXmlVir3s6IpXS7XPW69qeQ3mN614A0zl7H61ucx2s0jSUkfSu6SNY0BL3CRwSFVR5JnTRogK9YkWcDryjZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBQn/+EWBiXwyF+HNMc07ZHybHLCWzAfBgNVHSMEGDAWgBQ9bAi5lTNG5a8IK4THhdV/G29M+TAKBggqhkjOPQQDAgNIADBFAiB3OF8hDTTGvhMcfDT985UGiM+cDXsFbqPdPSfm65aEhwIhAMKCO34AEPZr7VYNLSOQorZeLX8BuqsgplRxU8om3iYM",
-        "MIIB1DCCAXmgAwIBAgIUKsloveSLj2TCex6YnKvL0ZqG4bMwCgYIKoZIzj0EAwIwNzEoMCYGA1UEAwwfR292ZXJubWVudCBEaWdpdGFsIFNlcnZpY2UgSUFDQTELMAkGA1UEBhMCR0IwHhcNMjYwMjE5MDQ0MzA2WhcNMzEwMjE4MDQ0MzA2WjA3MSgwJgYDVQQDDB9Hb3Zlcm5tZW50IERpZ2l0YWwgU2VydmljZSBJQUNBMQswCQYDVQQGEwJHQjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOOXJ+2ZuS1MVpvEbjDS7qtjMyU2zncqwFtjyf8XBy5CMM5T6tDeTuCAXpSijYub2o7kuhwD48JPw0OhQIGxbZyjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQ9bAi5lTNG5a8IK4THhdV/G29M+TAfBgNVHSMEGDAWgBQ9bAi5lTNG5a8IK4THhdV/G29M+TAKBggqhkjOPQQDAgNJADBGAiEAsIudPbTpzfAMLoZZL0GtJA8WEU2JKU+lRza3mu8sGW8CIQCy++HYN7+YO3eWjehEBIVr3KpxlXHm67Um2RWeUABb/w=="
+        "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"
     ],
     "iacaCertificate": {
         "subject": "C=GB,CN=Government Digital Service IACA",
         "issuer": "C=GB,CN=Government Digital Service IACA",
-        "notBefore": "2026-02-19T04:43:06Z",
-        "notAfter": "2031-02-18T04:43:06Z",
-        "serialNumber": "2ac968bde48b8f64c27b1e989cabcbd19a86e1b3",
-        "fingerprint": "4E:D9:23:23:6A:AE:0F:25:35:79:64:08:AB:80:01:7A:F0:AD:39:B8:2F:49:FA:9C:CB:80:25:8E:D3:C2:A3:E4"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2031-02-19T01:19:17Z",
+        "serialNumber": "f40502e8528ae37a28e05e277da3e737b79c25b9",
+        "fingerprint": "E9:17:08:D2:DE:15:91:9B:6C:1F:73:74:88:A0:D9:C7:27:87:40:DB:75:44:8F:C3:33:38:77:C9:22:EE:AD:22"
     },
     "signerCertificate": {
         "subject": "C=GB,CN=Government Digital Service Document Signer",
         "issuer": "C=GB,CN=Government Digital Service IACA",
-        "notBefore": "2026-02-19T04:43:06Z",
-        "notAfter": "2027-02-19T04:43:06Z",
-        "serialNumber": "e3cd7081387ddc44ed6f585692d713a1c657d309",
-        "fingerprint": "8D:B3:DA:B7:61:4E:82:8C:59:7A:C2:39:3F:E8:27:30:35:89:70:06:CE:6B:80:B3:94:CC:12:7B:BD:57:CD:A6"
+        "notBefore": "2026-02-20T01:19:17Z",
+        "notAfter": "2027-02-20T01:19:17Z",
+        "serialNumber": "f5f18b7b01f6077ef71a3de6a5d777d0a03e8826",
+        "fingerprint": "1F:6F:73:20:AC:5C:0E:5A:23:88:6F:5A:BE:5F:B5:DF:5A:67:84:84:12:1F:B6:FE:81:55:9A:77:A7:4E:0F:03"
     },
-    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"wVMAvm0Fo_x8X3Pp66Wk7GsGmhIjeP3muELqSO_asic\",\"y\":\"0uT4_y3R8dJ-SdMuaiv2xXgLExNDspZXDCbJ36ocZDE\",\"d\":\"bIWD-w0FkIgK9zK_vQ8wuKIdDOhmjuokSNNGdrFHUbc\"}}",
+    "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"6SxnngGax_ve26xBfzA8BwHhzxYbCFll3hN2UvnKFh8\",\"y\":\"km1LVq9T4iPmu2bSReui_EcJMvL18EyZkMQCfz6olxo\",\"d\":\"QYcCrGoCWuT_GlFf6ZKWXMwPtmCFxKbq7FZleQrVpNA\"}}",
     "credentialConfigurations": {
         "urn:uk:gov:govuk-one-login:pid:1": {
             "format": "dc+sd-jwt",
@@ -45,6 +45,5 @@
         }
     },
     "createdAt": "2026-02-19T04:43:00.546873304Z",
-    "updatedAt": "2026-02-19T04:43:06.260239626Z",
-    "status": "ACTIVE"
+    "updatedAt": "2026-02-20T01:19:17.613210347Z"
 }

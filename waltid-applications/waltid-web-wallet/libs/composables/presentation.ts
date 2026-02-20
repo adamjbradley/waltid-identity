@@ -255,7 +255,7 @@ export async function usePresentation(query: any) {
 
       // Priority 2: RP-provided redirect_uri (mobile flow)
       const rpRedirectUri = new URL(window.location.href).searchParams.get('redirect_uri');
-      if (rpRedirectUri && rpRedirectUri.startsWith('https://')) {
+      if (rpRedirectUri && (rpRedirectUri.startsWith('https://') || rpRedirectUri.startsWith('http://localhost'))) {
         navigateTo(rpRedirectUri, { external: true });
         return;
       }
