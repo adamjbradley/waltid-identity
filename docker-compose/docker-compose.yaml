@@ -72,12 +72,13 @@ services:
       - .env
     extra_hosts:
       - "$SERVICE_HOST:host-gateway"
-      - "issuer.theaustraliahack.com:host-gateway"
+    entrypoint: ["/bin/sh", "-c", "keytool -import -trustcacerts -cacerts -storepass changeit -noprompt -alias caddy-local -file /etc/ssl/certs/caddy-root-ca.crt 2>/dev/null; exec java -cp @/app/jib-classpath-file id.walt.openid4vp.verifier.MainKt"]
     environment:
       RP_REGISTRAR_ENABLED: ${RP_REGISTRAR_ENABLED:-false}
     volumes:
       - ./verifier-api2/config:/waltid-verifier-api2/config
       - verifier-api2-data:/waltid-verifier-api2/data
+      - ./caddy-root-ca.crt:/etc/ssl/certs/caddy-root-ca.crt:ro
 
 
   waltid-demo-wallet:
@@ -326,6 +327,10 @@ services:
         protocol: tcp
         mode: host
 
+    networks:
+      default:
+        aliases:
+          - issuer.theaustraliahack.com
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./issuer-api/tsl.xml:/etc/caddy/tsl/tsl.xml:ro

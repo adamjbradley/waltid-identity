@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Git Workflow
 
 **IMPORTANT:** This is a fork of `walt-id/waltid-identity`. When creating pull requests:
@@ -10,511 +8,87 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-walt.id Identity is an open-source digital identity and wallet platform providing libraries, APIs, and white-label applications for credential issuance, verification, and wallet management. It supports W3C Verifiable Credentials, SD-JWT, and ISO mdoc formats via OpenID4VC/VP protocols.
+walt.id Identity is an open-source digital identity and wallet platform for credential issuance, verification, and wallet management. Supports W3C VCs, SD-JWT, and ISO mdoc via OpenID4VC/VP.
 
 ## Repository Structure
 
 ```
-waltid-identity/
-├── waltid-libraries/       # Core multiplatform libraries (Kotlin)
-│   ├── auth/               # Authentication (ktor-authnz, permissions, idpkit)
-│   ├── crypto/             # Cryptography (crypto, cose, x509, KMS integrations)
-│   ├── credentials/        # Credential handling (w3c, mdoc, dcql, policies)
-│   ├── protocols/          # Protocol implementations (openid4vc, openid4vp)
-│   ├── sdjwt/              # Selective Disclosure JWT
-│   └── waltid-did/         # Decentralized Identifiers
-├── waltid-services/        # Production REST APIs
-│   ├── waltid-issuer-api/  # Credential issuance
-│   ├── waltid-verifier-api/  # Legacy verifier (OID4VP drafts)
-│   ├── waltid-verifier-api2/ # Modern verifier (OID4VP 1.0 + DCQL)
-│   └── waltid-wallet-api/  # Wallet backend
-├── waltid-applications/    # End-user applications
-│   ├── waltid-web-wallet/  # Vue/Nuxt PWA wallet
-│   ├── waltid-web-portal/  # Next.js issuer/verifier portal
-│   └── waltid-cli/         # Command-line interface
-├── docker-compose/         # Docker deployment configs
-└── build-logic/            # Gradle build plugins
+waltid-libraries/          # Core multiplatform Kotlin libraries (auth, crypto, credentials, protocols, sdjwt, did)
+waltid-services/           # REST APIs (issuer-api, verifier-api, verifier-api2, wallet-api)
+waltid-applications/       # End-user apps (web-wallet: Vue/Nuxt, web-portal: Next.js, cli)
+docker-compose/            # Docker deployment configs
+build-logic/               # Gradle build plugins
 ```
 
-## Build Commands
+## Build & Test
 
 ```bash
-# Full build
-./gradlew clean build
-
-# Build specific module
-./gradlew :waltid-services:waltid-issuer-api:build
-./gradlew :waltid-libraries:credentials:waltid-w3c-credentials:build
-
-# Build Docker images locally (requires Java 21)
-./gradlew jibDockerBuild
-```
-
-## Test Commands
-
-```bash
-# Run all tests
-./gradlew allTests
-
-# JVM tests only
-./gradlew jvmTest
-
-# Tests for specific module
-./gradlew :waltid-services:waltid-wallet-api:test
-
-# Specific test class or method
-./gradlew :module-path:test --tests "com.example.TestClass"
-./gradlew :module-path:test --tests "com.example.TestClass.testMethod"
-
-# Integration and E2E tests
-./gradlew :waltid-services:waltid-integration-tests:test
-./gradlew :waltid-services:waltid-e2e-tests:test
-
-# Portal tests (Next.js web portal)
-cd waltid-applications/waltid-web-portal && npx jest --no-coverage
+./gradlew clean build                                          # Full build
+./gradlew :waltid-services:waltid-issuer-api:build             # Specific module
+./gradlew jibDockerBuild                                       # Docker images (Java 21)
+./gradlew allTests                                             # All tests
+./gradlew :module-path:test --tests "com.example.TestClass"    # Specific test
+cd waltid-applications/waltid-web-portal && npx jest --no-coverage  # Portal tests
 ```
 
 ## Docker Compose
 
 ```bash
 cd docker-compose
-
-# Start all services (MUST use --profile flag)
 docker compose --profile identity pull && docker compose --profile identity up
-
-# Available profiles: services, apps, identity, valkey, tse, opa, all
-docker compose --profile all up  # Everything including vault, opa, valkey
-
-# Start specific service with dependencies
-docker compose --profile identity up waltid-demo-wallet
-
-# Build webapp images locally
-docker compose --profile identity build
+# Profiles: services, apps, identity, valkey, tse, opa, all
 ```
 
-**Note:** The `--profile` flag is required. Setting `COMPOSE_PROFILES` in `.env` does not
-automatically activate profiles - you must use `docker compose --profile <name>` explicitly.
+`--profile` flag is required. `VERSION_TAG` in `.env` defaults to `stable`. Tag local builds: `docker tag waltid/issuer-api:latest waltid/issuer-api:stable`
 
-### Building Local Service Images
+**Service Ports:** Wallet API: 7001, Issuer API: 7002, Verifier API: 7003, Verifier API2: 7004, Demo Wallet: 7101, Web Portal: 7102
 
-The docker-compose.yaml uses `VERSION_TAG` from `.env` (default: `stable`) for service images.
-Gradle's jib plugin builds to the `latest` tag. To use locally built images:
+### Rebuilding Individual Images
 
 ```bash
-# Build a service image (from repo root)
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
+# Portal (Next.js) — image name is waltid/portal, NOT waltid/waltid-web-portal
+cd waltid-applications/waltid-web-portal
+docker build -t waltid/portal:stable .
 
-# Tag as stable (or whatever VERSION_TAG is set to in .env)
+# Kotlin services (via Gradle jib) — run from repo root
+./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
 docker tag waltid/issuer-api:latest waltid/issuer-api:stable
 
-# Restart the service
-cd docker-compose
-docker compose --profile identity up -d issuer-api
+# Then restart the service
+cd docker-compose && docker compose --profile identity up -d --force-recreate <service-name>
 ```
 
-**Image Tags:**
-- `latest` / `1.0.0-SNAPSHOT`: Built by `./gradlew jibDockerBuild`
-- `stable`: Used by docker-compose (VERSION_TAG in .env)
-- Always tag locally built images to match VERSION_TAG before restarting services
+### Internal HTTPS (Caddy)
 
-**Service Ports:**
-- Wallet API: 7001
-- Issuer API: 7002
-- Verifier API: 7003
-- Verifier API2: 7004
-- Demo Wallet: 7101
-- Web Portal: 7102
+Caddy provides internal TLS for `issuer.theaustraliahack.com:443` so verifier-api2 can reach status list URLs embedded in credentials. The caddy root CA cert (`caddy-root-ca.crt`) is imported into the verifier-api2 JVM truststore at startup. If Caddy regenerates its CA, re-extract:
+
+```bash
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root-ca.crt
+```
 
 ## Technology Stack
 
-- **Language:** Kotlin 2.3.0 (multiplatform: JVM, JS, iOS)
-- **Build:** Gradle with Kotlin DSL, Java 21 for services
-- **Web Framework:** Ktor 3.3.3
-- **Serialization:** Kotlinx Serialization
-- **Testing:** JUnit 5, Mokkery for mocking
-- **Crypto:** BouncyCastle, Nimbus JOSE, Google Tink
+Kotlin 2.3.0 (multiplatform), Gradle/Kotlin DSL, Java 21, Ktor 3.3.3, Kotlinx Serialization, JUnit 5/Mokkery, BouncyCastle/Nimbus JOSE/Tink
 
-## Code Style
+## Architecture
 
-- Kotlin official code style (`kotlin.code.style=official`)
-- Web apps use Prettier (check individual `.prettierrc` configs)
+- Applications → Services → Libraries (layered)
+- `verifier-api2` = modern (OID4VP 1.0 + DCQL); `verifier-api` = legacy
+- EUDI wallets require signed JAR requests via `verifier-api2`
 
-## Architecture Notes
+## Feature Flags
 
-**Layered Design:**
-- Applications depend on Services
-- Services depend on Libraries
-- Libraries are multiplatform-first with platform-specific implementations where needed
+All in `docker-compose/.env`, default `false`:
 
-**Key Abstractions:**
-- `waltid-digital-credentials`: Unified credential format abstraction (W3C, SD-JWT, mdoc)
-- `waltid-openid4vp`: Production OpenID4VP 1.0 implementation
-- `waltid-openid4vc`: Draft protocol implementations (being deprecated)
+| Flag | Controls |
+|------|----------|
+| `TRUST_LISTS_ENABLED` | ETSI trust list validation |
+| `OPENID_FEDERATION_ENABLED` | OpenID Federation trust source |
+| `ISSUER_REGISTRAR_ENABLED` | Multi-tenant issuer onboarding |
+| `RP_REGISTRAR_ENABLED` | Relying party onboarding |
+| `MT_WALLET_ENABLED` | MT identity in wallet |
+| `PWA_ENABLED` | Payment Wallet Attestation |
 
-**Verification:**
-- `waltid-verifier-api2` is the modern verifier using OpenID4VP 1.0 + DCQL
-- `waltid-verifier-api` is legacy (draft protocols)
-- **EUDI wallets require signed JAR requests** - see "EUDI Verification API" section for required payload format
+## Feature Details
 
-## EUDI Wallet Compatibility
-
-**IMPORTANT:** EUDI wallet support requires a **custom-built Docker image** - the standard Docker Hub images do NOT include these fixes.
-
-### Building and Deploying the Custom Issuer
-
-```bash
-# 1. Build the custom issuer image (from repo root)
-./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
-
-# 2. Tag to match docker-compose VERSION_TAG
-docker tag waltid/issuer-api:latest waltid/issuer-api:stable
-
-# 3. Force recreate the container with the new image
-cd docker-compose
-docker compose up -d --force-recreate issuer-api
-```
-
-### Verified EUDI Credential Formats
-
-| Credential | Config ID | Format | VCT/DocType |
-|------------|-----------|--------|-------------|
-| PID mDoc | `eu.europa.ec.eudi.pid.1` | `mso_mdoc` | `eu.europa.ec.eudi.pid.1` |
-| mDL | `org.iso.18013.5.1.mDL` | `mso_mdoc` | `org.iso.18013.5.1.mDL` |
-| PID SD-JWT | `eu.europa.ec.eudi.pid_vc_sd_jwt` | `dc+sd-jwt` | `urn:eudi:pid:1` |
-
-### Key Requirements
-
-- **Format:** Use `dc+sd-jwt` (NOT `vc+sd-jwt`) for SD-JWT credentials
-- **Proofs:** Use JWT proofs (NOT CWT) for all EUDI credentials
-- **VCT:** SD-JWT PID must use VCT `urn:eudi:pid:1`
-- **Keys:** Use valid P-256 EC keys with correct curve coordinates
-
-### Portal Format Selection
-
-| Portal Option | API Format |
-|---------------|------------|
-| DC+SD-JWT (EUDI) | `dc+sd-jwt` |
-| mDoc (ISO 18013-5) | `mso_mdoc` |
-
-### EUDI Verification Configuration
-
-The verifier services are configured with X.509 certificates for EUDI wallet compatibility.
-
-**verifier-api2 (modern):**
-- URL: `https://verifier2.theaustraliahack.com`
-- Client ID: `x509_san_dns:verifier2.theaustraliahack.com`
-- Certificate: `docker-compose/verifier-api2/keys/verifier2.theaustraliahack.com.cert.pem`
-
-**verifier-api (legacy):**
-- URL: `https://verifier.theaustraliahack.com`
-- Client ID: `verifier.theaustraliahack.com`
-- Certificate: `docker-compose/verifier-api/config/keys/verifier.theaustraliahack.com.cert.pem`
-
-**Important:** The EUDI wallet must have the verifier certificates in its trust store. See [`docs/eudi/wallet-trust-store-update.md`](docs/eudi/wallet-trust-store-update.md) for configuration instructions.
-
-### EUDI Verification API (verifier-api2)
-
-**CRITICAL:** EUDI wallets require **signed JAR (JWT-Secured Authorization Requests)**. You MUST:
-1. Use `verifier-api2`, NOT `verifier-api` (legacy)
-2. Set `signed_request: true` in the request body
-3. Include the signing `key` (JWK with private key) and `x5c` (certificate chain)
-
-See [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md) for copy-paste ready examples.
-
-**Common Wallet Errors:**
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `InvalidClientIdPrefix` | Using verifier-api (legacy) | Use verifier-api2 |
-| `InvalidJarJwt` | Missing signed_request | Add `signed_request: true` with key & x5c |
-| `did not provide a key` | Missing key/x5c | Include both in core_flow |
-
-### EUDI Wallet Testing
-
-For ADB-based testing with copy-paste ready commands and payloads:
-- **Issuance:** [`docs/eudi/issuance-testing.md`](docs/eudi/issuance-testing.md)
-- **Verification:** [`docs/eudi/verification-testing.md`](docs/eudi/verification-testing.md)
-
-**Note:** ADB verification commands require backslash-escaped ampersands (`\&`) - see docs for details.
-
-## Payment Wallet Attestation (PWA)
-
-The issuer-api supports Payment Wallet Attestation (EWC RFC007) for binding payment funding sources to EUDI wallets.
-
-**IMPORTANT: PWA is DISABLED by default.** It requires explicit opt-in and has zero impact on existing flows when disabled.
-
-### Default State
-
-| Location | Default | Notes |
-|----------|---------|-------|
-| `config/pwa.conf` | `enabled = false` | Base config |
-| `docker-compose.yaml` | `${PWA_ENABLED:-false}` | Defaults to `false` |
-| `.env.local` | Does not exist | Gitignored, must be created manually |
-
-### Enable PWA
-
-```bash
-# Create .env.local with PWA enabled
-echo "PWA_ENABLED=true" >> docker-compose/.env.local
-docker compose --profile identity up -d issuer-api
-
-# Verify it's enabled
-curl http://localhost:7002/.well-known/openid-credential-issuer | jq '.credential_configurations_supported.PaymentWalletAttestation'
-```
-
-### Key Features
-
-- **PaymentWalletAttestation** credential type (dc+sd-jwt format)
-- **authorization_details** in token response with credential_identifiers
-- **PSP adapter interface** for production integrations
-- **Feature-flagged** - disabled by default, zero impact on existing flows
-
-### Documentation
-
-- **Overview:** [`docs/pwa/README.md`](docs/pwa/README.md)
-- **Custom PSP Adapter:** [`docs/pwa/custom-psp-adapter.md`](docs/pwa/custom-psp-adapter.md)
-
-### Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `PWA_ENABLED` | `false` | Enable PWA feature (must be explicitly set to `true`) |
-| `PWA_PSP_ADAPTER` | `mock` | PSP adapter implementation |
-
-## EUDI Trust Lists
-
-Validates credential issuers against official EU trust infrastructure (ETSI TS 119 612 Trust Service Lists).
-
-**IMPORTANT: Trust lists are ENABLED by default** in docker-compose. Set `TRUST_LISTS_ENABLED=false` to disable.
-
-### Quick Reference
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `TRUST_LISTS_ENABLED` | `true` | Enable trust list validation |
-| `ETSI_LOTL_URL` | `https://ec.europa.eu/tools/lotl/eu-lotl.xml` | EU LOTL endpoint |
-
-### Key Endpoints
-
-- **Admin status:** `GET http://localhost:7004/admin/trust/status`
-- **Toggle ETSI:** `PUT http://localhost:7004/admin/trust/etsi` with `{"enabled": true/false}`
-- **Refresh lists:** `POST http://localhost:7004/admin/trust/refresh`
-- **List custom TSLs:** `GET http://localhost:7004/admin/trust/custom-tsls`
-- **Import custom TSL:** `POST http://localhost:7004/admin/trust/custom-tsls` with `{"country":"AU","url":"..."}`
-- **Remove custom TSL:** `DELETE http://localhost:7004/admin/trust/custom-tsls/{country}`
-- **Portal UI:** `http://localhost:7102/admin/trust-config`
-
-### Custom Country TSLs
-
-Add trust lists from outside the EU LOTL via config or runtime API:
-
-```hocon
-# In trust-lists.conf
-etsi {
-    additionalTslUrls {
-        AU = "https://issuer.theaustraliahack.com/tsl.xml"
-    }
-}
-```
-
-Custom TSLs do not need to be signed — unsigned TSLs log a warning but are still loaded.
-
-### Verification Policy
-
-Add `etsi-trusted-issuer` to verification sessions to require issuer trust validation.
-
-### Documentation
-
-- **Full guide:** [`docs/trust-lists/README.md`](docs/trust-lists/README.md)
-
-
-## OpenID Federation
-
-The verifier-api2 and wallet-api support OpenID Federation as a trust source for validating issuers and verifiers via hierarchical entity statement chains.
-
-**IMPORTANT: OpenID Federation is DISABLED by default.** It requires both `TRUST_LISTS_ENABLED=true` and `OPENID_FEDERATION_ENABLED=true`, plus at least one configured trust anchor.
-
-### Default State
-
-| Location | Default | Notes |
-|----------|---------|-------|
-| `trust-lists.conf` | `enabled = false` | Base config per service |
-| `docker-compose/.env` | `OPENID_FEDERATION_ENABLED=false` | Docker environment |
-| `trust-lists.conf` | `trustAnchors = []` | No trust anchors configured |
-
-### Enable OpenID Federation
-
-```bash
-# In docker-compose/.env or .env.local
-TRUST_LISTS_ENABLED=true
-OPENID_FEDERATION_ENABLED=true
-
-# Restart services
-docker compose --profile identity up -d verifier-api2
-
-# Verify it's enabled
-curl http://localhost:7004/admin/trust/status | jq '.sources.OPENID_FEDERATION'
-```
-
-Trust anchors must also be configured in `trust-lists.conf`:
-```hocon
-openidFederation {
-    enabled = true
-    trustAnchors = ["https://trust-anchor.example.com"]
-}
-```
-
-### Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `TRUST_LISTS_ENABLED` | `false` | Master switch for all trust list features |
-| `OPENID_FEDERATION_ENABLED` | `false` | Enable OpenID Federation trust source |
-| `ETSI_LOTL_URL` | EU LOTL URL | ETSI List of Trusted Lists URL |
-
-### Documentation
-
-- **Overview:** [`docs/trust-lists/openid-federation.md`](docs/trust-lists/openid-federation.md)
-
-## Issuer Registrar (Multi-Tenant Issuance)
-
-The issuer-api supports multi-tenant credential issuance, allowing multiple organizations to share one deployment with independent keys, certificates, and credential catalogs.
-
-**IMPORTANT: Issuer Registrar is DISABLED by default.** Zero impact on existing flows when disabled.
-
-### Default State
-
-| Location | Default | Notes |
-|----------|---------|-------|
-| `config/issuer-registrar.conf` | `storageDir = "config/issuer-tenants"` | Base config |
-| `docker-compose.yaml` | `${ISSUER_REGISTRAR_ENABLED:-false}` | Defaults to `false` |
-
-### Enable Issuer Registrar
-
-```bash
-# In docker-compose/.env
-ISSUER_REGISTRAR_ENABLED=true
-
-docker compose --profile identity up -d issuer-api
-
-# Verify
-curl http://localhost:7002/admin/issuer
-```
-
-### Key Endpoints
-
-- **List issuers:** `GET http://localhost:7002/admin/issuer`
-- **Register issuer:** `POST http://localhost:7002/admin/issuer`
-- **Generate certs:** `POST http://localhost:7002/admin/issuer/{id}/certificate/generate`
-- **Set credentials:** `PUT http://localhost:7002/admin/issuer/{id}/credentials`
-- **Tenant metadata:** `GET http://localhost:7002/issuers/{id}/draft13/.well-known/openid-credential-issuer`
-- **Tenant issuance:** `POST http://localhost:7002/issuers/{id}/openid4vc/mdoc/issue`
-- **LOTL XML:** `GET http://localhost:7002/admin/issuer/lotl.xml`
-- **Country TSL XML:** `GET http://localhost:7002/admin/issuer/tsl/{CC}.xml`
-
-### Portal Features
-
-- **Admin page:** `http://localhost:7102/admin/issuers` — tenant management, certificate generation, credential configuration
-- **Template picker:** Pre-built credential templates (EUDI, Financial, Identity categories)
-- **Trust list URLs:** Copy LOTL/TSL URLs from issuer detail panel
-- **Tenant issuance dropdown:** Select issuer tenant in the portal issuance flow
-
-### Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ISSUER_REGISTRAR_ENABLED` | `false` | Enable multi-tenant issuance (must be explicitly set to `true`) |
-
-### Documentation
-
-- **Architecture:** [`docs/issuer-registrar/README.md`](docs/issuer-registrar/README.md)
-- **Portal guide:** [`docs/issuer-registrar/portal-guide.md`](docs/issuer-registrar/portal-guide.md)
-- **Cross-border trust:** [`docs/issuer-registrar/cross-border-trust.md`](docs/issuer-registrar/cross-border-trust.md)
-
-## RP Registrar (Multi-Tenant Verification)
-
-The verifier-api2 supports multi-tenant verification, allowing multiple relying parties to share one deployment with independent X.509 certificates, client identifiers, and compliance metadata.
-
-**IMPORTANT: RP Registrar is DISABLED by default.** Zero impact on existing flows when disabled.
-
-### Default State
-
-| Location | Default | Notes |
-|----------|---------|-------|
-| `docker-compose/.env` | `RP_REGISTRAR_ENABLED=false` | Feature flag |
-
-### Enable RP Registrar
-
-```bash
-# In docker-compose/.env
-RP_REGISTRAR_ENABLED=true
-
-docker compose --profile identity up -d verifier-api2
-
-# Verify
-curl http://localhost:7004/admin/rp
-```
-
-### Key Endpoints
-
-- **List RPs:** `GET http://localhost:7004/admin/rp`
-- **Register RP:** `POST http://localhost:7004/admin/rp`
-- **Get RP detail:** `GET http://localhost:7004/admin/rp/{id}`
-- **Generate cert:** `POST http://localhost:7004/admin/rp/{id}/certificate/generate`
-- **Download cert:** `GET http://localhost:7004/admin/rp/{id}/certificate/download`
-- **Change status:** `PUT http://localhost:7004/admin/rp/{id}/status`
-
-### Portal Features
-
-- **Admin page:** `http://localhost:7102/admin/relying-parties` — RP management, certificate generation
-- **Verification dropdown:** Select RP identity in the portal verification flow (`rpId` parameter)
-
-### Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `RP_REGISTRAR_ENABLED` | `false` | Enable multi-tenant verification (must be explicitly set to `true`) |
-
-### Documentation
-
-- **Overview:** [`docs/rp-registrar/README.md`](docs/rp-registrar/README.md)
-- **Portal guide:** [`docs/rp-registrar/portal-guide.md`](docs/rp-registrar/portal-guide.md)
-
-## Multi-Tenant Wallet Awareness
-
-The demo wallet supports multi-tenant (MT) issuer/verifier identity display, gated by `MT_WALLET_ENABLED`.
-
-**IMPORTANT: MT Wallet is DISABLED by default.** When disabled, the wallet behaves exactly as the standard single-tenant experience -- no code paths change.
-
-### Quick Reference
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `MT_WALLET_ENABLED` | `false` | Enable MT issuer/verifier identity in wallet |
-
-### Feature Flags Summary
-
-All feature flags follow the same pattern: defined in `docker-compose/.env`, mapped to container env vars in `docker-compose.yaml`, default to `false`.
-
-| Flag | Controls | Default |
-|------|----------|---------|
-| `TRUST_LISTS_ENABLED` | ETSI trust list validation (verifier + wallet) | `false` |
-| `OPENID_FEDERATION_ENABLED` | OpenID Federation trust source | `false` |
-| `ISSUER_REGISTRAR_ENABLED` | Multi-tenant issuer onboarding (portal + issuer-api) | `false` |
-| `RP_REGISTRAR_ENABLED` | Relying party onboarding (portal + verifier-api2) | `false` |
-| `MT_WALLET_ENABLED` | MT issuer/verifier identity in wallet | `false` |
-| `VERIFY_API_ENABLED` | Verify API service | `false` |
-| `PWA_ENABLED` | Payment Wallet Attestation | `false` |
-
-### Documentation
-
-- **Full guide:** [`docs/mt-wallet/README.md`](docs/mt-wallet/README.md)
-
-## Platform-Specific Builds
-
-```bash
-# Enable Android (requires Android SDK in local.properties)
-./gradlew build -PenableAndroidBuild=true
-
-# Enable iOS (requires kdoctor setup)
-./gradlew build -PenableIosBuild=true
-```
+For EUDI wallet compatibility, trust lists, registrars, PWA, and other feature-specific docs, read [`docs/claude-reference.md`](docs/claude-reference.md) on-demand.

@@ -1,5 +1,4 @@
 {
-	auto_https off
 	admin off
 }
 
@@ -53,7 +52,7 @@
 :{$VERIFIER_API_PORT} {
     header Access-Control-Allow-Origin "*"
     header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    header Access-Control-Allow-Headers "Content-Type, Authorization"
+    header Access-Control-Allow-Headers "Content-Type, Authorization, statusCallbackUri"
 
     @options method OPTIONS
     handle @options {
@@ -72,7 +71,7 @@
 :{$VERIFIER_API2_PORT} {
     header Access-Control-Allow-Origin "*"
     header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    header Access-Control-Allow-Headers "Content-Type, Authorization"
+    header Access-Control-Allow-Headers "Content-Type, Authorization, statusCallbackUri"
 
     @options method OPTIONS
     handle @options {
@@ -123,6 +122,13 @@
 # Verify Portal - Admin UI for Verify API (port 7011)
 :{$VERIFY_PORTAL_PORT:7011} {
     reverse_proxy http://verify-portal:3001
+}
+
+# Internal HTTPS for issuer - allows verifier-api2 to reach status list URLs
+# Credentials embed https://issuer.theaustraliahack.com/... which resolves to caddy via network alias
+issuer.theaustraliahack.com:443 {
+    tls internal
+    reverse_proxy http://issuer-api:{$ISSUER_API_PORT}
 }
 
 # RP Demo containers expose ports directly (4000 and 7020)
