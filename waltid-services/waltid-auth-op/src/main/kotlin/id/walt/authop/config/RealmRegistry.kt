@@ -43,38 +43,41 @@ class RealmRegistry(private val byId: Map<String, RealmConfig>) {
                     .build()
                     .loadConfigOrThrow<RealmsWrapper>()
             } catch (e: ConfigException) {
-                throw IllegalArgumentException("Failed to load realms from $path: ${e.message}", e)
+                // Use localizedMessage (falls back to toString()) so Hoplite's formatted
+                // multi-error description survives instead of being collapsed to `e.message`.
+                throw ConfigLoadException(
+                    path = path,
+                    message = "Failed to load realms from $path:\n${e.localizedMessage ?: e.toString()}",
+                    cause = e,
+                )
             }
 
             val realms = wrapper.realms
             val byId = LinkedHashMap<String, RealmConfig>(realms.size)
             realms.forEach { realm ->
-                validate(realm)
-                require(byId.put(realm.id, realm) == null) {
-                    "Duplicate realm id: '${realm.id}' in $path"
+                validate(path, realm)
+                if (byId.put(realm.id, realm) != null) {
+                    throw ConfigLoadException(path, "Duplicate realm id: '${realm.id}' in $path")
                 }
             }
             return RealmRegistry(byId)
         }
 
-        private fun validate(realm: RealmConfig) {
+        private fun validate(path: String, realm: RealmConfig) {
             val realmRef = "realm '${realm.id}'"
+            fun fail(msg: String): Nothing = throw ConfigLoadException(path, msg)
             when (realm.method) {
                 RealmMethod.OIDC -> {
-                    requireNotNull(realm.oidc) { "$realmRef: method=oidc but 'oidc' block is missing" }
-                    require(realm.oid4vp == null) { "$realmRef: method=oidc but 'oid4vp' block is present" }
+                    if (realm.oidc == null) fail("$realmRef: method=oidc but 'oidc' block is missing")
+                    if (realm.oid4vp != null) fail("$realmRef: method=oidc but 'oid4vp' block is present")
                 }
 
                 RealmMethod.OID4VP -> {
-                    requireNotNull(realm.oid4vp) { "$realmRef: method=oid4vp but 'oid4vp' block is missing" }
-                    require(realm.oidc == null) { "$realmRef: method=oid4vp but 'oidc' block is present" }
-                    requireNotNull(realm.subStrategy) {
-                        "$realmRef: OID4VP realms must declare 'sub_strategy'"
-                    }
-                    if (realm.subStrategy == SubStrategy.CLAIM_HASH) {
-                        require(realm.subSourceClaims.isNotEmpty()) {
-                            "$realmRef: sub_strategy=claim_hash requires non-empty 'sub_source_claims'"
-                        }
+                    if (realm.oid4vp == null) fail("$realmRef: method=oid4vp but 'oid4vp' block is missing")
+                    if (realm.oidc != null) fail("$realmRef: method=oid4vp but 'oidc' block is present")
+                    if (realm.subStrategy == null) fail("$realmRef: OID4VP realms must declare 'sub_strategy'")
+                    if (realm.subStrategy == SubStrategy.CLAIM_HASH && realm.subSourceClaims.isEmpty()) {
+                        fail("$realmRef: sub_strategy=claim_hash requires non-empty 'sub_source_claims'")
                     }
                 }
             }

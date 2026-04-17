@@ -45,7 +45,7 @@ internal class CaseInsensitiveEnumDecoder : Decoder<Any> {
         return if (constant != null) {
             Validated.Valid(constant)
         } else {
-            Validated.Invalid(ConfigFailure.DecodeError(node, type))
+            Validated.Invalid(ConfigFailure.InvalidEnumConstant(node, type, node.value))
         }
     }
 }

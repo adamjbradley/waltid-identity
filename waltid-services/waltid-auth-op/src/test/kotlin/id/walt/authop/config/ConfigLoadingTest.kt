@@ -56,7 +56,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { RealmRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { RealmRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "Duplicate realm id")
     }
 
@@ -72,7 +72,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { RealmRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { RealmRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "sub_strategy")
     }
 
@@ -86,7 +86,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { RealmRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { RealmRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "missing-block")
     }
 
@@ -103,7 +103,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { RealmRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { RealmRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "sub_source_claims")
     }
 
@@ -158,7 +158,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { ClientRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { ClientRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "redirect_uris")
     }
 
@@ -174,7 +174,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { ClientRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { ClientRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "client_secret")
     }
 
@@ -189,7 +189,7 @@ class ConfigLoadingTest {
             ]
             """.trimIndent()
         )
-        val ex = assertFailsWith<IllegalArgumentException> { ClientRegistry.load(file.toString()) }
+        val ex = assertFailsWith<ConfigLoadException> { ClientRegistry.load(file.toString()) }
         assertContains(ex.message ?: "", "Duplicate client_id")
     }
 }

@@ -48,32 +48,39 @@ class ClientRegistry(private val byClientId: Map<String, ClientConfig>) {
                     .build()
                     .loadConfigOrThrow<ClientsWrapper>()
             } catch (e: ConfigException) {
-                throw IllegalArgumentException("Failed to load clients from $path: ${e.message}", e)
+                // Use localizedMessage (falls back to toString()) so Hoplite's formatted
+                // multi-error description survives instead of being collapsed to `e.message`.
+                throw ConfigLoadException(
+                    path = path,
+                    message = "Failed to load clients from $path:\n${e.localizedMessage ?: e.toString()}",
+                    cause = e,
+                )
             }
 
             val byClientId = LinkedHashMap<String, ClientConfig>(wrapper.clients.size)
             wrapper.clients.forEach { client ->
-                validate(client)
-                require(byClientId.put(client.clientId, client) == null) {
-                    "Duplicate client_id: '${client.clientId}' in $path"
+                validate(path, client)
+                if (byClientId.put(client.clientId, client) != null) {
+                    throw ConfigLoadException(path, "Duplicate client_id: '${client.clientId}' in $path")
                 }
             }
             return ClientRegistry(byClientId)
         }
 
-        private fun validate(client: ClientConfig) {
+        private fun validate(path: String, client: ClientConfig) {
             val clientRef = "client '${client.clientId}'"
-            require(client.redirectUris.isNotEmpty()) {
-                "$clientRef: 'redirect_uris' must be non-empty"
+            fun fail(msg: String): Nothing = throw ConfigLoadException(path, msg)
+            if (client.redirectUris.isEmpty()) {
+                fail("$clientRef: 'redirect_uris' must be non-empty")
             }
             when (client.tokenEndpointAuthMethod) {
-                TokenEndpointAuthMethod.NONE -> require(client.clientSecret == null) {
-                    "$clientRef: token_endpoint_auth_method=none but 'client_secret' is set"
+                TokenEndpointAuthMethod.NONE -> if (client.clientSecret != null) {
+                    fail("$clientRef: token_endpoint_auth_method=none but 'client_secret' is set")
                 }
 
                 TokenEndpointAuthMethod.CLIENT_SECRET_BASIC,
-                TokenEndpointAuthMethod.CLIENT_SECRET_POST -> requireNotNull(client.clientSecret) {
-                    "$clientRef: token_endpoint_auth_method=${client.tokenEndpointAuthMethod.name.lowercase()} requires 'client_secret'"
+                TokenEndpointAuthMethod.CLIENT_SECRET_POST -> if (client.clientSecret == null) {
+                    fail("$clientRef: token_endpoint_auth_method=${client.tokenEndpointAuthMethod.name.lowercase()} requires 'client_secret'")
                 }
             }
         }
