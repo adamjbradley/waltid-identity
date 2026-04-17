@@ -111,7 +111,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "age_over_18",
@@ -120,7 +120,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "age_over_21",
@@ -129,7 +129,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]}]}""",
             claimMappings = """{"age_over_21":"is_adult"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "kyc_basic",
@@ -138,7 +138,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "full_kyc",
@@ -147,7 +147,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["nationality"]}]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth","nationality":"nationality"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "transaction_binding",
@@ -165,7 +165,7 @@ private fun seedSystemTemplates() {
             templateType = "identity",
             dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "mdl_verification",
@@ -183,11 +183,11 @@ private fun seedSystemTemplates() {
         var seeded = 0
 
         for (tmpl in templates) {
-            val exists = VerifyTemplates.selectAll()
+            val existing = VerifyTemplates.selectAll()
                 .where { (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name) }
-                .count() > 0
+                .firstOrNull()
 
-            if (!exists) {
+            if (existing == null) {
                 VerifyTemplates.insert {
                     it[organizationId] = null
                     it[name] = tmpl.name
@@ -202,6 +202,18 @@ private fun seedSystemTemplates() {
                     it[updatedAt] = now
                 }
                 seeded++
+            } else if (
+                existing[VerifyTemplates.dcqlQuery] != tmpl.dcqlQuery ||
+                existing[VerifyTemplates.validCredentialTypes] != tmpl.validCredentialTypes
+            ) {
+                VerifyTemplates.update({
+                    (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name)
+                }) {
+                    it[dcqlQuery] = tmpl.dcqlQuery
+                    it[validCredentialTypes] = tmpl.validCredentialTypes
+                    it[updatedAt] = now
+                }
+                logger.info { "Updated system template '${tmpl.name}' (dcql or vct_values changed)" }
             }
         }
 
