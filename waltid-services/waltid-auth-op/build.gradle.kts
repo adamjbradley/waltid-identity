@@ -28,6 +28,14 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:${Versions.KTOR_VERSION}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
+    /* -- In-memory state stores (TTL caches) -- */
+    // Caffeine backs the four state stores (auth-request, auth-code, session,
+    // vp-session) with expireAfterWrite TTLs. Ticker is injected by tests so
+    // expiration can be driven by a TestClock. Other walt services pull 2.9.3
+    // transitively via ktor-authnz; we declare 3.1.8 directly to get the Java-21
+    // tuned build and an explicit first-party dependency.
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
     /* -- Test -- */
     testImplementation(identityLibs.bundles.waltid.ktortesting)
     testImplementation("io.mockk:mockk:1.14.2")
