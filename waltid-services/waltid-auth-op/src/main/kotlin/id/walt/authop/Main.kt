@@ -79,11 +79,11 @@ fun Application.runtimeModule() {
  */
 fun Application.module(config: AuthOpServiceConfig, signingKey: JWKKey) {
     // Server-side JSON content negotiation so routes that call `call.respond(jsonObject)`
-    // serialise correctly. The production bridge (`WebService.webServiceModule`) also
-    // calls `configureSerialization()`, but that only runs via `WebService` — the
-    // direct `module(...)` entry point used by tests needs its own install. Idempotent:
-    // a duplicate install would throw, but `WebService` wraps `module` rather than
-    // calling it under its own content-negotiation, so there is no double-install.
+    // serialise correctly. `WebService.webServiceModule` installs ContentNegotiation via
+    // `configureSerialization()` before invoking this module, so in production the guard
+    // skips the duplicate (a second `install(ContentNegotiation)` would throw). Tests
+    // call `application { module(...) }` directly — bypassing WebService — so the guard's
+    // install runs to give the test a JSON-capable server.
     if (pluginOrNull(ContentNegotiation) == null) {
         install(ContentNegotiation) { json() }
     }

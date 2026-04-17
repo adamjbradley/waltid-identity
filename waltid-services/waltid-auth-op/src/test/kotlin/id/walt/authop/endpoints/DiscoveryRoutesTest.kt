@@ -7,7 +7,6 @@ import id.walt.authop.testKey
 import id.walt.authop.toStringList
 import io.ktor.client.call.body
 import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
@@ -94,14 +93,17 @@ class DiscoveryRoutesTest {
     @Test
     fun `jwks never leaks private components`() = testApplication {
         application { module(testConfig(), testKey()) }
-        val body = jsonClient().get("/jwks.json").bodyAsText()
+        val body = jsonClient().get("/jwks.json").body<JsonObject>()
+        val keys = body["keys"]!!.jsonArray
+        assertEquals(1, keys.size)
+        val key = keys[0] as JsonObject
 
-        // RSA private components — any of these would be a catastrophic leak.
-        assertFalse(body.contains("\"d\""), "JWKS must not contain RSA private exponent 'd'")
-        assertFalse(body.contains("\"p\""), "JWKS must not contain RSA prime 'p'")
-        assertFalse(body.contains("\"q\""), "JWKS must not contain RSA prime 'q'")
-        assertFalse(body.contains("\"dp\""), "JWKS must not contain RSA CRT exponent 'dp'")
-        assertFalse(body.contains("\"dq\""), "JWKS must not contain RSA CRT exponent 'dq'")
-        assertFalse(body.contains("\"qi\""), "JWKS must not contain RSA CRT coefficient 'qi'")
+        // RSA private components (RFC 7518 §6.3.2) — any of these would be a
+        // catastrophic leak. Structural check over the key's field names so this
+        // catches accidental exposure regardless of ordering or value formatting.
+        val leakCandidates = listOf("d", "p", "q", "dp", "dq", "qi")
+        leakCandidates.forEach {
+            assertFalse(it in key.keys, "JWKS key leaked private RSA field '$it'")
+        }
     }
 }
