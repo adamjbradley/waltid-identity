@@ -435,6 +435,13 @@ services:
       # Verifier API2 internal URL (for proxying wallet VP token responses)
       VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
       PORT: 4000
+      # OIDC RP login via Keycloak — unset RP_KEYCLOAK_CLIENT_SECRET to disable
+      KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
+      KEYCLOAK_CLIENT_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
+      KEYCLOAK_CLIENT_SECRET: "${RP_KEYCLOAK_CLIENT_SECRET:-}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      PUBLIC_BASE_URL: "${RP_EXTERNAL_URL:-http://localhost:4000}"
+      NODE_ENV: "${NODE_ENV:-production}"
     ports:
       - "${RP_WIDGET_PORT:-4000}:4000"
 
@@ -456,6 +463,14 @@ services:
       VERIFY_API_URL: "http://verify-api:7010"
       VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
       NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
+      # OIDC RP login via Keycloak (Auth.js v5) — unset AUTH_KEYCLOAK_SECRET to disable
+      AUTH_URL: "${RP_EXTERNAL_URL:-http://localhost:7020}"
+      NEXTAUTH_URL: "${RP_EXTERNAL_URL:-http://localhost:7020}"
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: "${AUTH_SECRET:-}"
+      AUTH_KEYCLOAK_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
+      AUTH_KEYCLOAK_SECRET: "${RP_KEYCLOAK_CLIENT_SECRET:-}"
+      AUTH_KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
     ports:
       - "${RP_NEXTJS_PORT:-7020}:3000"
 

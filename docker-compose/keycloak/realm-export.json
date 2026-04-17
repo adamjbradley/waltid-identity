@@ -53,6 +53,41 @@
         "profile",
         "email"
       ]
+    },
+    {
+      "clientId": "rp_theaustraliahack",
+      "name": "RP Demo - The Australia Hack",
+      "description": "OIDC Relying Party client for the rp.theaustraliahack.com demo apps (Next.js + Widget)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "rp-theaustraliahack-secret",
+      "redirectUris": [
+        "https://rp.theaustraliahack.com/api/auth/callback/keycloak",
+        "https://rp.theaustraliahack.com/callback",
+        "http://localhost:3000/api/auth/callback/keycloak",
+        "http://localhost:7020/api/auth/callback/keycloak",
+        "http://localhost:4000/callback"
+      ],
+      "webOrigins": [
+        "https://rp.theaustraliahack.com",
+        "http://localhost:3000",
+        "http://localhost:7020",
+        "http://localhost:4000"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "post.logout.redirect.uris": "https://rp.theaustraliahack.com/*##http://localhost:3000/*##http://localhost:7020/*##http://localhost:4000/*"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "web-origins"
+      ]
     }
   ],
   "clientScopes": [

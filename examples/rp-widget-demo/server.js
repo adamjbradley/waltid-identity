@@ -10,7 +10,9 @@
  */
 
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
+const { Issuer, generators } = require('openid-client');
 
 // Configuration from environment
 // Default sandbox credentials - work immediately without any setup
@@ -31,6 +33,15 @@ const RP_DOMAIN = process.env.RP_DOMAIN || '';
 // Verifier API2 internal URL (for proxying verification-session responses from wallets)
 const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
 
+// Keycloak OIDC configuration — enabled when all three vars are present
+const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || '';
+const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || '';
+const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-change-me';
+// Public base URL of this app (used as the OIDC redirect_uri base)
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
+const OIDC_ENABLED = Boolean(KEYCLOAK_ISSUER && KEYCLOAK_CLIENT_ID && KEYCLOAK_CLIENT_SECRET);
+
 // Export for use in tests
 const config = {
   VERIFY_API_URL,
@@ -42,11 +53,59 @@ const config = {
 };
 
 /**
+ * Lazily discover the Keycloak issuer and build an openid-client.
+ * Returned promise caches the client for the lifetime of the process.
+ */
+let oidcClientPromise = null;
+function getOidcClient() {
+  if (!OIDC_ENABLED) return null;
+  if (!oidcClientPromise) {
+    oidcClientPromise = Issuer.discover(KEYCLOAK_ISSUER).then((issuer) => {
+      console.log(`[OIDC] Discovered issuer: ${issuer.metadata.issuer}`);
+      return new issuer.Client({
+        client_id: KEYCLOAK_CLIENT_ID,
+        client_secret: KEYCLOAK_CLIENT_SECRET,
+        redirect_uris: [oidcRedirectUri()],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'client_secret_post',
+      });
+    }).catch((err) => {
+      console.error('[OIDC] Issuer discovery failed:', err.message);
+      oidcClientPromise = null;
+      throw err;
+    });
+  }
+  return oidcClientPromise;
+}
+
+function oidcRedirectUri() {
+  const base = PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
+  return `${base.replace(/\/$/, '')}/callback`;
+}
+
+/**
  * Create and configure Express application
  * @returns {express.Application} Configured Express app
  */
 function createApp() {
   const app = express();
+
+  // Trust proxy so secure cookies work behind Caddy/Cloudflare
+  app.set('trust proxy', 1);
+
+  // Session middleware — required for OIDC state/code_verifier and user session
+  app.use(session({
+    name: 'rp.sid',
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 1000 * 60 * 60 * 8, // 8 hours
+    },
+  }));
 
   // Proxy verification-session requests to verifier-api2.
   // The EUDI wallet POSTs VP tokens to response_uri which uses the RP's domain.
@@ -161,6 +220,94 @@ function createApp() {
     res.json(response);
   });
 
+  // ---------------- OIDC (Keycloak) login routes ----------------
+  // These are registered unconditionally so `/api/me` always works; the
+  // actual login/callback handlers return 503 when OIDC is not configured.
+
+  /** GET /api/me — current login state, for the UI top bar. */
+  app.get('/api/me', (req, res) => {
+    res.json({
+      oidcEnabled: OIDC_ENABLED,
+      user: (req.session && req.session.user) || null,
+    });
+  });
+
+  /** GET /login — kick off Authorization Code flow with PKCE. */
+  app.get('/login', async (req, res) => {
+    if (!OIDC_ENABLED) return res.status(503).send('OIDC not configured');
+    try {
+      const client = await getOidcClient();
+      const code_verifier = generators.codeVerifier();
+      const code_challenge = generators.codeChallenge(code_verifier);
+      const state = generators.state();
+      const nonce = generators.nonce();
+
+      req.session.oidc = { code_verifier, state, nonce };
+
+      const url = client.authorizationUrl({
+        scope: 'openid profile email',
+        code_challenge,
+        code_challenge_method: 'S256',
+        state,
+        nonce,
+      });
+      res.redirect(url);
+    } catch (err) {
+      console.error('[OIDC] /login error:', err.message);
+      res.status(500).send('OIDC login unavailable');
+    }
+  });
+
+  /** GET /callback — exchange code for tokens, populate session. */
+  app.get('/callback', async (req, res) => {
+    if (!OIDC_ENABLED) return res.status(503).send('OIDC not configured');
+    try {
+      const client = await getOidcClient();
+      const saved = req.session.oidc;
+      if (!saved) return res.status(400).send('Missing OIDC session state');
+
+      const params = client.callbackParams(req);
+      const tokenSet = await client.callback(
+        oidcRedirectUri(),
+        params,
+        { code_verifier: saved.code_verifier, state: saved.state, nonce: saved.nonce }
+      );
+      const claims = tokenSet.claims();
+
+      req.session.user = {
+        sub: claims.sub,
+        email: claims.email,
+        name: claims.name || claims.preferred_username,
+      };
+      req.session.idToken = tokenSet.id_token;
+      delete req.session.oidc;
+
+      res.redirect('/');
+    } catch (err) {
+      console.error('[OIDC] /callback error:', err.message);
+      res.status(500).send('Login callback failed');
+    }
+  });
+
+  /** POST /logout — clear local session and redirect to Keycloak end_session. */
+  app.post('/logout', async (req, res) => {
+    const idToken = req.session && req.session.idToken;
+    const returnTo = PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
+    req.session.destroy(() => {
+      res.clearCookie('rp.sid');
+      if (!OIDC_ENABLED) return res.redirect('/');
+      getOidcClient()
+        .then((client) => {
+          const url = client.endSessionUrl({
+            id_token_hint: idToken,
+            post_logout_redirect_uri: returnTo,
+          });
+          res.redirect(url);
+        })
+        .catch(() => res.redirect('/'));
+    });
+  });
+
   // Health check
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -189,6 +336,12 @@ function startServer() {
       console.log(`  RP ID:       ${config.RP_ID}`);
       console.log(`  RP Client:   ${config.RP_CLIENT_ID}`);
       console.log(`  RP Domain:   ${config.RP_DOMAIN}`);
+    }
+    if (OIDC_ENABLED) {
+      console.log(`  OIDC:        enabled (${KEYCLOAK_ISSUER})`);
+      console.log(`  Redirect:    ${oidcRedirectUri()}`);
+    } else {
+      console.log(`  OIDC:        disabled (set KEYCLOAK_ISSUER, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET)`);
     }
     console.log('');
     console.log('  Make sure the Verify API is running at the configured URL.');

@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Checkout Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
   });
 
   test('displays page title and product', async ({ page }) => {
@@ -55,7 +55,7 @@ test.describe('Verification Flow - Loading State', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
 
     // Click verify button
     await page.click('button:has-text("Verify Age to Continue")');
@@ -95,7 +95,7 @@ test.describe('Verification Flow - QR Code Display', () => {
   });
 
   test('displays QR code after starting verification (desktop)', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
 
     // Start verification
     await page.click('button:has-text("Verify Age to Continue")');
@@ -111,7 +111,7 @@ test.describe('Verification Flow - QR Code Display', () => {
   });
 
   test('displays deep link option on desktop', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Should show "Open in wallet app" link
@@ -119,14 +119,14 @@ test.describe('Verification Flow - QR Code Display', () => {
   });
 
   test('shows waiting indicator while pending', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     await expect(page.locator('text=Waiting for verification...')).toBeVisible();
   });
 
   test('has cancel button during verification', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     const cancelButton = page.locator('button:has-text("Cancel")');
@@ -134,7 +134,7 @@ test.describe('Verification Flow - QR Code Display', () => {
   });
 
   test('cancel button returns to idle state', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Wait for QR code
@@ -176,7 +176,7 @@ test.describe('Verification Flow - Mobile', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // On mobile, should show "Open in Wallet App" button prominently
@@ -236,7 +236,7 @@ test.describe('Verification Flow - Success', () => {
       }
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Wait for success state
@@ -281,7 +281,7 @@ test.describe('Verification Flow - Success', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     await expect(page.locator('text=Age Verified Successfully')).toBeVisible({ timeout: 10000 });
@@ -322,7 +322,7 @@ test.describe('Verification Flow - Failure', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Wait for failure state
@@ -358,7 +358,7 @@ test.describe('Verification Flow - Failure', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Wait for expired state
@@ -402,7 +402,7 @@ test.describe('Verification Flow - Failure', () => {
       }
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
 
     // First attempt - should fail
     await page.click('button:has-text("Verify Age to Continue")');
@@ -430,7 +430,7 @@ test.describe('API Error Handling', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Should show error state
@@ -443,7 +443,7 @@ test.describe('API Error Handling', () => {
       await route.abort('failed');
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Should show error state
@@ -478,7 +478,7 @@ test.describe('Web Wallet Integration', () => {
   });
 
   test('displays "Open in Web Wallet" button on desktop', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     await expect(page.locator('text=Scan to Verify')).toBeVisible();
@@ -486,7 +486,7 @@ test.describe('Web Wallet Integration', () => {
   });
 
   test('web wallet link has correct href structure', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
@@ -500,7 +500,7 @@ test.describe('Web Wallet Integration', () => {
   });
 
   test('web wallet link does not use openid4vp:// scheme', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
@@ -509,7 +509,7 @@ test.describe('Web Wallet Integration', () => {
   });
 
   test('web wallet button coexists with EUDI deep link on desktop', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Both should be visible on desktop
@@ -543,7 +543,7 @@ test.describe('Web Wallet Integration - Mobile', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Both native and web wallet should be available on mobile
@@ -575,7 +575,7 @@ test.describe('Web Wallet - mdoc-openid4vp scheme', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     const webWalletLink = page.locator('a:has-text("Open in Web Wallet")');
@@ -590,7 +590,7 @@ test.describe('Web Wallet - mdoc-openid4vp scheme', () => {
 
 test.describe('Accessibility', () => {
   test('page has proper heading structure', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
 
     // H1 should be present
     const h1 = page.locator('h1');
@@ -602,7 +602,7 @@ test.describe('Accessibility', () => {
   });
 
   test('buttons are focusable and have accessible text', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/checkout');
 
     const button = page.locator('button:has-text("Verify Age to Continue")');
     await button.focus();
@@ -635,7 +635,7 @@ test.describe('Accessibility', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/checkout');
     await page.click('button:has-text("Verify Age to Continue")');
 
     // Success state should have green color indicator (heading)

@@ -1471,6 +1471,7 @@
             <div class="top-bar-links">
                 <a href="#">Order Tracking</a>
                 <a href="#">Gift Vouchers</a>
+                <span id="auth-status" aria-live="polite"></span>
             </div>
         </div>
     </div>
@@ -2392,10 +2393,48 @@
         });
         webWalletObserver.observe(document.body, { childList: true, subtree: true });
 
+        // ---------------- OIDC login state (top bar) ----------------
+        async function renderAuthStatus() {
+            const el = document.getElementById('auth-status');
+            if (!el) return;
+            try {
+                const res = await fetch('/api/me', { credentials: 'same-origin' });
+                if (!res.ok) { el.textContent = ''; return; }
+                const data = await res.json();
+                while (el.firstChild) el.removeChild(el.firstChild);
+                if (!data.oidcEnabled) return;
+                if (data.user) {
+                    const who = data.user.email || data.user.name || data.user.sub || '';
+                    const label = document.createElement('span');
+                    label.textContent = 'Signed in: ' + who + ' ';
+                    label.style.opacity = '0.8';
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/logout';
+                    form.style.display = 'inline';
+                    const btn = document.createElement('button');
+                    btn.type = 'submit';
+                    btn.textContent = 'Logout';
+                    btn.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;font:inherit;text-decoration:underline;padding:0;';
+                    form.appendChild(btn);
+                    el.appendChild(label);
+                    el.appendChild(form);
+                } else {
+                    const link = document.createElement('a');
+                    link.href = '/login';
+                    link.textContent = 'Login with Keycloak';
+                    el.appendChild(link);
+                }
+            } catch (err) {
+                console.warn('[auth] status fetch failed:', err);
+            }
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             handleResize();
             initializeSDK();
+            renderAuthStatus();
         });
     </script>
 </body>
