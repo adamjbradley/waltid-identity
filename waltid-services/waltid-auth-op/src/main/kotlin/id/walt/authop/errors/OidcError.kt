@@ -8,7 +8,6 @@ import io.ktor.http.formUrlEncode
 import io.ktor.http.parametersOf
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.header
-import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import kotlinx.serialization.json.buildJsonObject
@@ -105,10 +104,13 @@ sealed class OidcError(
 suspend fun ApplicationCall.respondOidcError(err: OidcError, authReq: AuthRequest? = null) {
     when (err.redirectBehavior) {
         OidcError.RedirectBehavior.PLAIN_ERROR_PAGE -> {
+            // Every value interpolated into this HTML is potentially attacker-controlled
+            // (e.g. UnknownClient.clientId echoes the `?client_id=…` query param). Escape
+            // both code and description so reflected input renders as text, never script.
             val body = buildString {
                 append("<!doctype html><html><body><h1>Authentication error</h1>")
-                append("<p><strong>").append(err.code).append("</strong></p>")
-                err.description?.let { append("<p>").append(it).append("</p>") }
+                append("<p><strong>").append(err.code.htmlEscape()).append("</strong></p>")
+                err.description?.let { append("<p>").append(it.htmlEscape()).append("</p>") }
                 append("</body></html>")
             }
             respondText(body, ContentType.Text.Html, err.httpStatus)
@@ -139,7 +141,26 @@ suspend fun ApplicationCall.respondOidcError(err: OidcError, authReq: AuthReques
                 put("error", err.code)
                 err.description?.let { put("error_description", it) }
             }
-            respond(err.httpStatus, body)
+            // Serialise explicitly via respondText so the dispatcher works regardless
+            // of whether the mounting route installs ContentNegotiation { json() }.
+            respondText(body.toString(), ContentType.Application.Json, err.httpStatus)
         }
+    }
+}
+
+/**
+ * Minimal HTML-escape for the five characters that break out of text contexts.
+ * Used by the PLAIN_ERROR_PAGE branch where attacker-controlled values land in
+ * the response body. Keep this private to [respondOidcError] — callers should
+ * not be minting raw HTML anywhere else.
+ */
+private fun String.htmlEscape(): String = buildString(length) {
+    for (c in this@htmlEscape) when (c) {
+        '&' -> append("&amp;")
+        '<' -> append("&lt;")
+        '>' -> append("&gt;")
+        '"' -> append("&quot;")
+        '\'' -> append("&#39;")
+        else -> append(c)
     }
 }

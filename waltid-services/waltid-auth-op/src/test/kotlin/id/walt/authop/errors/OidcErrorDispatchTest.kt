@@ -6,15 +6,13 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
-import io.ktor.server.application.install
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -47,11 +45,19 @@ class OidcErrorDispatchTest {
         claims = emptyMap(),
     )
 
+    // NB: deliberately no ContentNegotiation install here — the JSON_BODY
+    // dispatcher branch must render `application/json` on its own. If this
+    // ever gets re-added to make a test pass, Fix 2's guarantee is broken.
     private fun Application.testRoutes() {
-        install(ContentNegotiation) { json() }
         routing {
             get("/plain-unknown-client") {
                 call.respondOidcError(OidcError.UnknownClient("nope"))
+            }
+            // Attacker-controlled clientId echoed through the PLAIN_ERROR_PAGE branch.
+            // Guards Fix 1: every interpolated value must be HTML-escaped.
+            get("/plain-unknown-client-xss") {
+                val clientId = call.request.queryParameters["client_id"] ?: ""
+                call.respondOidcError(OidcError.UnknownClient(clientId))
             }
             get("/plain-unregistered-redirect") {
                 call.respondOidcError(OidcError.UnregisteredRedirectUri("https://evil"))
@@ -76,6 +82,16 @@ class OidcErrorDispatchTest {
             }
             get("/login-required-no-state") {
                 call.respondOidcError(OidcError.LoginRequired, authRequest(state = null))
+            }
+            // Roundtrip stub — reads `state` verbatim from query so tests can feed
+            // arbitrary values (incl. special characters, Unicode) into the
+            // REDIRECT_TO_RP path and assert byte-exact round-trip.
+            get("/redirect-err") {
+                val state = call.request.queryParameters["state"]
+                call.respondOidcError(
+                    OidcError.InvalidRequest("missing code_challenge"),
+                    authRequest(state = state),
+                )
             }
             get("/invalid-client") {
                 call.respondOidcError(OidcError.InvalidClient)
@@ -103,7 +119,12 @@ class OidcErrorDispatchTest {
         assertNull(r.headers[HttpHeaders.Location])
         val body = r.bodyAsText()
         assertTrue("unauthorized_client" in body, "error code must appear in HTML body")
-        assertTrue("client 'nope' is not registered" in body, "description must appear in HTML body")
+        // Apostrophes are HTML-escaped (see Fix 1 / htmlEscape), so the raw description
+        // appears as `client &#39;nope&#39; is not registered` in the response body.
+        assertTrue(
+            "client &#39;nope&#39; is not registered" in body,
+            "description must appear (HTML-escaped) in HTML body; got: $body",
+        )
     }
 
     @Test
@@ -234,5 +255,62 @@ class OidcErrorDispatchTest {
         assertTrue(wwwAuth.contains("""error="invalid_token""""), "Must include error token: $wwwAuth")
         val body = r.bodyAsText()
         assertTrue(body.contains("invalid_token"), "body must contain error code: $body")
+    }
+
+    // Fix 1 — Regression guard for reflected XSS in PLAIN_ERROR_PAGE.
+    // clientId is attacker-controlled (echoed from ?client_id=…); any script
+    // tags or angle brackets must be rendered as escaped entities, never
+    // interpreted as HTML by the browser.
+    @Test
+    fun `unknown_client HTML-escapes attacker-controlled clientId to prevent XSS`() = testApplication {
+        application { testRoutes() }
+        // URL-encoded payload: <script>alert(1)</script>
+        val r = noFollowClient().get(
+            "/plain-unknown-client-xss?client_id=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+        )
+
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+        val body = r.bodyAsText()
+        // Positive: escaped form must appear.
+        assertTrue("&lt;script&gt;" in body, "description must be HTML-escaped; body was: $body")
+        assertTrue("&lt;/script&gt;" in body, "closing tag must be HTML-escaped; body was: $body")
+        // Negative: raw tag must NOT appear anywhere in the response body.
+        assertFalse(
+            "<script>" in body,
+            "raw <script> tag must not be present in HTML body; would allow XSS. body was: $body",
+        )
+        assertFalse(
+            "</script>" in body,
+            "raw </script> tag must not be present in HTML body. body was: $body",
+        )
+    }
+
+    // Fix 3 — State must round-trip byte-exact through the REDIRECT_TO_RP branch,
+    // including characters that are both URL-reserved (&, =, space) and
+    // non-ASCII (Unicode). The dispatcher uses parametersOf + formUrlEncode
+    // precisely to guarantee this; Url.parameters parses symmetrically.
+    @Test
+    fun `state parameter roundtrips byte-exact with special characters`() = testApplication {
+        application { testRoutes() }
+        val trickyState = "hello world & evil=1 & unicode=café"
+        // Percent-encode each component manually so ampersands don't split into
+        // separate query params. The key property under test is the dispatcher
+        // encoding, not the client's — so we send it cleanly and inspect the
+        // Location header the dispatcher produced.
+        val encoded = trickyState
+            .replace("%", "%25")
+            .replace("&", "%26")
+            .replace("=", "%3D")
+            .replace(" ", "%20")
+        val r = noFollowClient().get("/redirect-err?state=$encoded")
+
+        assertEquals(HttpStatusCode.Found, r.status)
+        val location = assertNotNull(r.headers[HttpHeaders.Location], "Location header required on 302")
+        val url = Url(location)
+        assertEquals(
+            trickyState,
+            url.parameters["state"],
+            "state must survive round-trip through formUrlEncode with special characters intact",
+        )
     }
 }
