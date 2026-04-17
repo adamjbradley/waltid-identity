@@ -311,10 +311,10 @@ private fun buildDcqlQuery(claims: List<ClaimDefinition>, validCredentials: List
         """{"path":[$pathJson]}"""
     }
 
-    // Default to EUDI PID if no credentials specified
-    val vctValues = validCredentials?.joinToString(",") { "\"$it\"" } ?: "\"urn:eudi:pid:1\""
-
-    return """{"credentials":[{"id":"cred","format":"dc+sd-jwt","meta":{"vct_values":[$vctValues]},"claims":[$claimsJson]}]}"""
+    // vct_values is populated at session-build time from the template's validCredentialTypes
+    // column (see VerificationService.enrichDcqlWithVctValues). Emitting "meta":{} here keeps
+    // validCredentials as the single source of truth.
+    return """{"credentials":[{"id":"cred","format":"dc+sd-jwt","meta":{},"claims":[$claimsJson]}]}"""
 }
 
 /**
