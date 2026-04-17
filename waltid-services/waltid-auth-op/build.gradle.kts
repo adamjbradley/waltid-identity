@@ -31,6 +31,9 @@ dependencies {
     /* -- Test -- */
     testImplementation(identityLibs.bundles.waltid.ktortesting)
     testImplementation("io.mockk:mockk:1.14.2")
+    // Client-side content negotiation lets tests decode JSON responses via
+    // `response.body<JsonObject>()` without manual parsing.
+    testImplementation("io.ktor:ktor-client-content-negotiation:${Versions.KTOR_VERSION}")
 }
 
 application {

@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 class HealthRouteTest {
     @Test
     fun `health endpoint returns 200 ok`() = testApplication {
-        application { module() }
+        application { module(testConfig(), testKey()) }
         val r = client.get("/health")
         assertEquals(HttpStatusCode.OK, r.status)
         assertEquals("ok", r.bodyAsText())
