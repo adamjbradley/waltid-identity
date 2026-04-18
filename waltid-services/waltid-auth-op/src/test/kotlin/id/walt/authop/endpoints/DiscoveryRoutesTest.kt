@@ -3,6 +3,7 @@ package id.walt.authop.endpoints
 import id.walt.authop.jsonClient
 import id.walt.authop.module
 import id.walt.authop.testConfig
+import id.walt.authop.testDeps
 import id.walt.authop.testKey
 import id.walt.authop.toStringList
 import io.ktor.client.call.body
@@ -22,7 +23,7 @@ class DiscoveryRoutesTest {
 
     @Test
     fun `openid-configuration reports expected fields`() = testApplication {
-        application { module(testConfig(issuer = "https://auth.example"), testKey()) }
+        application { module(testDeps(config = testConfig(issuer = "https://auth.example"))) }
         val client = jsonClient()
 
         val r = client.get("/.well-known/openid-configuration")
@@ -67,7 +68,7 @@ class DiscoveryRoutesTest {
         // The canonicalisation lives on AuthOpServiceConfig; discovery routes
         // only echo the canonical form. Verify end-to-end that no endpoint URL
         // contains a double slash.
-        application { module(testConfig(issuer = "https://auth.example/"), testKey()) }
+        application { module(testDeps(config = testConfig(issuer = "https://auth.example/"))) }
         val body = jsonClient().get("/.well-known/openid-configuration").body<JsonObject>()
         assertEquals("https://auth.example", body["issuer"]!!.jsonPrimitive.content)
         assertEquals("https://auth.example/authorize", body["authorization_endpoint"]!!.jsonPrimitive.content)
@@ -76,7 +77,7 @@ class DiscoveryRoutesTest {
     @Test
     fun `jwks contains one public key matching signing key id`() = testApplication {
         val key = testKey()
-        application { module(testConfig(), key) }
+        application { module(testDeps(signingKey = key)) }
 
         val body = jsonClient().get("/jwks.json").body<JsonObject>()
         val keys = body["keys"]!!.jsonArray
@@ -92,7 +93,7 @@ class DiscoveryRoutesTest {
 
     @Test
     fun `jwks never leaks private components`() = testApplication {
-        application { module(testConfig(), testKey()) }
+        application { module(testDeps()) }
         val body = jsonClient().get("/jwks.json").body<JsonObject>()
         val keys = body["keys"]!!.jsonArray
         assertEquals(1, keys.size)

@@ -1,7 +1,12 @@
 package id.walt.authop
 
 import id.walt.authop.config.AuthOpServiceConfig
+import id.walt.authop.config.ClientRegistry
+import id.walt.authop.config.RealmRegistry
+import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.discoveryRoutes
+import id.walt.authop.store.AuthRequestStore
+import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.tokens.KeyProvider
 import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
@@ -16,6 +21,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Runtime dependencies resolved during [ServiceInitialization.init] and consumed
@@ -24,21 +30,22 @@ import java.nio.file.Paths
  * bridge — which expects a zero-arg extension — stays simple.
  *
  * Tests never touch this object; they call [module] directly with their own
- * dependencies (see `TestFixtures.kt`).
+ * [AuthOpDeps] (see `TestFixtures.kt`).
  */
 internal object AuthOpRuntime {
     @Volatile
-    var config: AuthOpServiceConfig? = null
+    var deps: AuthOpDeps? = null
 
-    @Volatile
-    var signingKey: JWKKey? = null
-
-    fun requireConfig(): AuthOpServiceConfig =
-        config ?: error("AuthOpServiceConfig not initialised — ServiceInitialization.init should set this")
-
-    fun requireSigningKey(): JWKKey =
-        signingKey ?: error("Signing key not initialised — ServiceInitialization.init should set this")
+    fun requireDeps(): AuthOpDeps =
+        deps ?: error("AuthOpDeps not initialised — ServiceInitialization.init should set this")
 }
+
+/**
+ * Default TTL for in-flight [id.walt.authop.domain.AuthRequest] entries. The
+ * design doc §State fixes this at 10 min (the human-pacing upper bound for
+ * completing a login — realm pick + upstream auth + consent).
+ */
+private val AUTH_REQUEST_TTL = 10.minutes
 
 suspend fun main(args: Array<String>) {
     ServiceMain(
@@ -48,13 +55,26 @@ suspend fun main(args: Array<String>) {
             init = {
                 // Configs are loaded by the commons framework before init runs.
                 val cfg = ConfigManager.getConfig<AuthOpServiceConfig>()
-                AuthOpRuntime.config = cfg
                 // Load-or-generate the signing key. `loadOrCreate` is suspending,
                 // but init is a plain lambda — runBlocking is the repo-standard
                 // bridge (see CIProvider for an analogous use).
-                AuthOpRuntime.signingKey = runBlocking {
+                val key = runBlocking {
                     KeyProvider.loadOrCreate(Paths.get(cfg.signingKeyPath))
                 }
+                // Registries are read-once snapshots from HOCON files colocated
+                // with auth-op.conf. Paths hardcoded for v1 — if/when we need
+                // per-deployment overrides they'll move onto AuthOpServiceConfig.
+                val clientRegistry = ClientRegistry.load("config/clients.conf")
+                val realmRegistry = RealmRegistry.load("config/realms.conf")
+                val authRequestStore: AuthRequestStore = InMemoryAuthRequestStore(AUTH_REQUEST_TTL)
+
+                AuthOpRuntime.deps = AuthOpDeps(
+                    config = cfg,
+                    signingKey = key,
+                    clientRegistry = clientRegistry,
+                    realmRegistry = realmRegistry,
+                    authRequestStore = authRequestStore,
+                )
             },
             run = WebService(Application::runtimeModule).run(),
         )
@@ -62,22 +82,25 @@ suspend fun main(args: Array<String>) {
 }
 
 /**
- * Production module. Reads the runtime-resolved config + signing key from
+ * Production module. Reads the runtime-resolved [AuthOpDeps] from
  * [AuthOpRuntime] and delegates to the testable [module] overload.
  *
  * Kept separate from [module] so tests can bypass the runtime singleton and
  * pass explicit fixtures.
  */
 fun Application.runtimeModule() {
-    module(AuthOpRuntime.requireConfig(), AuthOpRuntime.requireSigningKey())
+    module(AuthOpRuntime.requireDeps())
 }
 
 /**
- * Testable module. Receives the service config + signing key directly so tests
- * can construct an application with synthetic values without mutating global
- * state.
+ * Testable module. Receives the full [AuthOpDeps] so tests can construct an
+ * application with synthetic values without mutating global state.
+ *
+ * The dep container grows over time (Task 9 adds sessions, Task 11 adds a
+ * JwtIssuer, Task 14 adds upstream HTTP clients, etc.) but this function
+ * signature stays 1-arg.
  */
-fun Application.module(config: AuthOpServiceConfig, signingKey: JWKKey) {
+fun Application.module(deps: AuthOpDeps) {
     // Server-side JSON content negotiation so routes that call `call.respond(jsonObject)`
     // serialise correctly. `WebService.webServiceModule` installs ContentNegotiation via
     // `configureSerialization()` before invoking this module, so in production the guard
@@ -89,6 +112,7 @@ fun Application.module(config: AuthOpServiceConfig, signingKey: JWKKey) {
     }
     routing {
         get("/health") { call.respondText("ok") }
-        discoveryRoutes(config, signingKey)
+        discoveryRoutes(deps.config, deps.signingKey)
+        authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
     }
 }

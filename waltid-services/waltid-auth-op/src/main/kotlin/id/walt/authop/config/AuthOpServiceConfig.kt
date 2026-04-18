@@ -18,10 +18,16 @@ import id.walt.commons.config.WaltConfig
  * @property signingKeyPath Filesystem path (absolute or relative to the service
  *   working directory) where the signing key JWK is persisted.
  *   See [id.walt.authop.tokens.KeyProvider.loadOrCreate].
+ * @property cookieSecure Whether the `sid` session cookie is marked `Secure`
+ *   (only sent over HTTPS). Defaults to **false** for local/dev ergonomics;
+ *   operators must flip to `true` in every non-dev deployment. Threaded
+ *   through to [id.walt.authop.endpoints.authorizeRoutes] which stamps it
+ *   onto the outbound cookie.
  */
 data class AuthOpServiceConfig(
     val issuer: String,
     val signingKeyPath: String = "config/signing-key.json",
+    val cookieSecure: Boolean = false,
 ) : WaltConfig() {
     init {
         require(issuer.isNotBlank()) { "auth-op: 'issuer' must not be blank" }

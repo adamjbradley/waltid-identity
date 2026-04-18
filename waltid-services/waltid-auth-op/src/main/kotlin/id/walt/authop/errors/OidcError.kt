@@ -57,6 +57,9 @@ sealed class OidcError(
     object UnsupportedResponseType :
         OidcError("unsupported_response_type", null, HttpStatusCode.Found, RedirectBehavior.REDIRECT_TO_RP)
 
+    data class InvalidScope(val reason: String? = null) :
+        OidcError("invalid_scope", reason, HttpStatusCode.Found, RedirectBehavior.REDIRECT_TO_RP)
+
     data class AccessDenied(val reason: String? = null) :
         OidcError("access_denied", reason, HttpStatusCode.Found, RedirectBehavior.REDIRECT_TO_RP)
 
