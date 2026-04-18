@@ -36,12 +36,24 @@ dependencies {
     // tuned build and an explicit first-party dependency.
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 
+    /* -- Ktor HTTP client (upstream OIDC) --
+     * Used by id.walt.authop.upstream.OidcClient to call upstream IdPs
+     * (Keycloak, Authentik, etc.) for OIDC realms. OkHttp engine matches the
+     * repo-wide convention (issuer-api / verifier-api / wallet-api / etc.).
+     * Tests swap the engine for MockEngine via the OidcClient ctor. */
+    implementation("io.ktor:ktor-client-core-jvm:${Versions.KTOR_VERSION}")
+    implementation("io.ktor:ktor-client-okhttp-jvm:${Versions.KTOR_VERSION}")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm:${Versions.KTOR_VERSION}")
+
     /* -- Test -- */
     testImplementation(identityLibs.bundles.waltid.ktortesting)
     testImplementation("io.mockk:mockk:1.14.2")
     // Client-side content negotiation lets tests decode JSON responses via
     // `response.body<JsonObject>()` without manual parsing.
     testImplementation("io.ktor:ktor-client-content-negotiation:${Versions.KTOR_VERSION}")
+    // MockEngine fakes the upstream OIDC OP in OidcClientTest. Not in the
+    // default waltid-ktortesting bundle (it's specific to client-side tests).
+    testImplementation("io.ktor:ktor-client-mock:${Versions.KTOR_VERSION}")
 }
 
 application {
