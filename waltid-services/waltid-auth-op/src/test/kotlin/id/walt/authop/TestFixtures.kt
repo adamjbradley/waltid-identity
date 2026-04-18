@@ -13,6 +13,7 @@ import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.SessionStore
+import id.walt.authop.tokens.JwtIssuer
 import id.walt.crypto.keys.KeyType
 import id.walt.crypto.keys.jwk.JWKKey
 import io.ktor.client.HttpClient
@@ -25,6 +26,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -90,6 +92,7 @@ fun testDeps(
     sessionStore: SessionStore = InMemorySessionStore(5.minutes),
     authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(60.seconds),
     csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(10.minutes),
+    jwtIssuer: JwtIssuer = JwtIssuer(signingKey, config.canonicalIssuer, 1.hours),
 ): AuthOpDeps = AuthOpDeps(
     config = config,
     signingKey = signingKey,
@@ -99,6 +102,7 @@ fun testDeps(
     sessionStore = sessionStore,
     authCodeStore = authCodeStore,
     csrfTokenStore = csrfTokenStore,
+    jwtIssuer = jwtIssuer,
 )
 
 /**

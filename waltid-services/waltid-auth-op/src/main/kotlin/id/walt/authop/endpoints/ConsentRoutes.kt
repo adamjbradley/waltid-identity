@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package id.walt.authop.endpoints
 
 import id.walt.authop.AuthOpDeps
@@ -19,6 +21,8 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import java.security.SecureRandom
 import java.util.Base64
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * OIDC `/consent` endpoint — decides between trusted-skip, user-decided allow,
@@ -141,6 +145,12 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
     val code = randomCode()
     // authReq.subject is guaranteed non-null by the loadConsentContext check
     // above, but the compiler doesn't know — !! is the least-surprise shape.
+    // authTime uses Clock.System.now() here — the moment consent completes
+    // (trusted-skip or explicit accept) IS when the auth flow finishes. For
+    // v1 this is a faithful approximation of "when the user authenticated";
+    // future work could thread the Session.authTime through if the flow
+    // gains an upstream auth step that predates consent by more than a
+    // trivial wall-clock delta.
     deps.authCodeStore.put(
         code,
         AuthCode(
@@ -151,6 +161,9 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
             claims = authReq.claims,
             codeChallenge = authReq.codeChallenge,
             codeChallengeMethod = authReq.codeChallengeMethod,
+            nonce = authReq.nonce,
+            authTime = Clock.System.now(),
+            scope = authReq.scope,
         ),
     )
     // Single-use: remove so any replay of the flow (e.g. browser back-button

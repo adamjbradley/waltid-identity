@@ -7,6 +7,7 @@ import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.loginRoutes
+import id.walt.authop.endpoints.tokenRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
@@ -15,6 +16,7 @@ import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.SessionStore
+import id.walt.authop.tokens.JwtIssuer
 import id.walt.authop.tokens.KeyProvider
 import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
@@ -105,6 +107,16 @@ suspend fun main(args: Array<String>) {
                 val sessionStore: SessionStore = InMemorySessionStore(SESSION_TTL)
                 val authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(AUTH_CODE_TTL)
                 val csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(CSRF_TTL)
+                // JwtIssuer is constructed once at startup with the canonical
+                // issuer string (byte-exact match with discovery metadata) and
+                // the loaded signing key. Token TTL is fixed at 1h here — OIDC
+                // Core's recommendation for ID tokens; access tokens share it
+                // for v1. Tunable via config in a later task if needed.
+                val jwtIssuer = JwtIssuer(
+                    key = key,
+                    iss = cfg.canonicalIssuer,
+                    lifetime = 1.hours,
+                )
 
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
@@ -115,6 +127,7 @@ suspend fun main(args: Array<String>) {
                     sessionStore = sessionStore,
                     authCodeStore = authCodeStore,
                     csrfTokenStore = csrfTokenStore,
+                    jwtIssuer = jwtIssuer,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -157,5 +170,6 @@ fun Application.module(deps: AuthOpDeps) {
         authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
         loginRoutes(deps)
         consentRoutes(deps)
+        tokenRoutes(deps)
     }
 }

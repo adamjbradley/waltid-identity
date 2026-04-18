@@ -84,11 +84,29 @@ sealed class OidcError(
     object InvalidClient :
         OidcError("invalid_client", null, HttpStatusCode.Unauthorized, RedirectBehavior.JSON_BODY)
 
-    object InvalidGrant :
-        OidcError("invalid_grant", null, HttpStatusCode.BadRequest, RedirectBehavior.JSON_BODY)
+    data class InvalidGrant(val reason: String? = null) :
+        OidcError("invalid_grant", reason, HttpStatusCode.BadRequest, RedirectBehavior.JSON_BODY)
 
     object InvalidToken :
         OidcError("invalid_token", null, HttpStatusCode.Unauthorized, RedirectBehavior.JSON_BODY)
+
+    /**
+     * RFC 6749 §5.2 — the authorization server does not support the grant
+     * type requested by the client at `/token`. 400 JSON. Separate variant
+     * rather than reusing [InvalidGrant] because the spec code is distinct
+     * and RPs may branch on it.
+     */
+    data class UnsupportedGrantType(val reason: String? = null) :
+        OidcError("unsupported_grant_type", reason, HttpStatusCode.BadRequest, RedirectBehavior.JSON_BODY)
+
+    /**
+     * RFC 6749 §5.2 — the request is missing a required parameter, includes
+     * an unsupported parameter value, or is otherwise malformed. 400 JSON
+     * variant used by /token (the REDIRECT_TO_RP [InvalidRequest] variant
+     * above handles the /authorize side of this same code).
+     */
+    data class InvalidRequestJson(val reason: String? = null) :
+        OidcError("invalid_request", reason, HttpStatusCode.BadRequest, RedirectBehavior.JSON_BODY)
 }
 
 /**

@@ -43,7 +43,10 @@ private fun sampleAuthCode(code: String = "c1") = AuthCode(
     subject = "sub-1",
     claims = emptyMap(),
     codeChallenge = "challenge",
-    codeChallengeMethod = "S256"
+    codeChallengeMethod = "S256",
+    nonce = null,
+    authTime = Instant.fromEpochSeconds(1_700_000_000L),
+    scope = listOf("openid", "profile"),
 )
 
 private fun sampleAuthRequest(id: String = "ar1") = AuthRequest(

@@ -97,7 +97,7 @@ class OidcErrorDispatchTest {
                 call.respondOidcError(OidcError.InvalidClient)
             }
             get("/invalid-grant") {
-                call.respondOidcError(OidcError.InvalidGrant)
+                call.respondOidcError(OidcError.InvalidGrant())
             }
             get("/invalid-token") {
                 call.respondOidcError(OidcError.InvalidToken)
