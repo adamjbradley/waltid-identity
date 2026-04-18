@@ -11,11 +11,14 @@ import id.walt.authop.config.RealmRegistry
 import id.walt.authop.config.SubStrategy
 import id.walt.authop.domain.AuthRequest
 import id.walt.authop.domain.CapturedCredential
+import id.walt.authop.domain.Session
 import id.walt.authop.domain.VpSession
 import id.walt.authop.domain.VpSessionStatus
 import id.walt.authop.jsonClient
 import id.walt.authop.module
 import id.walt.authop.store.InMemoryAuthRequestStore
+import id.walt.authop.store.InMemoryAuthCodeStore
+import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryVpSessionStore
 import id.walt.authop.testClient
 import id.walt.authop.testConfig
@@ -26,6 +29,7 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
+import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -37,16 +41,22 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.http.headersOf
+import io.ktor.http.parameters
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -54,6 +64,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 /**
@@ -1014,5 +1025,776 @@ class VpFlowRoutesTest {
                 "webhook handler must not contain '$pattern' — leaks sensitive payload",
             )
         }
+    }
+
+    // ==========================================================================
+    // Task 19 — /login/realm/{id}/complete
+    // ==========================================================================
+    //
+    // The terminal step of the OID4VP flow. Reads `capturedCredential` from the
+    // VpSession (populated by the webhook in Task 18), runs [ClaimMapper] and
+    // [SubDerivation], mints an OP-level [Session], hydrates the AuthRequest
+    // with the final subject + claims, clears the captured credential, and
+    // 302s to `/consent`. Every failure mode has a dedicated test below — the
+    // combination matters because /complete is the first point where captured
+    // credential data is consumed.
+
+    /**
+     * VP realm with a concrete subStrategy + claim mapping suitable for the
+     * /complete tests. CLAIM_HASH gives us a deterministic sub with no need
+     * for a credentialSubject.id, and the two claim mappings exercise both
+     * top-level and nested ($.credentialSubject.*) JSONPath.
+     */
+    private fun vpRealmWithClaimHash(
+        id: String = "vp",
+        dcqlPath: String,
+    ): RealmConfig = RealmConfig(
+        id = id,
+        name = "VP Realm",
+        method = RealmMethod.OID4VP,
+        oidc = null,
+        oid4vp = Oid4vpRealmConfig(
+            verifierBaseUrl = verifierBase,
+            dcqlQueryFile = dcqlPath,
+            webhookCallbackPath = "/vp/webhook",
+            rpId = null,
+        ),
+        subStrategy = SubStrategy.CLAIM_HASH,
+        claimMapping = mapOf(
+            "email" to "$.email",
+            "given_name" to "$.given_name",
+        ),
+        subSourceClaims = listOf("email"),
+    )
+
+    /**
+     * A credential body whose shape mirrors verifier-api2's
+     * `DigitalCredential.credentialData`. The /complete handler's
+     * `firstCredentialData` helper picks the first entry's first credential's
+     * `credentialData` field — we exercise that exact path.
+     */
+    private fun presentedCredentialsJson(
+        email: String = "alice@example.com",
+        givenName: String = "Alice",
+    ): JsonObject = buildJsonObject {
+        // presentedCredentials is Map<String, List<DigitalCredential>> ⇒
+        // { "my_cred": [ {credentialData: {...}, ...} ] }.
+        putJsonArray("my_cred") {
+            add(
+                buildJsonObject {
+                    put("format", "jwt_vc_json")
+                    // credentialData IS the VC body — ClaimMapper / SubDerivation
+                    // operate on this.
+                    putJsonObject("credentialData") {
+                        put("email", email)
+                        put("given_name", givenName)
+                    }
+                },
+            )
+        }
+    }
+
+    /** Seed a VpSession in [vpSessions] with a captured credential. */
+    private fun seedVpSessionForComplete(
+        vpSessions: InMemoryVpSessionStore,
+        sessionId: String = mockSessionId,
+        sid: String = "sid-abc",
+        authRequestId: String = "sid-abc",
+        realmId: String = "vp",
+        status: VpSessionStatus = VpSessionStatus.SUCCESSFUL,
+        captured: CapturedCredential? = CapturedCredential(
+            presentedCredentials = presentedCredentialsJson(),
+            presentedPresentations = JsonObject(emptyMap()),
+        ),
+    ) {
+        vpSessions.put(
+            sessionId,
+            VpSession(
+                verifierSessionId = sessionId,
+                realmId = realmId,
+                authRequestId = authRequestId,
+                sessionCookieId = sid,
+                webhookSecret = "unused-for-complete",
+                status = status,
+                capturedCredential = captured,
+            ),
+        )
+    }
+
+    /** Decode the base64url payload segment of a compact JWS into a JsonObject. */
+    private fun jwtPayload(jws: String): JsonObject {
+        val segment = jws.split(".")[1]
+        val decoded = Base64.getUrlDecoder().decode(segment).decodeToString()
+        return Json.parseToJsonElement(decoded) as JsonObject
+    }
+
+    /** Assemble deps wired for /complete tests: sessionStore, codeStore, realm, stores. */
+    private fun ApplicationTestBuilder.moduleForComplete(
+        authRequestStore: InMemoryAuthRequestStore,
+        vpSessions: InMemoryVpSessionStore,
+        sessionStore: InMemorySessionStore = InMemorySessionStore(5.minutes),
+        authCodeStore: InMemoryAuthCodeStore = InMemoryAuthCodeStore(60.seconds),
+        realm: RealmConfig,
+    ) {
+        application {
+            module(
+                testDeps(
+                    config = testConfig(issuer = ourIssuer),
+                    authRequestStore = authRequestStore,
+                    sessionStore = sessionStore,
+                    authCodeStore = authCodeStore,
+                    vpSessionStore = vpSessions,
+                    realmRegistry = realmRegistry(realm),
+                ),
+            )
+        }
+    }
+
+    // ---- Required tests (verbatim names) -------------------------------------
+
+    @Test
+    fun `complete with matching sid cookie, SUCCESSFUL status and captured credential mints auth code`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+
+        // /complete always 302s to /consent on success (the actual auth code
+        // mint happens on the subsequent /consent hop for non-trusted clients,
+        // or in /consent's trusted-skip branch for trusted ones). The test
+        // name from the plan is about the end-to-end effect; we assert the
+        // immediate redirect plus the AuthRequest hydration that enables the
+        // code to be minted next hop.
+        assertEquals(HttpStatusCode.Found, r.status)
+        assertEquals("/consent", r.headers[HttpHeaders.Location])
+
+        // AuthRequest was hydrated with sub + claims (precondition for /consent
+        // to mint the auth code).
+        val updated = assertNotNull(authRequests.get("sid-abc"))
+        assertNotNull(updated.subject, "subject must be set by /complete")
+        assertTrue(updated.claims.isNotEmpty(), "claims must be populated by /complete")
+    }
+
+    @Test
+    fun `complete rejects if sid cookie mismatches stored sessionCookieId`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            // Session was opened by sid-abc's browser…
+            seedVpSessionForComplete(this, sid = "sid-abc")
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        // …but a different browser attempts to redeem.
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-attacker")
+        }
+        assertEquals(HttpStatusCode.Forbidden, r.status)
+
+        // AuthRequest must NOT be hydrated; captured credential must NOT be cleared.
+        val unchangedAuth = assertNotNull(authRequests.get("sid-abc"))
+        assertNull(unchangedAuth.subject, "subject must remain null on cookie mismatch")
+        val unchangedVp = assertNotNull(vpSessions.get(mockSessionId))
+        assertNotNull(
+            unchangedVp.capturedCredential,
+            "captured credential must NOT be cleared on cookie mismatch",
+        )
+    }
+
+    @Test
+    fun `complete rejects if status != SUCCESSFUL`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this, status = VpSessionStatus.UNSUCCESSFUL)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+
+        // Per /complete behaviour spec step 6: non-SUCCESSFUL → access_denied
+        // redirected back to the RP.
+        assertEquals(HttpStatusCode.Found, r.status)
+        val loc = Url(assertNotNull(r.headers[HttpHeaders.Location]))
+        assertEquals("rp", loc.host)
+        assertEquals("/cb", loc.encodedPath)
+        assertEquals("access_denied", loc.parameters["error"])
+        val desc = assertNotNull(loc.parameters["error_description"])
+        assertTrue(
+            desc.contains("presentation did not satisfy requirements"),
+            "description must call out the policy failure: $desc",
+        )
+
+        // AuthRequest must not be hydrated.
+        val unchangedAuth = assertNotNull(authRequests.get("sid-abc"))
+        assertNull(unchangedAuth.subject)
+    }
+
+    @Test
+    fun `complete rejects if capturedCredential is null`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            // SUCCESSFUL but with no captured credential — a webhook-capture
+            // invariant violation. /complete must 500, not silently proceed.
+            seedVpSessionForComplete(this, captured = null)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.InternalServerError, r.status)
+
+        // AuthRequest must not be hydrated.
+        val unchangedAuth = assertNotNull(authRequests.get("sid-abc"))
+        assertNull(unchangedAuth.subject)
+    }
+
+    @Test
+    fun `capturedCredential cleared after successful consumption`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        // Precondition: capturedCredential is populated.
+        val before = assertNotNull(vpSessions.get(mockSessionId))
+        assertNotNull(before.capturedCredential)
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.Found, r.status)
+
+        // Post-consumption: capturedCredential is null on the still-present
+        // VpSession (status / identity preserved — but the sensitive payload
+        // is gone).
+        val after = assertNotNull(vpSessions.get(mockSessionId))
+        assertNull(
+            after.capturedCredential,
+            "capturedCredential must be cleared after /complete consumes it",
+        )
+    }
+
+    @Test
+    fun `id token has acr=urn walt vp and amr=swk`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        // Full drive from /complete through /consent (trusted-skip) and
+        // /token so we can decode the minted id_token and assert on its
+        // acr / amr claims.
+        // PKCE challenge matches TEST_VERIFIER — TokenRoutes enforces this.
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put(
+                "sid-abc",
+                authRequestFor().copy(codeChallenge = TokenRoutesTest.TEST_CHALLENGE),
+            )
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val authCodeStore = InMemoryAuthCodeStore(60.seconds)
+        val sessionStore = InMemorySessionStore(5.minutes)
+        val trustedClient = testClient(trusted = true).copy(
+            allowedRealms = listOf("vp"),
+        )
+        val dcql = writeDcql(tmp)
+        application {
+            module(
+                testDeps(
+                    config = testConfig(issuer = ourIssuer),
+                    clientRegistry = ClientRegistry(mapOf("rp1" to trustedClient)),
+                    authRequestStore = authRequests,
+                    sessionStore = sessionStore,
+                    authCodeStore = authCodeStore,
+                    vpSessionStore = vpSessions,
+                    realmRegistry = realmRegistry(vpRealmWithClaimHash(dcqlPath = dcql.toString())),
+                ),
+            )
+        }
+        val http = noFollow()
+
+        // Hop 1: /complete → 302 /consent.
+        val r1 = http.get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.Found, r1.status)
+        assertEquals("/consent", r1.headers[HttpHeaders.Location])
+
+        // Hop 2: /consent (trusted-skip) → 302 RP with code.
+        val r2 = http.get("/consent") { header(HttpHeaders.Cookie, "sid=sid-abc") }
+        assertEquals(HttpStatusCode.Found, r2.status)
+        val rpRedirect = Url(assertNotNull(r2.headers[HttpHeaders.Location]))
+        val authCode = assertNotNull(rpRedirect.parameters["code"])
+
+        // Hop 3: /token exchange.
+        val basic = "Basic " + Base64.getEncoder().encodeToString("rp1:secret".toByteArray())
+        val r3 = http.submitForm(
+            url = "/token",
+            formParameters = parameters {
+                append("grant_type", "authorization_code")
+                append("code", authCode)
+                append("redirect_uri", "https://rp/cb")
+                append("code_verifier", TokenRoutesTest.TEST_VERIFIER)
+            },
+        ) { header(HttpHeaders.Authorization, basic) }
+        assertEquals(HttpStatusCode.OK, r3.status)
+        val tokenBody = Json.parseToJsonElement(r3.bodyAsText()) as JsonObject
+        val idToken = assertNotNull(tokenBody["id_token"]?.jsonPrimitive?.content)
+        val payload = jwtPayload(idToken)
+
+        // The acr / amr assertions — the whole point of this test.
+        assertEquals(
+            "urn:walt:vp",
+            payload["acr"]?.jsonPrimitive?.content,
+            "acr must be urn:walt:vp on VP realms",
+        )
+        val amr = payload["amr"]?.jsonArray?.map { it.jsonPrimitive.content }
+        assertEquals(
+            listOf("swk"),
+            amr,
+            "amr must be [\"swk\"] on VP realms",
+        )
+    }
+
+    // ---- Additional tests ----------------------------------------------------
+
+    @Test
+    fun `complete missing verifierSessionId returns 400`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `complete missing sid cookie returns 400`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = InMemoryAuthRequestStore(5.minutes),
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId")
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `complete unknown verifierSessionId returns 400`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = InMemoryAuthRequestStore(5.minutes),
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=nonexistent") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `complete realm mismatch returns 404`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        // VpSession was opened for realm "vp", but the caller hits the URL
+        // for a different realm ("other-vp"). Must 404.
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this, realmId = "vp")
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(id = "other-vp", dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/other-vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.NotFound, r.status)
+    }
+
+    @Test
+    fun `complete creates session with sub derived via claim_hash`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val sessionStore = InMemorySessionStore(5.minutes)
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            sessionStore = sessionStore,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.Found, r.status)
+
+        // Session was created keyed by sid.
+        val session = assertNotNull(
+            sessionStore.get("sid-abc"),
+            "Session must be persisted keyed by sid",
+        )
+        assertEquals("vp", session.realmId)
+        assertEquals("urn:walt:vp", session.acr, "acr must be urn:walt:vp")
+        assertEquals(listOf("swk"), session.amr, "amr must be [swk]")
+        assertNull(session.upstreamIdToken, "VP realms have no upstream id_token")
+
+        // Sub is the CLAIM_HASH of (realmId || email). Re-compute the formula
+        // so a regression in SubDerivation shows up here too.
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val hashInput = listOf("vp", "alice@example.com").joinToString("\u0000")
+        val expected = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(md.digest(hashInput.toByteArray(Charsets.UTF_8)))
+        assertEquals(expected, session.subject, "sub must be CLAIM_HASH(realmId, email)")
+    }
+
+    @Test
+    fun `complete updates AuthRequest with final claims`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.Found, r.status)
+
+        val updated = assertNotNull(authRequests.get("sid-abc"))
+        // Mapped claims projected by the realm.
+        assertEquals(
+            "alice@example.com",
+            updated.claims["email"]?.jsonPrimitive?.content,
+            "email claim must be projected via ClaimMapper",
+        )
+        assertEquals(
+            "Alice",
+            updated.claims["given_name"]?.jsonPrimitive?.content,
+            "given_name claim must be projected via ClaimMapper",
+        )
+        // Namespaced realm claim.
+        assertEquals(
+            "vp",
+            updated.claims["$ourIssuer/realm"]?.jsonPrimitive?.content,
+            "realm id must appear under the namespaced claim key",
+        )
+        // acr / amr stamps.
+        assertEquals("urn:walt:vp", updated.claims["acr"]?.jsonPrimitive?.content)
+        assertEquals(
+            listOf("swk"),
+            updated.claims["amr"]?.jsonArray?.map { it.jsonPrimitive.content },
+        )
+        // Subject was set too (precondition for /consent).
+        assertNotNull(updated.subject)
+    }
+
+    @Test
+    fun `complete returns 302 to consent`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+        assertEquals(HttpStatusCode.Found, r.status)
+        assertEquals("/consent", r.headers[HttpHeaders.Location])
+    }
+
+    @Test
+    fun `complete with UNSUCCESSFUL status redirects to RP with access_denied`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put("sid-abc", authRequestFor())
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            seedVpSessionForComplete(this, status = VpSessionStatus.UNSUCCESSFUL, captured = null)
+        }
+        val dcql = writeDcql(tmp)
+        moduleForComplete(
+            authRequestStore = authRequests,
+            vpSessions = vpSessions,
+            realm = vpRealmWithClaimHash(dcqlPath = dcql.toString()),
+        )
+
+        val r = noFollow().get("/login/realm/vp/complete?verifierSessionId=$mockSessionId") {
+            header(HttpHeaders.Cookie, "sid=sid-abc")
+        }
+
+        assertEquals(HttpStatusCode.Found, r.status)
+        val loc = Url(assertNotNull(r.headers[HttpHeaders.Location]))
+        assertEquals("rp", loc.host)
+        assertEquals("access_denied", loc.parameters["error"])
+        assertEquals("round-trip", loc.parameters["state"], "state must be echoed byte-exact")
+    }
+
+    // ==========================================================================
+    // Phase 5 — End-to-end VP flow: webhook → status → complete → consent → token
+    // ==========================================================================
+
+    @Test
+    fun `complete end-to-end - webhook fires, status SUCCESSFUL, complete, AuthRequest subject populated`(
+        @org.junit.jupiter.api.io.TempDir tmp: Path,
+    ) = testApplication {
+        // Start with an already-primed AuthRequest and a PENDING VpSession.
+        // The webhook will transition it to SUCCESSFUL, then /complete will
+        // consume, then /consent (trusted-skip) → /token gives us an id_token.
+        // PKCE challenge matches TEST_VERIFIER — TokenRoutes enforces this.
+        val authRequests = InMemoryAuthRequestStore(5.minutes).apply {
+            put(
+                "sid-abc",
+                authRequestFor().copy(codeChallenge = TokenRoutesTest.TEST_CHALLENGE),
+            )
+        }
+        val vpSessions = InMemoryVpSessionStore(5.minutes).apply {
+            // PENDING, no captured credential — simulates the state immediately
+            // after /login/realm/vp ran and before the wallet posted.
+            put(
+                mockSessionId,
+                VpSession(
+                    verifierSessionId = mockSessionId,
+                    realmId = "vp",
+                    authRequestId = "sid-abc",
+                    sessionCookieId = "sid-abc",
+                    webhookSecret = testWebhookSecret,
+                    status = VpSessionStatus.PENDING,
+                    capturedCredential = null,
+                ),
+            )
+        }
+        val sessionStore = InMemorySessionStore(5.minutes)
+        val authCodeStore = InMemoryAuthCodeStore(60.seconds)
+        val trustedClient = testClient(trusted = true).copy(
+            allowedRealms = listOf("vp"),
+        )
+        val dcql = writeDcql(tmp)
+        application {
+            module(
+                testDeps(
+                    config = testConfig(issuer = ourIssuer),
+                    clientRegistry = ClientRegistry(mapOf("rp1" to trustedClient)),
+                    authRequestStore = authRequests,
+                    sessionStore = sessionStore,
+                    authCodeStore = authCodeStore,
+                    vpSessionStore = vpSessions,
+                    realmRegistry = realmRegistry(vpRealmWithClaimHash(dcqlPath = dcql.toString())),
+                ),
+            )
+        }
+        val http = noFollow()
+
+        // Hop 1: wallet completes → verifier-api2 POSTs webhook.
+        // Build a webhook body whose `session.presentedCredentials` matches
+        // [presentedCredentialsJson] so /complete can map the same claims
+        // [seedVpSessionForComplete] would have installed directly.
+        val webhookEnvelope = buildJsonObject {
+            put("target", mockSessionId)
+            put("event", "policy_results_available")
+            put(
+                "session",
+                buildJsonObject {
+                    put("id", mockSessionId)
+                    put("status", "SUCCESSFUL")
+                    put("presentedCredentials", presentedCredentialsJson())
+                    put("presentedPresentations", JsonObject(emptyMap()))
+                },
+            )
+        }.toString()
+
+        val rWebhook = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+            contentType(ContentType.Application.Json)
+            setBody(webhookEnvelope)
+        }
+        assertEquals(HttpStatusCode.OK, rWebhook.status)
+
+        // Hop 2: the polling QR page sees SUCCESSFUL.
+        val rStatus = jsonClient().get(
+            "/login/realm/vp/status?verifierSessionId=$mockSessionId",
+        ) { header(HttpHeaders.Cookie, "sid=sid-abc") }
+        assertEquals(HttpStatusCode.OK, rStatus.status)
+        val statusBody = Json.parseToJsonElement(rStatus.bodyAsText()) as JsonObject
+        assertEquals("SUCCESSFUL", statusBody["status"]?.jsonPrimitive?.content)
+
+        // Hop 3: /complete consumes the captured credential → 302 /consent.
+        val rComplete = http.get(
+            "/login/realm/vp/complete?verifierSessionId=$mockSessionId",
+        ) { header(HttpHeaders.Cookie, "sid=sid-abc") }
+        assertEquals(HttpStatusCode.Found, rComplete.status)
+        assertEquals("/consent", rComplete.headers[HttpHeaders.Location])
+
+        // AuthRequest.subject is populated (the plan's explicit assertion).
+        val hydrated = assertNotNull(authRequests.get("sid-abc"))
+        assertNotNull(hydrated.subject, "AuthRequest.subject must be populated after /complete")
+        // Captured credential has been cleared — security invariant.
+        val postComplete = assertNotNull(vpSessions.get(mockSessionId))
+        assertNull(postComplete.capturedCredential)
+
+        // Hop 4: /consent trusted-skip → 302 RP with code.
+        val rConsent = http.get("/consent") { header(HttpHeaders.Cookie, "sid=sid-abc") }
+        assertEquals(HttpStatusCode.Found, rConsent.status)
+        val rpRedirect = Url(assertNotNull(rConsent.headers[HttpHeaders.Location]))
+        assertEquals("rp", rpRedirect.host)
+        val authCode = assertNotNull(rpRedirect.parameters["code"])
+
+        // Hop 5: /token exchange → id_token.
+        val basic = "Basic " + Base64.getEncoder().encodeToString("rp1:secret".toByteArray())
+        val rToken = http.submitForm(
+            url = "/token",
+            formParameters = parameters {
+                append("grant_type", "authorization_code")
+                append("code", authCode)
+                append("redirect_uri", "https://rp/cb")
+                append("code_verifier", TokenRoutesTest.TEST_VERIFIER)
+            },
+        ) { header(HttpHeaders.Authorization, basic) }
+        assertEquals(HttpStatusCode.OK, rToken.status)
+        val tokenBody = Json.parseToJsonElement(rToken.bodyAsText()) as JsonObject
+        val idToken = assertNotNull(tokenBody["id_token"]?.jsonPrimitive?.content)
+        val payload = jwtPayload(idToken)
+
+        // --- The E2E assertions called out in the plan --------------------
+        assertEquals(
+            "urn:walt:vp",
+            payload["acr"]?.jsonPrimitive?.content,
+            "acr must be urn:walt:vp end-to-end",
+        )
+        assertEquals(
+            listOf("swk"),
+            payload["amr"]?.jsonArray?.map { it.jsonPrimitive.content },
+            "amr must be [swk] end-to-end",
+        )
+        assertEquals(
+            "vp",
+            payload["$ourIssuer/realm"]?.jsonPrimitive?.content,
+            "realm id must appear under the namespaced claim",
+        )
+        // Mapped claims propagated all the way into the id_token.
+        assertEquals(
+            "alice@example.com",
+            payload["email"]?.jsonPrimitive?.content,
+            "mapped email must surface on id_token",
+        )
+        assertEquals(
+            "Alice",
+            payload["given_name"]?.jsonPrimitive?.content,
+            "mapped given_name must surface on id_token",
+        )
+        // Subject: the CLAIM_HASH formula again — belt + braces against a
+        // regression in SubDerivation or the claim-mapping ordering.
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val hashInput = listOf("vp", "alice@example.com").joinToString("\u0000")
+        val expectedSub = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(md.digest(hashInput.toByteArray(Charsets.UTF_8)))
+        assertEquals(expectedSub, payload["sub"]?.jsonPrimitive?.content)
     }
 }

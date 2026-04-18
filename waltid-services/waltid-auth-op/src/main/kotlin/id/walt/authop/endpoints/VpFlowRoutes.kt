@@ -1,11 +1,18 @@
+@file:OptIn(ExperimentalTime::class)
+
 package id.walt.authop.endpoints
 
 import id.walt.authop.AuthOpDeps
+import id.walt.authop.claims.ClaimMapper
+import id.walt.authop.claims.SubDerivation
 import id.walt.authop.config.RealmConfig
 import id.walt.authop.domain.AuthRequest
 import id.walt.authop.domain.CapturedCredential
+import id.walt.authop.domain.Session
 import id.walt.authop.domain.VpSession
 import id.walt.authop.domain.VpSessionStatus
+import id.walt.authop.errors.OidcError
+import id.walt.authop.errors.respondOidcError
 import id.walt.authop.templates.respondVpQrPage
 import id.walt.authop.upstream.Verifier2ClientException
 import io.ktor.http.ContentType
@@ -21,7 +28,12 @@ import io.ktor.server.routing.post
 import io.ktor.server.util.getOrFail
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -30,6 +42,8 @@ import java.nio.file.Paths
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * OID4VP realm adapter for `/login/realm/{id}` (the VP branch) plus the
@@ -220,6 +234,255 @@ fun Route.vpStatusRoutes(deps: AuthOpDeps) {
 
         call.respond(HttpStatusCode.OK, mapOf("status" to vpSession.status.name))
     }
+}
+
+/**
+ * Registers `GET /login/realm/{realmId}/complete?verifierSessionId=…` — the
+ * terminal step of the OID4VP login flow.
+ *
+ * Invoked by the QR page's polling JS once it observes
+ * `{status: "SUCCESSFUL"}` from [vpStatusRoutes]. Consumes the captured
+ * credential, derives the OIDC `sub` per the realm's [id.walt.authop.config.SubStrategy],
+ * applies [ClaimMapper], mints the OP-level [Session], hydrates the
+ * [AuthRequest] with subject + claims, clears the captured credential
+ * (security — no retention past consumption), and redirects to `/consent`.
+ *
+ * ## Failure-mode taxonomy
+ *
+ * Every failure mode funnels to an HTTP response that EITHER:
+ *  - closes the oracle (uniform plain errors) when the caller can't be
+ *    routed back to the RP yet (missing query param / cookie / unknown
+ *    session / realm mismatch / state inconsistency);
+ *  - OR — for the one case where we have enough trust to talk to the RP —
+ *    routes an `access_denied` back via [OidcError.AccessDenied] when the
+ *    VP was verified-but-unsuccessful (policy did not pass; there's a valid
+ *    AuthRequest + redirect_uri in context).
+ *
+ * Specifically:
+ *
+ * 1. Missing `verifierSessionId` query param → 400 plain.
+ * 2. Missing `sid` cookie → 400 plain.
+ * 3. Unknown [VpSession] → 400 plain (same as missing verifierSessionId;
+ *    closes the "does this session exist?" oracle with the same shape as
+ *    the missing-param branch).
+ * 4. Cookie binding mismatch → 403 plain. Another browser cannot redeem.
+ * 5. Realm-in-URL != VpSession.realmId → 404 plain.
+ * 6. `VpSession.status == SUCCESSFUL` else → `access_denied` back to RP
+ *    (we have an AuthRequest + redirect_uri so we CAN route to the RP).
+ *    Description: "presentation did not satisfy requirements".
+ * 7. `VpSession.capturedCredential == null` on SUCCESSFUL → 500 plain
+ *    (state inconsistency — never expected; Task 18 guarantees capture
+ *    on SUCCESSFUL).
+ *
+ * ## Security invariants
+ *
+ * - **Cookie binding** is the first security check after query-param
+ *   presence. Prevents cross-browser session redemption.
+ * - **Captured credential cleared on consumption.** Even on the happy path
+ *   we write back a null `capturedCredential` so a subsequent replay of
+ *   the URL finds nothing to consume. Defence in depth: the VpSession
+ *   store TTL also expires the entry, but explicit clear means even a
+ *   back-button refresh within TTL can't re-mint claims.
+ * - **`acr=urn:walt:vp` and `amr=["swk"]`** stamped on [Session] AND
+ *   merged into [AuthRequest.claims]. `swk` = "software key" (the wallet's
+ *   key material lives in software, not hardware; a realm that wants
+ *   `hwk` for a hardware-backed wallet can project through claim
+ *   mapping, but v1 is conservative).
+ * - **Realm claim is namespaced** under `<canonicalIssuer>/realm` so it
+ *   cannot collide with a reserved OIDC claim name.
+ * - **Session.upstreamIdToken = null for VP realms.** There's no upstream
+ *   OIDC ID token to unwind on logout.
+ */
+fun Route.vpCompleteRoutes(deps: AuthOpDeps) {
+    get("/login/realm/{realmId}/complete") {
+        call.handleVpComplete(deps)
+    }
+}
+
+/** Implementation of the /complete handler; call-site kept tiny for test-wiring parity with other files. */
+private suspend fun ApplicationCall.handleVpComplete(deps: AuthOpDeps) {
+    val realmId = parameters.getOrFail("realmId")
+
+    // 1. verifierSessionId query param
+    val verifierSessionId = request.queryParameters["verifierSessionId"]
+    if (verifierSessionId.isNullOrBlank()) {
+        return respondPlainBadRequest("invalid_request", "missing verifierSessionId")
+    }
+
+    // 2. sid cookie
+    val sid = request.cookies["sid"]
+    if (sid.isNullOrBlank()) {
+        return respondPlainBadRequest("invalid_request", "missing sid cookie")
+    }
+
+    // 3. VpSession lookup
+    val vpSession = deps.vpSessionStore.get(verifierSessionId)
+        ?: return respondPlainBadRequest("invalid_request", "unknown verifierSessionId")
+
+    // 4. Cookie-binding check. The session was opened by a specific browser;
+    // a different browser cannot redeem its captured credential. 403 — we
+    // know the session exists but the caller isn't its owner.
+    if (sid != vpSession.sessionCookieId) {
+        return respondPlainForbidden("sid cookie does not match VpSession")
+    }
+
+    // 5. Realm-in-URL cross-check. A session opened for realm `vp` must be
+    // completed at `/login/realm/vp/complete`, not some other realm's URL.
+    // 404 — hide the session's existence under the wrong realm URL.
+    if (vpSession.realmId != realmId) {
+        return respondPlainNotFound("unknown verifierSessionId")
+    }
+
+    // Load AuthRequest before status check: even the "redirect to RP"
+    // branch needs AuthRequest.redirect_uri + state.
+    val authReq = deps.authRequestStore.get(vpSession.authRequestId)
+        ?: return respondPlainServerError(
+            "auth request ${vpSession.authRequestId} not found; VP outlived the auth request",
+        )
+
+    // 6. Status gate. UNSUCCESSFUL (or still-PENDING) means the wallet
+    // returned but policy didn't pass. We have an AuthRequest with a
+    // trusted redirect_uri, so we CAN route access_denied back to the RP
+    // per the plan's behaviour spec step 6.
+    if (vpSession.status != VpSessionStatus.SUCCESSFUL) {
+        return respondOidcError(
+            OidcError.AccessDenied("presentation did not satisfy requirements"),
+            authReq,
+        )
+    }
+
+    // 7. Captured credential invariant. SUCCESSFUL without a captured
+    // credential is a webhook bug — Task 18 guarantees capture on
+    // SUCCESSFUL. 500 so the operator's alerting catches it.
+    val captured = vpSession.capturedCredential
+        ?: return respondPlainServerError(
+            "state inconsistency: SUCCESSFUL VpSession has no capturedCredential",
+        )
+
+    // 8. Realm config lookup. The realm was validated at kickoff; a
+    // disappearance now is a mid-flight config reload, treated the same
+    // as OIDC callback's disappeared-realm path.
+    val realm = deps.realmRegistry[realmId]
+        ?: return respondPlainServerError("realm '$realmId' disappeared")
+
+    // 9-10. Pick the first verified credential from the first entry of
+    // presentedCredentials. Shape (per verifier-api2 Verification2Session):
+    //   Map<String, List<DigitalCredential>> → JsonObject { name: [ {...}, ... ] }
+    //
+    // A DigitalCredential carries a `credentialData: JsonObject` which is
+    // the CLAIM payload — that's what ClaimMapper / SubDerivation apply
+    // to. Fall back to the whole credential object if `credentialData` is
+    // absent (defensive: verifier-api2 format changes).
+    val firstCredential = firstCredentialData(captured)
+        ?: return respondPlainServerError(
+            "presentedCredentials contained no DigitalCredential with credentialData",
+        )
+
+    // 11. Apply claim mapping.
+    val mappedClaims: Map<String, JsonElement> =
+        ClaimMapper.apply(firstCredential, realm.claimMapping)
+
+    // 12. Derive sub.
+    val strategy = realm.subStrategy
+        ?: return respondPlainServerError(
+            "realm '$realmId' has no subStrategy — OID4VP realms must declare one",
+        )
+    val sub = try {
+        SubDerivation.derive(
+            strategy = strategy,
+            realmId = realmId,
+            credential = firstCredential,
+            sourceClaimNames = realm.subSourceClaims,
+        )
+    } catch (iae: IllegalArgumentException) {
+        // CREDENTIAL_SUBJECT_ID with no id; that's an operator/wallet
+        // misalignment. Redirect the RP back with access_denied — the
+        // user's wallet simply cannot satisfy this realm.
+        return respondOidcError(
+            OidcError.AccessDenied("cannot derive sub: ${iae.message}"),
+            authReq,
+        )
+    }
+
+    // 13. Build final claims: mapped + namespaced realm + acr + amr.
+    // Overlay order mirrors the OIDC callback path — mapped claims first,
+    // then operator-immutable meta claims on top so a realm's claim_mapping
+    // cannot override acr/amr/realm.
+    val realmClaimName = "${deps.config.canonicalIssuer}/realm"
+    val finalClaims: Map<String, JsonElement> = mappedClaims + mapOf(
+        realmClaimName to JsonPrimitive(realmId),
+        "acr" to JsonPrimitive("urn:walt:vp"),
+        "amr" to buildJsonArray { add("swk") },
+    )
+
+    // 14. Session creation. Keyed by sid; upstreamIdToken=null (no OIDC
+    // chain on VP realms).
+    val session = Session(
+        sessionId = sid,
+        subject = sub,
+        realmId = realmId,
+        amr = listOf("swk"),
+        acr = "urn:walt:vp",
+        authTime = Clock.System.now(),
+        upstreamIdToken = null,
+    )
+    deps.sessionStore.put(sid, session)
+
+    // 15. AuthRequest hydration.
+    deps.authRequestStore.update(authReq.authRequestId) { current ->
+        current.copy(
+            subject = sub,
+            claims = finalClaims,
+        )
+    }
+
+    // 16. Clear captured credential on successful consumption. This is
+    // security-critical: we don't retain sensitive credential bytes past
+    // the point they've been mapped to claims.
+    deps.vpSessionStore.update(verifierSessionId) { it.copy(capturedCredential = null) }
+
+    // 17. Redirect to /consent.
+    respondRedirect("/consent")
+}
+
+/**
+ * Extract the first credential's `credentialData` (the JSON claim body)
+ * from verifier-api2's `presentedCredentials` map-of-arrays.
+ *
+ * Structure per `Verification2Session.presentedCredentials`:
+ * `Map<String, List<DigitalCredential>>`. Serialized on the wire as a
+ * JSON object whose values are arrays of credential objects, each with a
+ * `credentialData` field carrying the VC claim body.
+ *
+ * Policy: "first credential from the first entry". With a `LinkedHashMap`
+ * the underlying verifier iterates in insertion order, so first-entry is
+ * deterministic. If the wallet sent multiple credentials under the same
+ * DCQL id, we take index 0 — multi-credential realms should project
+ * through DCQL's credential_sets rather than rely on ordering inside a
+ * single entry.
+ *
+ * Returns null if there's nothing usable (empty map, empty list, or a
+ * credential element without a `credentialData` object). Callers treat
+ * null as a 500 state inconsistency.
+ */
+private fun firstCredentialData(captured: CapturedCredential): JsonObject? {
+    val credsByDcqlId = captured.presentedCredentials
+    if (credsByDcqlId.isEmpty()) return null
+    // first-entry is well-defined on a serialized JsonObject — Json preserves
+    // insertion order (LinkedHashMap underneath).
+    val firstEntry = credsByDcqlId.entries.firstOrNull() ?: return null
+    val array = firstEntry.value as? JsonArray ?: return null
+    val firstCred = array.firstOrNull() as? JsonObject ?: return null
+    // credentialData is the field verifier-api2's DigitalCredential
+    // exposes for the VC's claim payload.
+    val claimData = firstCred["credentialData"] as? JsonObject
+    if (claimData != null) return claimData
+    // Defensive fallback: if credentialData is missing (stub credential
+    // shape in tests, or a future verifier serialization change), treat
+    // the whole credential object as the claim source. This matches the
+    // existing "preserve the shape" posture of ClaimMapper — paths that
+    // don't resolve silently drop.
+    return firstCred
 }
 
 /**
@@ -445,4 +708,34 @@ private suspend fun ApplicationCall.respondPlainBadRequest(code: String, descrip
         append("</body></html>")
     }
     respondText(body, ContentType.Text.Html, HttpStatusCode.BadRequest)
+}
+
+/** Plain 403 used by /complete cookie-binding mismatch. */
+private suspend fun ApplicationCall.respondPlainForbidden(description: String) {
+    val body = buildString {
+        append("<!doctype html><html><body><h1>Forbidden</h1>")
+        append("<p>").append(description).append("</p>")
+        append("</body></html>")
+    }
+    respondText(body, ContentType.Text.Html, HttpStatusCode.Forbidden)
+}
+
+/** Plain 404 used by /complete when the URL's realm doesn't match the VpSession's realm. */
+private suspend fun ApplicationCall.respondPlainNotFound(description: String) {
+    val body = buildString {
+        append("<!doctype html><html><body><h1>Not found</h1>")
+        append("<p>").append(description).append("</p>")
+        append("</body></html>")
+    }
+    respondText(body, ContentType.Text.Html, HttpStatusCode.NotFound)
+}
+
+/** Plain 500 used by /complete for state-inconsistency branches. */
+private suspend fun ApplicationCall.respondPlainServerError(description: String) {
+    val body = buildString {
+        append("<!doctype html><html><body><h1>Server error</h1>")
+        append("<p>").append(description).append("</p>")
+        append("</body></html>")
+    }
+    respondText(body, ContentType.Text.Html, HttpStatusCode.InternalServerError)
 }

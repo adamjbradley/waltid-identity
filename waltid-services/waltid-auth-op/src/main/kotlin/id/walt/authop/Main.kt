@@ -10,6 +10,7 @@ import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
 import id.walt.authop.endpoints.userInfoRoutes
+import id.walt.authop.endpoints.vpCompleteRoutes
 import id.walt.authop.endpoints.vpStatusRoutes
 import id.walt.authop.endpoints.vpWebhookRoutes
 import id.walt.authop.store.AuthCodeStore
@@ -214,6 +215,7 @@ fun Application.module(deps: AuthOpDeps) {
         oidcCallbackRoutes(deps)
         vpStatusRoutes(deps)
         vpWebhookRoutes(deps)
+        vpCompleteRoutes(deps)
         consentRoutes(deps)
         tokenRoutes(deps)
         userInfoRoutes(deps)
