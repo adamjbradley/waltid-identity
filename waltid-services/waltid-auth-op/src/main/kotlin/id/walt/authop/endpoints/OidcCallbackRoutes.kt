@@ -23,6 +23,8 @@ import io.ktor.server.routing.get
 import io.ktor.server.util.getOrFail
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.security.SecureRandom
 import java.util.Base64
@@ -298,17 +300,33 @@ fun Route.oidcCallbackRoutes(deps: AuthOpDeps) {
         deps.sessionStore.put(sid, session)
 
         // --- AuthRequest hydration -----------------------------------------
-        // Subject + claims flow downstream to /consent → /token. We also
-        // re-stamp `realm` as a claim so the minted ID token can project
-        // which realm this session came from (design doc §JWT claims).
-        val claimsForAuthReq = buildMap<String, JsonElement> {
-            put("realm", JsonPrimitive(flow.realmId))
-            putAll(mappedClaims)
-        }
+        // Subject + claims flow downstream to /consent → /token → id_token.
+        // We start with the mapped claims from ClaimMapper.apply, then overlay
+        // three operator-immutable claims that mirror what the callback just
+        // stamped onto [Session]:
+        //
+        //   * realm — namespaced custom claim per the design doc's custom-claim
+        //     rule (`<canonicalIssuer>/realm`) so RPs never collide with the
+        //     reserved `realm` key.
+        //   * acr   — conservative `urn:walt:upstream-oidc` for every OIDC-realm
+        //     login. Matches [Session.acr] set above.
+        //   * amr   — `["pwd"]` default. Matches [Session.amr] above.
+        //
+        // Overlay order matters: mapped first, then these three on top, so a
+        // realm's `claim_mapping` cannot override spec-standard claims (design
+        // doc rule: operator/deployment cannot project over `acr`/`amr`/etc.).
+        // JwtIssuer.mintIdToken itself re-overlays iss/sub/aud/iat/exp/nonce on
+        // top of whatever we hand it, so those remain uncorruptable here.
+        val realmClaimName = "${deps.config.canonicalIssuer}/realm"
+        val finalClaims: Map<String, JsonElement> = mappedClaims + mapOf(
+            realmClaimName to JsonPrimitive(flow.realmId),
+            "acr" to JsonPrimitive("urn:walt:upstream-oidc"),
+            "amr" to buildJsonArray { add("pwd") },
+        )
         deps.authRequestStore.update(sid) { current ->
             current.copy(
                 subject = subject,
-                claims = claimsForAuthReq,
+                claims = finalClaims,
                 chosenRealmId = flow.realmId,
             )
         }

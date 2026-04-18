@@ -31,6 +31,7 @@ import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -581,8 +582,10 @@ class OidcCallbackRoutesTest {
         val updated = assertNotNull(store.get("sid-abc"))
         assertEquals("upstream-user-42", updated.subject)
         assertEquals("employees", updated.chosenRealmId)
-        // Mapped claims: sub + email (from claimMapping above). Plus `realm`
-        // injected by the handler.
+        // Mapped claims: sub + email (from claimMapping above). Plus the
+        // callback-injected trio: namespaced `realm`, `acr`, `amr` — these
+        // mirror what the callback stamps on [Session] and flow through to
+        // the minted id_token via AuthCode.claims → JwtIssuer.mintIdToken.
         assertEquals(
             "upstream-user-42",
             updated.claims["sub"]?.jsonPrimitive?.content,
@@ -594,8 +597,19 @@ class OidcCallbackRoutesTest {
         )
         assertEquals(
             "employees",
-            updated.claims["realm"]?.jsonPrimitive?.content,
-            "realm id must be projected as a claim for downstream ID token",
+            updated.claims["$ourIssuer/realm"]?.jsonPrimitive?.content,
+            "realm id must be projected as a namespaced custom claim (design doc rule)",
+        )
+        assertEquals(
+            "urn:walt:upstream-oidc",
+            updated.claims["acr"]?.jsonPrimitive?.content,
+            "acr must be propagated from Session into AuthRequest.claims",
+        )
+        val amr = assertNotNull(updated.claims["amr"]) as JsonArray
+        assertEquals(
+            listOf("pwd"),
+            amr.map { (it as JsonPrimitive).content },
+            "amr must be propagated from Session into AuthRequest.claims",
         )
     }
 

@@ -39,6 +39,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.util.Base64
@@ -317,14 +318,31 @@ class OidcFlowE2ETest {
         assertEquals(rpNonce, idPayload["nonce"]?.jsonPrimitive?.content, "RP's nonce, NOT upstream's")
         assertEquals("alice@example.com", idPayload["email"]?.jsonPrimitive?.content)
         assertEquals("Alice Liddell", idPayload["name"]?.jsonPrimitive?.content)
-        assertEquals("employees", idPayload["realm"]?.jsonPrimitive?.content)
 
-        // `acr` is stamped onto the [Session] by the callback but NOT
-        // propagated onto AuthRequest.claims → it doesn't reach the id_token
-        // via the current Task 10/11 wiring. Assert it via the store so the
-        // realm adapter's responsibility is still covered; id_token.acr
-        // propagation is a gap for a later hardening task. Task 15 is
-        // pure-test; we assert observed behaviour.
+        // acr / amr / realm are stamped on [Session] at callback time AND
+        // merged into AuthRequest.claims → AuthCode.claims → id_token. The
+        // realm id rides under a namespaced custom claim to avoid colliding
+        // with anything the realm's claim_mapping might legitimately emit.
+        assertEquals(
+            "urn:walt:upstream-oidc",
+            idPayload["acr"]?.jsonPrimitive?.content,
+            "acr must surface on the minted id_token",
+        )
+        assertEquals(
+            "employees",
+            idPayload["$ourIssuer/realm"]?.jsonPrimitive?.content,
+            "realm id must surface under its namespaced custom-claim name",
+        )
+        val amr = idPayload["amr"]?.jsonArray?.map { it.jsonPrimitive.content }
+        assertEquals(
+            listOf("pwd"),
+            amr,
+            "amr must surface as a string array with the Session's default",
+        )
+
+        // Cross-check the session still carries the same values — belt + braces
+        // so a future regression where the callback skips Session stamping but
+        // keeps the claim merge still fails this test.
         val session = assertNotNull(deps.sessionStore.get(sid))
         assertEquals("urn:walt:upstream-oidc", session.acr)
         assertEquals("employees", session.realmId)
@@ -404,7 +422,8 @@ class OidcFlowE2ETest {
         val payload = jwtPayload(idToken)
         assertEquals("user-abc", payload["sub"]?.jsonPrimitive?.content)
         assertEquals(rpNonce, payload["nonce"]?.jsonPrimitive?.content)
-        assertEquals("employees", payload["realm"]?.jsonPrimitive?.content)
+        assertEquals("employees", payload["$ourIssuer/realm"]?.jsonPrimitive?.content)
+        assertEquals("urn:walt:upstream-oidc", payload["acr"]?.jsonPrimitive?.content)
         assertEquals("alice@example.com", payload["email"]?.jsonPrimitive?.content)
         val session = assertNotNull(deps.sessionStore.get(sid))
         assertEquals("urn:walt:upstream-oidc", session.acr)
