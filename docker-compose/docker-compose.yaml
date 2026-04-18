@@ -477,6 +477,37 @@ services:
     ports:
       - "${KEYCLOAK_PORT:-8180}:${KEYCLOAK_PORT:-8180}"
 
+  # ==================================================
+  # AUTH-OP - Custom OIDC Provider with realm discovery
+  # ==================================================
+  # Drop-in OIDC OP in front of Keycloak (employees realm via OIDC)
+  # and verifier-api2 (citizens realm via OID4VP).
+  # External: https://auth.theaustraliahack.com
+  # Local:    http://localhost:7005
+  # ==================================================
+  auth-op:
+    image: ${IMAGE_PREFIX}waltid/auth-op:${VERSION_TAG:-stable}
+    profiles:
+      - identity
+      - all
+    pull_policy: missing
+    depends_on:
+      - caddy
+      - keycloak
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    environment:
+      AUTH_OP_PORT: ${AUTH_OP_PORT:-7005}
+      AUTH_OP_ISSUER: ${AUTH_OP_ISSUER:-https://auth.theaustraliahack.com}
+      EMPLOYEES_OIDC_SECRET: ${EMPLOYEES_OIDC_SECRET}
+      RP_THEAUSTRALIAHACK_SECRET: ${RP_THEAUSTRALIAHACK_SECRET}
+    volumes:
+      - ./auth-op/config:/app/config
+    ports:
+      - "${AUTH_OP_PORT:-7005}:${AUTH_OP_PORT:-7005}"
+
 volumes:
   wallet-api-db:
   vault_data:

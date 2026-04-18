@@ -1,0 +1,18 @@
+{
+  "_comment": "Placeholder DCQL - adjust to match your deployed PID credential schema.",
+  "credentials": [
+    {
+      "id": "pid",
+      "format": "vc+sd-jwt",
+      "meta": {
+        "vct_values": ["https://credentials.example.com/identity_credential"]
+      },
+      "claims": [
+        {"path": ["given_name"]},
+        {"path": ["family_name"]},
+        {"path": ["birthdate"]},
+        {"path": ["nationality"]}
+      ]
+    }
+  ]
+}
