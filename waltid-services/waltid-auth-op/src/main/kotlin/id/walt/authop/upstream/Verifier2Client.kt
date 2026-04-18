@@ -276,7 +276,9 @@ class Verifier2Client(
         // Verified against Verification2Session.kt:58 (`var status`) and :147-177
         // (`VerificationSessionStatus` enum values: ACTIVE / UNUSED / IN_USE /
         // VALIDATING_RECEIVED_REQUEST / PROCESSING_FLOW / EXPIRED / SUCCESSFUL /
-        // FAILED / UNSUCCESSFUL).
+        // FAILED / UNSUCCESSFUL). We also defensively treat the literal
+        // "UNKNOWN" as UNSUCCESSFUL so a truly indeterminate state from a
+        // future verifier-api2 doesn't strand the user polling forever.
         val upstreamStatus = doc["status"]?.jsonPrimitive?.contentOrNullSafe()
             ?: throw Verifier2ClientException(
                 "verifier_session_info_failed",
@@ -285,7 +287,7 @@ class Verifier2Client(
 
         val mapped = when (upstreamStatus) {
             "SUCCESSFUL" -> VpSessionStatus.SUCCESSFUL
-            "UNSUCCESSFUL", "FAILED", "EXPIRED" -> VpSessionStatus.UNSUCCESSFUL
+            "UNSUCCESSFUL", "FAILED", "EXPIRED", "UNKNOWN" -> VpSessionStatus.UNSUCCESSFUL
             else -> VpSessionStatus.PENDING  // ACTIVE / UNUSED / IN_USE / VALIDATING_RECEIVED_REQUEST / PROCESSING_FLOW
         }
 

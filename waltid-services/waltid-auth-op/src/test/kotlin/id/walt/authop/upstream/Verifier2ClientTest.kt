@@ -278,6 +278,24 @@ class Verifier2ClientTest {
     }
 
     @Test
+    fun `getSessionInfo maps UNKNOWN status to UNSUCCESSFUL`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = """{"status": "UNKNOWN"}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = Verifier2Client(httpClient = HttpClient(engine))
+
+        val info = client.getSessionInfo(verifierBaseUrl, "sess-unknown")
+
+        // A truly indeterminate upstream state must NOT leave the user polling
+        // forever — map it to a terminal UNSUCCESSFUL.
+        assertEquals(VpSessionStatus.UNSUCCESSFUL, info.status)
+    }
+
+    @Test
     fun `getSessionInfo handles missing session as 404`() = runTest {
         val engine = MockEngine { _ ->
             respond("not found", HttpStatusCode.NotFound)
