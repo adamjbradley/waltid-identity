@@ -11,9 +11,11 @@ import id.walt.authop.store.CsrfTokenStore
 import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
+import id.walt.authop.store.InMemoryLogoutFlowStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
 import id.walt.authop.store.InMemoryVpSessionStore
+import id.walt.authop.store.LogoutFlowStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.store.VpSessionStore
@@ -103,6 +105,7 @@ fun testDeps(
     csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(10.minutes),
     upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(10.minutes),
     vpSessionStore: VpSessionStore = InMemoryVpSessionStore(10.minutes),
+    logoutFlowStore: LogoutFlowStore = InMemoryLogoutFlowStore(5.minutes),
     jwtIssuer: JwtIssuer = JwtIssuer(signingKey, config.canonicalIssuer, 1.hours),
     oidcClient: OidcClient = mockOidcClient(),
     verifier2Client: Verifier2Client = mockVerifier2Client(),
@@ -117,6 +120,7 @@ fun testDeps(
     csrfTokenStore = csrfTokenStore,
     upstreamFlowStore = upstreamFlowStore,
     vpSessionStore = vpSessionStore,
+    logoutFlowStore = logoutFlowStore,
     jwtIssuer = jwtIssuer,
     oidcClient = oidcClient,
     verifier2Client = verifier2Client,

@@ -6,6 +6,7 @@ import id.walt.authop.config.RealmRegistry
 import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
+import id.walt.authop.endpoints.endSessionRoutes
 import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
@@ -19,9 +20,11 @@ import id.walt.authop.store.CsrfTokenStore
 import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
+import id.walt.authop.store.InMemoryLogoutFlowStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
 import id.walt.authop.store.InMemoryVpSessionStore
+import id.walt.authop.store.LogoutFlowStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.store.VpSessionStore
@@ -112,6 +115,15 @@ private val UPSTREAM_FLOW_TTL = 10.minutes
  */
 private val VP_SESSION_TTL = 10.minutes
 
+/**
+ * Default TTL for in-flight RP-initiated-logout state (the upstream-chain
+ * leg of `/end_session`). 5 min is the plan default: RP-initiated logout is
+ * a single user-agent bounce through the upstream's `end_session_endpoint`
+ * and back, so a short TTL keeps at-rest state bounded without hurting the
+ * happy path.
+ */
+private val LOGOUT_FLOW_TTL = 5.minutes
+
 suspend fun main(args: Array<String>) {
     ServiceMain(
         ServiceConfiguration("auth-op"),
@@ -137,6 +149,7 @@ suspend fun main(args: Array<String>) {
                 val csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(CSRF_TTL)
                 val upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(UPSTREAM_FLOW_TTL)
                 val vpSessionStore: VpSessionStore = InMemoryVpSessionStore(VP_SESSION_TTL)
+                val logoutFlowStore: LogoutFlowStore = InMemoryLogoutFlowStore(LOGOUT_FLOW_TTL)
                 // Single OidcClient per process — the internal Caffeine caches
                 // (discovery + JWKS) are most useful when shared across realm
                 // kickoffs / callbacks. HttpClient is the production default
@@ -168,6 +181,7 @@ suspend fun main(args: Array<String>) {
                     csrfTokenStore = csrfTokenStore,
                     upstreamFlowStore = upstreamFlowStore,
                     vpSessionStore = vpSessionStore,
+                    logoutFlowStore = logoutFlowStore,
                     jwtIssuer = jwtIssuer,
                     oidcClient = oidcClient,
                     verifier2Client = verifier2Client,
@@ -219,5 +233,6 @@ fun Application.module(deps: AuthOpDeps) {
         consentRoutes(deps)
         tokenRoutes(deps)
         userInfoRoutes(deps)
+        endSessionRoutes(deps)
     }
 }

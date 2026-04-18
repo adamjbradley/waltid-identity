@@ -6,6 +6,7 @@ import id.walt.authop.config.RealmRegistry
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
+import id.walt.authop.store.LogoutFlowStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.store.VpSessionStore
@@ -43,6 +44,7 @@ data class AuthOpDeps(
     val csrfTokenStore: CsrfTokenStore,
     val upstreamFlowStore: UpstreamFlowStore,
     val vpSessionStore: VpSessionStore,
+    val logoutFlowStore: LogoutFlowStore,
     val jwtIssuer: JwtIssuer,
     val oidcClient: OidcClient,
     val verifier2Client: Verifier2Client,
