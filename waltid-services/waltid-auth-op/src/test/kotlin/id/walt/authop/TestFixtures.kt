@@ -12,12 +12,18 @@ import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
+import id.walt.authop.store.InMemoryUpstreamFlowStore
 import id.walt.authop.store.SessionStore
+import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.tokens.JwtIssuer
+import id.walt.authop.upstream.OidcClient
 import id.walt.crypto.keys.KeyType
 import id.walt.crypto.keys.jwk.JWKKey
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import kotlinx.coroutines.runBlocking
@@ -92,7 +98,9 @@ fun testDeps(
     sessionStore: SessionStore = InMemorySessionStore(5.minutes),
     authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(60.seconds),
     csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(10.minutes),
+    upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(10.minutes),
     jwtIssuer: JwtIssuer = JwtIssuer(signingKey, config.canonicalIssuer, 1.hours),
+    oidcClient: OidcClient = mockOidcClient(),
 ): AuthOpDeps = AuthOpDeps(
     config = config,
     signingKey = signingKey,
@@ -102,7 +110,20 @@ fun testDeps(
     sessionStore = sessionStore,
     authCodeStore = authCodeStore,
     csrfTokenStore = csrfTokenStore,
+    upstreamFlowStore = upstreamFlowStore,
     jwtIssuer = jwtIssuer,
+    oidcClient = oidcClient,
+)
+
+/**
+ * Default [OidcClient] used by test fixtures that don't exercise the upstream
+ * flow. The MockEngine returns 404 for every request, so any unexpected call
+ * fails loudly instead of hitting a real upstream. Tests that DO exercise
+ * `/login/realm/{id}` or `/callback/oidc` pass their own preconfigured
+ * [OidcClient] built on top of a MockEngine with matching responses.
+ */
+fun mockOidcClient(): OidcClient = OidcClient(
+    httpClient = HttpClient(MockEngine { respond("not found", HttpStatusCode.NotFound) }),
 )
 
 /**

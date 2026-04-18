@@ -7,6 +7,7 @@ import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.loginRoutes
+import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
 import id.walt.authop.endpoints.userInfoRoutes
 import id.walt.authop.store.AuthCodeStore
@@ -16,9 +17,12 @@ import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
+import id.walt.authop.store.InMemoryUpstreamFlowStore
 import id.walt.authop.store.SessionStore
+import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.tokens.JwtIssuer
 import id.walt.authop.tokens.KeyProvider
+import id.walt.authop.upstream.OidcClient
 import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
 import id.walt.commons.ServiceMain
@@ -85,6 +89,14 @@ private val AUTH_CODE_TTL = 60.seconds
  */
 private val CSRF_TTL = 10.minutes
 
+/**
+ * Default TTL for upstream-OIDC kickoff state. The user has this long from
+ * choosing a realm to completing the upstream flow and hitting `/callback/oidc`.
+ * 10 min matches the AuthRequest TTL — a longer window buys nothing because
+ * the callback would fail on AuthRequest lookup anyway.
+ */
+private val UPSTREAM_FLOW_TTL = 10.minutes
+
 suspend fun main(args: Array<String>) {
     ServiceMain(
         ServiceConfiguration("auth-op"),
@@ -108,6 +120,12 @@ suspend fun main(args: Array<String>) {
                 val sessionStore: SessionStore = InMemorySessionStore(SESSION_TTL)
                 val authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(AUTH_CODE_TTL)
                 val csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(CSRF_TTL)
+                val upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(UPSTREAM_FLOW_TTL)
+                // Single OidcClient per process — the internal Caffeine caches
+                // (discovery + JWKS) are most useful when shared across realm
+                // kickoffs / callbacks. HttpClient is the production default
+                // (OkHttp + ContentNegotiation/json) via the companion.
+                val oidcClient = OidcClient()
                 // JwtIssuer is constructed once at startup with the canonical
                 // issuer string (byte-exact match with discovery metadata) and
                 // the loaded signing key. Token TTL is fixed at 1h here — OIDC
@@ -128,7 +146,9 @@ suspend fun main(args: Array<String>) {
                     sessionStore = sessionStore,
                     authCodeStore = authCodeStore,
                     csrfTokenStore = csrfTokenStore,
+                    upstreamFlowStore = upstreamFlowStore,
                     jwtIssuer = jwtIssuer,
+                    oidcClient = oidcClient,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -170,6 +190,7 @@ fun Application.module(deps: AuthOpDeps) {
         discoveryRoutes(deps.config, deps.signingKey)
         authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
         loginRoutes(deps)
+        oidcCallbackRoutes(deps)
         consentRoutes(deps)
         tokenRoutes(deps)
         userInfoRoutes(deps)

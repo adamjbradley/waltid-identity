@@ -45,6 +45,12 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp-jvm:${Versions.KTOR_VERSION}")
     implementation("io.ktor:ktor-client-content-negotiation-jvm:${Versions.KTOR_VERSION}")
 
+    /* -- JSONPath (claim mapping) --
+     * Used by id.walt.authop.claims.ClaimMapper to extract values from
+     * upstream ID-token payloads (OIDC realm) and presented-credential
+     * payloads (OID4VP realm). Same version the rest of the repo pins. */
+    implementation("com.eygraber:jsonpathkt-kotlinx:3.0.2")
+
     /* -- Test -- */
     testImplementation(identityLibs.bundles.waltid.ktortesting)
     testImplementation("io.mockk:mockk:1.14.2")
