@@ -70,11 +70,15 @@ data class OidcRealmConfig(
  *   this realm presents to the wallet.
  * @property webhookCallbackPath URL path the verifier invokes on this OP when a presentation
  *   succeeds; the OP then resolves the pending authorize session.
+ * @property rpId Optional RP ID forwarded to verifier-api2 as `?rpId=` on session-create
+ *   so verifier-api2 resolves the per-RP signing key / x5c chain when the RP registrar
+ *   is enabled. Null means "verifier-api2 uses its default RP identity".
  */
 data class Oid4vpRealmConfig(
     val verifierBaseUrl: String,
     val dcqlQueryFile: String,
     val webhookCallbackPath: String,
+    val rpId: String? = null,
 )
 
 /**

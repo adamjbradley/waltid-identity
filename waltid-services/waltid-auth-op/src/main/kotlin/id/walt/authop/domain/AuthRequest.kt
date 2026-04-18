@@ -17,6 +17,12 @@ import kotlinx.serialization.json.JsonElement
  * @property chosenRealmId null until the user picks a realm
  * @property subject null until login completes
  * @property claims filled in at login completion; empty until then
+ * @property activeVpSessionId For OID4VP realms only: the verifier-api2 session
+ *           id of the VP flow that is currently in progress for this auth request.
+ *           Stamped by the VP kickoff route so the recovery path (refreshing the
+ *           QR page after success) can look up the already-SUCCESSFUL VpSession
+ *           without needing a secondary index on [id.walt.authop.store.VpSessionStore].
+ *           Null for OIDC realms and until VP kickoff runs.
  */
 data class AuthRequest(
     val authRequestId: String,
@@ -30,5 +36,6 @@ data class AuthRequest(
     val prompt: String?,
     val chosenRealmId: String?,
     val subject: String?,
-    val claims: Map<String, JsonElement>
+    val claims: Map<String, JsonElement>,
+    val activeVpSessionId: String? = null,
 )

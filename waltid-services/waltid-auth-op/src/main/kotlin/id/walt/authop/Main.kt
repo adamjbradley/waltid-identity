@@ -10,6 +10,7 @@ import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
 import id.walt.authop.endpoints.userInfoRoutes
+import id.walt.authop.endpoints.vpStatusRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
@@ -18,11 +19,14 @@ import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
+import id.walt.authop.store.InMemoryVpSessionStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
+import id.walt.authop.store.VpSessionStore
 import id.walt.authop.tokens.JwtIssuer
 import id.walt.authop.tokens.KeyProvider
 import id.walt.authop.upstream.OidcClient
+import id.walt.authop.upstream.Verifier2Client
 import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
 import id.walt.commons.ServiceMain
@@ -97,6 +101,15 @@ private val CSRF_TTL = 10.minutes
  */
 private val UPSTREAM_FLOW_TTL = 10.minutes
 
+/**
+ * Default TTL for in-flight VP sessions held on the verifier-api2 side.
+ * 10 min matches the AuthRequest TTL — same human-pacing bound applies: the
+ * user scans a QR code, opens the wallet, consents, and presents. Past this
+ * window the AuthRequest is gone anyway, so a longer VpSession TTL buys
+ * nothing.
+ */
+private val VP_SESSION_TTL = 10.minutes
+
 suspend fun main(args: Array<String>) {
     ServiceMain(
         ServiceConfiguration("auth-op"),
@@ -121,11 +134,16 @@ suspend fun main(args: Array<String>) {
                 val authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(AUTH_CODE_TTL)
                 val csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(CSRF_TTL)
                 val upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(UPSTREAM_FLOW_TTL)
+                val vpSessionStore: VpSessionStore = InMemoryVpSessionStore(VP_SESSION_TTL)
                 // Single OidcClient per process — the internal Caffeine caches
                 // (discovery + JWKS) are most useful when shared across realm
                 // kickoffs / callbacks. HttpClient is the production default
                 // (OkHttp + ContentNegotiation/json) via the companion.
                 val oidcClient = OidcClient()
+                // Verifier2Client has no caches to share; we still keep a single
+                // instance so the OkHttp client's connection pool is reused across
+                // VP kickoffs.
+                val verifier2Client = Verifier2Client()
                 // JwtIssuer is constructed once at startup with the canonical
                 // issuer string (byte-exact match with discovery metadata) and
                 // the loaded signing key. Token TTL is fixed at 1h here — OIDC
@@ -147,8 +165,10 @@ suspend fun main(args: Array<String>) {
                     authCodeStore = authCodeStore,
                     csrfTokenStore = csrfTokenStore,
                     upstreamFlowStore = upstreamFlowStore,
+                    vpSessionStore = vpSessionStore,
                     jwtIssuer = jwtIssuer,
                     oidcClient = oidcClient,
+                    verifier2Client = verifier2Client,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -191,6 +211,7 @@ fun Application.module(deps: AuthOpDeps) {
         authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
         loginRoutes(deps)
         oidcCallbackRoutes(deps)
+        vpStatusRoutes(deps)
         consentRoutes(deps)
         tokenRoutes(deps)
         userInfoRoutes(deps)

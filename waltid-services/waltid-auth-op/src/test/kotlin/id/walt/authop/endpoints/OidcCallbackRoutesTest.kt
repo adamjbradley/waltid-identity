@@ -277,39 +277,6 @@ class OidcCallbackRoutesTest {
     }
 
     @Test
-    fun `OID4VP realm returns 501 temporary until Task 17`() = testApplication {
-        val store = InMemoryAuthRequestStore(5.minutes).apply {
-            put("sid-abc", authRequestFor())
-        }
-        val vpRealm = RealmConfig(
-            id = "vp",
-            name = "VP",
-            method = RealmMethod.OID4VP,
-            oidc = null,
-            oid4vp = id.walt.authop.config.Oid4vpRealmConfig(
-                verifierBaseUrl = "https://verifier.example",
-                dcqlQueryFile = "dcql.json",
-                webhookCallbackPath = "/wh",
-            ),
-            subStrategy = id.walt.authop.config.SubStrategy.EPHEMERAL,
-        )
-        application {
-            module(
-                testDeps(
-                    authRequestStore = store,
-                    realmRegistry = realmRegistry(vpRealm),
-                ),
-            )
-        }
-
-        val r = noFollow().get("/login/realm/vp") {
-            header(HttpHeaders.Cookie, "sid=sid-abc")
-        }
-
-        assertEquals(HttpStatusCode.NotImplemented, r.status)
-    }
-
-    @Test
     fun `unknown realm returns 400`() = testApplication {
         val store = InMemoryAuthRequestStore(5.minutes).apply {
             put("sid-abc", authRequestFor())

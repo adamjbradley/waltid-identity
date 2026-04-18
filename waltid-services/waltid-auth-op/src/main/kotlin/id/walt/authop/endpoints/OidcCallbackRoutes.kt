@@ -174,14 +174,11 @@ fun Route.oidcCallbackRoutes(deps: AuthOpDeps) {
             }
 
             RealmMethod.OID4VP -> {
-                // Task 17 owns this. Returning 501 (not 400) makes clear
-                // this is intentionally-incomplete-server, not a malformed
-                // request from the user.
-                call.respondText(
-                    "VP realms not yet implemented",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.NotImplemented,
-                )
+                // Task 17: delegate to the VP-kickoff helper. That helper
+                // loads the realm's DCQL, opens a session on verifier-api2,
+                // mints a webhook secret, stamps activeVpSessionId on the
+                // AuthRequest, and renders the QR page.
+                call.vpRealmKickoff(realm, authReq, deps, sid)
             }
         }
     }

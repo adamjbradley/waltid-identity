@@ -8,8 +8,10 @@ import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
+import id.walt.authop.store.VpSessionStore
 import id.walt.authop.tokens.JwtIssuer
 import id.walt.authop.upstream.OidcClient
+import id.walt.authop.upstream.Verifier2Client
 import id.walt.crypto.keys.jwk.JWKKey
 
 /**
@@ -40,6 +42,8 @@ data class AuthOpDeps(
     val authCodeStore: AuthCodeStore,
     val csrfTokenStore: CsrfTokenStore,
     val upstreamFlowStore: UpstreamFlowStore,
+    val vpSessionStore: VpSessionStore,
     val jwtIssuer: JwtIssuer,
     val oidcClient: OidcClient,
+    val verifier2Client: Verifier2Client,
 )

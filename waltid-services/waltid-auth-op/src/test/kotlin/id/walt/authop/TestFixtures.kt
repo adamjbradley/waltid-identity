@@ -13,10 +13,13 @@ import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
+import id.walt.authop.store.InMemoryVpSessionStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
+import id.walt.authop.store.VpSessionStore
 import id.walt.authop.tokens.JwtIssuer
 import id.walt.authop.upstream.OidcClient
+import id.walt.authop.upstream.Verifier2Client
 import id.walt.crypto.keys.KeyType
 import id.walt.crypto.keys.jwk.JWKKey
 import io.ktor.client.HttpClient
@@ -99,8 +102,10 @@ fun testDeps(
     authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(60.seconds),
     csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(10.minutes),
     upstreamFlowStore: UpstreamFlowStore = InMemoryUpstreamFlowStore(10.minutes),
+    vpSessionStore: VpSessionStore = InMemoryVpSessionStore(10.minutes),
     jwtIssuer: JwtIssuer = JwtIssuer(signingKey, config.canonicalIssuer, 1.hours),
     oidcClient: OidcClient = mockOidcClient(),
+    verifier2Client: Verifier2Client = mockVerifier2Client(),
 ): AuthOpDeps = AuthOpDeps(
     config = config,
     signingKey = signingKey,
@@ -111,8 +116,10 @@ fun testDeps(
     authCodeStore = authCodeStore,
     csrfTokenStore = csrfTokenStore,
     upstreamFlowStore = upstreamFlowStore,
+    vpSessionStore = vpSessionStore,
     jwtIssuer = jwtIssuer,
     oidcClient = oidcClient,
+    verifier2Client = verifier2Client,
 )
 
 /**
@@ -123,6 +130,16 @@ fun testDeps(
  * [OidcClient] built on top of a MockEngine with matching responses.
  */
 fun mockOidcClient(): OidcClient = OidcClient(
+    httpClient = HttpClient(MockEngine { respond("not found", HttpStatusCode.NotFound) }),
+)
+
+/**
+ * Default [Verifier2Client] used by test fixtures that don't exercise the VP
+ * flow. The MockEngine returns 404 for every request, so any unexpected call
+ * fails loudly. Tests that exercise `/login/realm/{id}` for an OID4VP realm
+ * pass their own preconfigured [Verifier2Client].
+ */
+fun mockVerifier2Client(): Verifier2Client = Verifier2Client(
     httpClient = HttpClient(MockEngine { respond("not found", HttpStatusCode.NotFound) }),
 )
 
