@@ -6,6 +6,8 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import id.walt.crypto.keys.jwk.JWKKey
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
@@ -115,6 +117,8 @@ class OidcClient(
         val url = "${issuer.trimEnd('/')}/.well-known/openid-configuration"
         val response: HttpResponse = try {
             httpClient.get(url)
+        } catch (t: HttpRequestTimeoutException) {
+            throw OidcClientException("upstream_timeout", "discovery GET timed out: ${t.message}", t)
         } catch (t: Throwable) {
             throw OidcClientException("upstream_discovery_failed", "discovery GET failed: ${t.message}", t)
         }
@@ -163,6 +167,8 @@ class OidcClient(
     private suspend fun fetchJwks(jwksUri: String): Map<String, JsonObject> {
         val response: HttpResponse = try {
             httpClient.get(jwksUri)
+        } catch (t: HttpRequestTimeoutException) {
+            throw OidcClientException("upstream_timeout", "JWKS GET timed out: ${t.message}", t)
         } catch (t: Throwable) {
             throw OidcClientException("upstream_jwks_failed", "JWKS GET failed: ${t.message}", t)
         }
@@ -235,6 +241,8 @@ class OidcClient(
                 header(HttpHeaders.Authorization, "Basic $basic")
                 header(HttpHeaders.Accept, "application/json")
             }
+        } catch (t: HttpRequestTimeoutException) {
+            throw OidcClientException("upstream_timeout", "token POST timed out: ${t.message}", t)
         } catch (t: Throwable) {
             throw OidcClientException("upstream_token_failed", "token POST failed: ${t.message}", t)
         }
@@ -408,12 +416,24 @@ class OidcClient(
         /**
          * Default production [HttpClient]: OkHttp engine (the rest of the repo's
          * services use OkHttp), JSON content negotiation installed so the client
-         * can decode `application/json` bodies without boilerplate.
+         * can decode `application/json` bodies without boilerplate, and
+         * [HttpTimeout] installed so a slow or malicious upstream cannot hold
+         * a coroutine — and therefore a user-facing callback path (Task 14) —
+         * open indefinitely.
+         *
+         * Values mirror [WebhookDispatcher]'s posture but are tighter because
+         * discovery/JWKS/token calls sit on the hot path of interactive login;
+         * a user waiting 30s for a redirect is unacceptable.
          *
          * Tests swap this for a `MockEngine`-backed client via the ctor.
          */
         fun defaultHttpClient(): HttpClient = HttpClient(OkHttp) {
             install(ContentNegotiation) { json() }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 5_000
+                socketTimeoutMillis = 15_000
+            }
         }
     }
 }

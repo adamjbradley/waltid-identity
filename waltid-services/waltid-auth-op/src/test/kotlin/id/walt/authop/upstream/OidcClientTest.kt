@@ -9,10 +9,12 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -577,6 +579,49 @@ class OidcClientTest {
             client.exchangeCode(discovery, clientId, clientSecret, "c", redirectUri, nonce)
         }
         assertEquals("upstream_id_token_unknown_kid", ex.code)
+    }
+
+    // --- Timeout hardening ----------------------------------------------------
+
+    /**
+     * A slow or malicious upstream must not be able to hold this client's
+     * coroutine open indefinitely — since [OidcClient] sits on a user-facing
+     * callback path, an unbounded hang would tie up the service's thread pool.
+     *
+     * The production [OidcClient.defaultHttpClient] installs [HttpTimeout] for
+     * this reason. This test re-installs it on a `MockEngine`-backed client
+     * with tight values, makes the upstream stall past the request timeout,
+     * and asserts the client surfaces the stall as [OidcClientException] with
+     * the distinct `upstream_timeout` code so Task 14 and operators can tell
+     * a slow upstream apart from other failure modes.
+     *
+     * Uses `runBlocking` (not `runTest`) because [HttpTimeout] runs on a real
+     * wall clock — the virtual test dispatcher would skip the delay without
+     * ever firing the timeout.
+     */
+    @Test
+    fun `upstream request timeout surfaces as upstream_timeout`() = runBlocking {
+        val stallingEngine = MockEngine { _ ->
+            // Stall longer than the client's request timeout so the plugin fires.
+            delay(2_000)
+            respond("{}", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        // Tight timeouts (50ms request) so the test completes well under a second.
+        val tightClient = HttpClient(stallingEngine) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 50
+                connectTimeoutMillis = 50
+                socketTimeoutMillis = 50
+            }
+        }
+        val client = OidcClient(httpClient = tightClient, clock = fixedClock)
+
+        val ex = assertFailsWith<OidcClientException> { client.discover(issuerUrl) }
+        assertEquals("upstream_timeout", ex.code)
+        assertTrue(
+            ex.message?.contains("timed out") == true,
+            "exception message should describe the timeout for operator debugging",
+        )
     }
 
     // --- helpers ---------------------------------------------------------------
