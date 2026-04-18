@@ -7,6 +7,8 @@ import id.walt.authop.config.RealmRegistry
 import id.walt.authop.config.TokenEndpointAuthMethod
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.InMemoryAuthRequestStore
+import id.walt.authop.store.InMemorySessionStore
+import id.walt.authop.store.SessionStore
 import id.walt.crypto.keys.KeyType
 import id.walt.crypto.keys.jwk.JWKKey
 import io.ktor.client.HttpClient
@@ -80,12 +82,14 @@ fun testDeps(
     clientRegistry: ClientRegistry = ClientRegistry(mapOf("rp1" to testClient())),
     realmRegistry: RealmRegistry = RealmRegistry(emptyMap()),
     authRequestStore: AuthRequestStore = InMemoryAuthRequestStore(5.minutes),
+    sessionStore: SessionStore = InMemorySessionStore(5.minutes),
 ): AuthOpDeps = AuthOpDeps(
     config = config,
     signingKey = signingKey,
     clientRegistry = clientRegistry,
     realmRegistry = realmRegistry,
     authRequestStore = authRequestStore,
+    sessionStore = sessionStore,
 )
 
 /**

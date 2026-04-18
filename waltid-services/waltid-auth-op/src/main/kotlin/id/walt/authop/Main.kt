@@ -5,8 +5,11 @@ import id.walt.authop.config.ClientRegistry
 import id.walt.authop.config.RealmRegistry
 import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.discoveryRoutes
+import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.InMemoryAuthRequestStore
+import id.walt.authop.store.InMemorySessionStore
+import id.walt.authop.store.SessionStore
 import id.walt.authop.tokens.KeyProvider
 import id.walt.commons.ServiceConfiguration
 import id.walt.commons.ServiceInitialization
@@ -21,6 +24,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -47,6 +51,15 @@ internal object AuthOpRuntime {
  */
 private val AUTH_REQUEST_TTL = 10.minutes
 
+/**
+ * Default TTL for authenticated user [id.walt.authop.domain.Session] entries.
+ * One hour matches a typical browser-session SSO window — long enough to
+ * survive tab navigation and an upstream re-auth round-trip, short enough
+ * that an abandoned browser doesn't keep a live session indefinitely.
+ * Tunable via config in a later task if real deployments need something else.
+ */
+private val SESSION_TTL = 1.hours
+
 suspend fun main(args: Array<String>) {
     ServiceMain(
         ServiceConfiguration("auth-op"),
@@ -67,6 +80,7 @@ suspend fun main(args: Array<String>) {
                 val clientRegistry = ClientRegistry.load("config/clients.conf")
                 val realmRegistry = RealmRegistry.load("config/realms.conf")
                 val authRequestStore: AuthRequestStore = InMemoryAuthRequestStore(AUTH_REQUEST_TTL)
+                val sessionStore: SessionStore = InMemorySessionStore(SESSION_TTL)
 
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
@@ -74,6 +88,7 @@ suspend fun main(args: Array<String>) {
                     clientRegistry = clientRegistry,
                     realmRegistry = realmRegistry,
                     authRequestStore = authRequestStore,
+                    sessionStore = sessionStore,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -114,5 +129,6 @@ fun Application.module(deps: AuthOpDeps) {
         get("/health") { call.respondText("ok") }
         discoveryRoutes(deps.config, deps.signingKey)
         authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
+        loginRoutes(deps)
     }
 }
