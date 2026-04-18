@@ -4,10 +4,15 @@ import id.walt.authop.config.AuthOpServiceConfig
 import id.walt.authop.config.ClientRegistry
 import id.walt.authop.config.RealmRegistry
 import id.walt.authop.endpoints.authorizeRoutes
+import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.loginRoutes
+import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
+import id.walt.authop.store.CsrfTokenStore
+import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
+import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.tokens.KeyProvider
@@ -26,6 +31,7 @@ import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Runtime dependencies resolved during [ServiceInitialization.init] and consumed
@@ -60,6 +66,22 @@ private val AUTH_REQUEST_TTL = 10.minutes
  */
 private val SESSION_TTL = 1.hours
 
+/**
+ * Default TTL for issued [id.walt.authop.domain.AuthCode] entries. The design
+ * doc §State fixes this at 60s and flags single-use via [AuthCodeStore.consume];
+ * keeping the window tight shrinks the replay surface between `/authorize` and
+ * the RP's `/token` exchange.
+ */
+private val AUTH_CODE_TTL = 60.seconds
+
+/**
+ * Default TTL for CSRF tokens on the `/consent` page. 10 min matches the
+ * AuthRequest TTL — if the user sits on the consent page past AuthRequest
+ * expiry, submitting the form would 400 on AuthRequest lookup anyway, so the
+ * CSRF TTL never needs to be longer.
+ */
+private val CSRF_TTL = 10.minutes
+
 suspend fun main(args: Array<String>) {
     ServiceMain(
         ServiceConfiguration("auth-op"),
@@ -81,6 +103,8 @@ suspend fun main(args: Array<String>) {
                 val realmRegistry = RealmRegistry.load("config/realms.conf")
                 val authRequestStore: AuthRequestStore = InMemoryAuthRequestStore(AUTH_REQUEST_TTL)
                 val sessionStore: SessionStore = InMemorySessionStore(SESSION_TTL)
+                val authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(AUTH_CODE_TTL)
+                val csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(CSRF_TTL)
 
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
@@ -89,6 +113,8 @@ suspend fun main(args: Array<String>) {
                     realmRegistry = realmRegistry,
                     authRequestStore = authRequestStore,
                     sessionStore = sessionStore,
+                    authCodeStore = authCodeStore,
+                    csrfTokenStore = csrfTokenStore,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -130,5 +156,6 @@ fun Application.module(deps: AuthOpDeps) {
         discoveryRoutes(deps.config, deps.signingKey)
         authorizeRoutes(deps.clientRegistry, deps.realmRegistry, deps.authRequestStore, deps.config)
         loginRoutes(deps)
+        consentRoutes(deps)
     }
 }

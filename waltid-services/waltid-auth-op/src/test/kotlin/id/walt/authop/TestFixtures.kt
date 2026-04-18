@@ -5,8 +5,12 @@ import id.walt.authop.config.ClientConfig
 import id.walt.authop.config.ClientRegistry
 import id.walt.authop.config.RealmRegistry
 import id.walt.authop.config.TokenEndpointAuthMethod
+import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
+import id.walt.authop.store.CsrfTokenStore
+import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
+import id.walt.authop.store.InMemoryCsrfTokenStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.SessionStore
 import id.walt.crypto.keys.KeyType
@@ -22,6 +26,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Shared test fixtures for auth-op endpoint tests.
@@ -83,6 +88,8 @@ fun testDeps(
     realmRegistry: RealmRegistry = RealmRegistry(emptyMap()),
     authRequestStore: AuthRequestStore = InMemoryAuthRequestStore(5.minutes),
     sessionStore: SessionStore = InMemorySessionStore(5.minutes),
+    authCodeStore: AuthCodeStore = InMemoryAuthCodeStore(60.seconds),
+    csrfTokenStore: CsrfTokenStore = InMemoryCsrfTokenStore(10.minutes),
 ): AuthOpDeps = AuthOpDeps(
     config = config,
     signingKey = signingKey,
@@ -90,6 +97,8 @@ fun testDeps(
     realmRegistry = realmRegistry,
     authRequestStore = authRequestStore,
     sessionStore = sessionStore,
+    authCodeStore = authCodeStore,
+    csrfTokenStore = csrfTokenStore,
 )
 
 /**

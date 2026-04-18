@@ -3,7 +3,9 @@ package id.walt.authop
 import id.walt.authop.config.AuthOpServiceConfig
 import id.walt.authop.config.ClientRegistry
 import id.walt.authop.config.RealmRegistry
+import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
+import id.walt.authop.store.CsrfTokenStore
 import id.walt.authop.store.SessionStore
 import id.walt.crypto.keys.jwk.JWKKey
 
@@ -32,4 +34,6 @@ data class AuthOpDeps(
     val realmRegistry: RealmRegistry,
     val authRequestStore: AuthRequestStore,
     val sessionStore: SessionStore,
+    val authCodeStore: AuthCodeStore,
+    val csrfTokenStore: CsrfTokenStore,
 )
