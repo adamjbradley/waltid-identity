@@ -10,6 +10,7 @@ import id.walt.authop.config.RealmMethod
 import id.walt.authop.config.RealmRegistry
 import id.walt.authop.config.SubStrategy
 import id.walt.authop.domain.AuthRequest
+import id.walt.authop.domain.CapturedCredential
 import id.walt.authop.domain.VpSession
 import id.walt.authop.domain.VpSessionStatus
 import id.walt.authop.jsonClient
@@ -27,15 +28,21 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
+import io.ktor.http.contentType
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.nio.file.Files
@@ -44,6 +51,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -538,5 +546,473 @@ class VpFlowRoutesTest {
             header(HttpHeaders.Cookie, "sid=sid-abc")
         }
         assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    // ==========================================================================
+    // Task 18 — verifier-api2 webhook callback
+    // ==========================================================================
+    //
+    // verifier-api2 POSTs a JSON body `{target, event, session}` with
+    // `Authorization: Bearer <secret>` back to `/login/realm/{id}/webhook`
+    // after running presentation + policy verification.
+    //
+    // Shape verified against verifier-api2's own code (see vpWebhookRoutes
+    // kdoc in VpFlowRoutes.kt for file:line citations).
+
+    /** A webhook secret used across the webhook tests. */
+    private val testWebhookSecret = "test-webhook-secret-abcdef0123456789"
+
+    /** Seeds a [VpSession] with the given secret + status. */
+    private fun seedVpSession(
+        store: InMemoryVpSessionStore,
+        sessionId: String = mockSessionId,
+        secret: String = testWebhookSecret,
+        status: VpSessionStatus = VpSessionStatus.PENDING,
+        captured: CapturedCredential? = null,
+    ) {
+        store.put(
+            sessionId,
+            VpSession(
+                verifierSessionId = sessionId,
+                realmId = "vp",
+                authRequestId = "sid-abc",
+                sessionCookieId = "sid-abc",
+                webhookSecret = secret,
+                status = status,
+                capturedCredential = captured,
+            ),
+        )
+    }
+
+    /**
+     * Build a verifier-api2 style webhook envelope. Shape per
+     * `KtorSessionUpdate.kt:7-11` + `Verification2Session.kt:33,58,99-100`.
+     */
+    private fun webhookBody(
+        sessionId: String = mockSessionId,
+        event: String = "policy_results_available",
+        status: String = "SUCCESSFUL",
+        withCredentialData: Boolean = true,
+    ): String = buildJsonObject {
+        put("target", sessionId)
+        put("event", event)
+        put(
+            "session",
+            buildJsonObject {
+                put("id", sessionId)
+                put("status", status)
+                if (withCredentialData) {
+                    put(
+                        "presentedCredentials",
+                        buildJsonObject {
+                            put(
+                                "my_credential",
+                                buildJsonArray {
+                                    add(
+                                        buildJsonObject {
+                                            put("format", "jwt_vc_json")
+                                            put("credential", "eyJ-stub-credential")
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    )
+                    put(
+                        "presentedPresentations",
+                        buildJsonObject {
+                            put(
+                                "my_credential",
+                                buildJsonObject {
+                                    put("type", "VerifiablePresentation")
+                                },
+                            )
+                        },
+                    )
+                }
+            },
+        )
+    }.toString()
+
+    private fun ApplicationTestBuilder.moduleForWebhook(
+        vpSessions: InMemoryVpSessionStore,
+    ) {
+        application {
+            module(
+                testDeps(
+                    vpSessionStore = vpSessions,
+                    realmRegistry = realmRegistry(vpRealm(dcqlPath = "unused")),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `webhook with correct secret captures credential and marks SUCCESSFUL`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody())
+            }
+
+            assertEquals(HttpStatusCode.OK, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(VpSessionStatus.SUCCESSFUL, stored.status)
+            val captured = assertNotNull(stored.capturedCredential)
+            assertTrue(
+                captured.presentedCredentials.containsKey("my_credential"),
+                "presentedCredentials must be captured into VpSession",
+            )
+            assertTrue(
+                captured.presentedPresentations.containsKey("my_credential"),
+                "presentedPresentations must be captured into VpSession",
+            )
+        }
+
+    @Test
+    fun `webhook with wrong secret returns 401 and does not mutate store`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer WRONG-secret")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody())
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(
+                VpSessionStatus.PENDING, stored.status,
+                "wrong secret must not flip status",
+            )
+            assertNull(stored.capturedCredential, "wrong secret must not capture credential")
+        }
+
+    @Test
+    fun `webhook for unknown verifierSessionId returns 401`() =
+        testApplication {
+            // Oracle-closed design: unknown session and wrong secret both return
+            // 401 uniformly. See vpWebhookRoutes kdoc in VpFlowRoutes.kt.
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody(sessionId = "does-not-exist"))
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, r.status)
+            // And nothing was created as a side effect.
+            assertNull(vpSessions.get("does-not-exist"))
+        }
+
+    @Test
+    fun `webhook non-policy_results event is 200 but does not capture`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                // `attempted_presentation` is a real earlier event per
+                // SessionEvent.kt — not a terminal one, so we ACK without
+                // capturing.
+                setBody(webhookBody(event = "attempted_presentation", status = "IN_USE"))
+            }
+
+            assertEquals(HttpStatusCode.OK, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(
+                VpSessionStatus.PENDING, stored.status,
+                "non-terminal event must not transition status",
+            )
+            assertNull(stored.capturedCredential, "non-terminal event must not capture")
+        }
+
+    @Test
+    fun `webhook UNSUCCESSFUL status captured correctly`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    webhookBody(
+                        status = "UNSUCCESSFUL",
+                        withCredentialData = false,
+                    ),
+                )
+            }
+
+            assertEquals(HttpStatusCode.OK, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(
+                VpSessionStatus.UNSUCCESSFUL, stored.status,
+                "terminal UNSUCCESSFUL must transition status",
+            )
+            assertNull(
+                stored.capturedCredential,
+                "UNSUCCESSFUL must not create a CapturedCredential (useless for /complete)",
+            )
+        }
+
+    @Test
+    fun `constant-time compare used for secret`() {
+        // Code-inspection test: VpFlowRoutes.kt's webhook handler MUST use
+        // java.security.MessageDigest.isEqual for the secret compare — never
+        // `==`, `equals`, or `contentEquals`. We assert both the presence of
+        // MessageDigest.isEqual and the absence of any use of String `==` on
+        // the webhookSecret value. This guards against a future refactor that
+        // "simplifies" the compare and reintroduces a timing side channel.
+        val src = Files.readString(
+            Path.of(
+                "src/main/kotlin/id/walt/authop/endpoints/VpFlowRoutes.kt",
+            ),
+        )
+        assertTrue(
+            src.contains("MessageDigest.isEqual"),
+            "webhook handler must use MessageDigest.isEqual for constant-time secret compare",
+        )
+        // Defensive pattern check: webhookSecret must never be compared with
+        // plain `==` or the Kotlin `==` alias `equals(`. Searching the file as
+        // a whole is coarse but effective — any of these tokens adjacent to
+        // webhookSecret would be a regression.
+        val forbiddenPatterns = listOf(
+            "webhookSecret ==",
+            "== webhookSecret",
+            "webhookSecret.equals(",
+            "webhookSecret.contentEquals(",
+        )
+        for (pattern in forbiddenPatterns) {
+            assertTrue(
+                !src.contains(pattern),
+                "webhook handler must not use '$pattern' — use MessageDigest.isEqual",
+            )
+        }
+    }
+
+    @Test
+    fun `webhook missing Authorization header returns 401`() = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        seedVpSession(vpSessions)
+        moduleForWebhook(vpSessions)
+
+        val r = jsonClient().post("/login/realm/vp/webhook") {
+            contentType(ContentType.Application.Json)
+            setBody(webhookBody())
+        }
+        assertEquals(HttpStatusCode.Unauthorized, r.status)
+        val stored = assertNotNull(vpSessions.get(mockSessionId))
+        assertEquals(VpSessionStatus.PENDING, stored.status)
+    }
+
+    @Test
+    fun `webhook with malformed Authorization header returns 401`() = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        seedVpSession(vpSessions)
+        moduleForWebhook(vpSessions)
+
+        // Not a Bearer scheme.
+        val r1 = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Basic dXNlcjpwYXNz")
+            contentType(ContentType.Application.Json)
+            setBody(webhookBody())
+        }
+        assertEquals(HttpStatusCode.Unauthorized, r1.status)
+
+        // Bearer with empty token.
+        val r2 = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Bearer ")
+            contentType(ContentType.Application.Json)
+            setBody(webhookBody())
+        }
+        assertEquals(HttpStatusCode.Unauthorized, r2.status)
+    }
+
+    @Test
+    fun `webhook with malformed JSON body returns 400`() = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        seedVpSession(vpSessions)
+        moduleForWebhook(vpSessions)
+
+        val r = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+            contentType(ContentType.Application.Json)
+            setBody("{not-valid-json")
+        }
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `webhook missing session returns 400`() = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        seedVpSession(vpSessions)
+        moduleForWebhook(vpSessions)
+
+        val body = buildJsonObject {
+            put("target", mockSessionId)
+            put("event", "policy_results_available")
+            // no `session`
+        }.toString()
+
+        val r = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `webhook missing session id returns 400`() = testApplication {
+        val vpSessions = InMemoryVpSessionStore(5.minutes)
+        seedVpSession(vpSessions)
+        moduleForWebhook(vpSessions)
+
+        // session present but without `id`.
+        val body = buildJsonObject {
+            put("target", mockSessionId)
+            put("event", "policy_results_available")
+            put(
+                "session",
+                buildJsonObject {
+                    put("status", "SUCCESSFUL")
+                },
+            )
+        }.toString()
+
+        val r = jsonClient().post("/login/realm/vp/webhook") {
+            header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        assertEquals(HttpStatusCode.BadRequest, r.status)
+    }
+
+    @Test
+    fun `webhook captures presentedCredentials and presentedPresentations into VpSession`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody())
+            }
+            assertEquals(HttpStatusCode.OK, r.status)
+
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            val captured = assertNotNull(stored.capturedCredential)
+
+            // presentedCredentials[my_credential] is a JSON array (Map<String, List<DigitalCredential>>).
+            val credList = captured.presentedCredentials["my_credential"]
+            assertNotNull(credList, "presentedCredentials array for my_credential must round-trip")
+
+            // presentedPresentations[my_credential] is a JSON object (Map<String, VerifiablePresentation>).
+            val vpElement = captured.presentedPresentations["my_credential"]
+            assertNotNull(vpElement, "presentedPresentations object for my_credential must round-trip")
+            assertEquals(
+                "VerifiablePresentation",
+                vpElement.jsonObject["type"]?.jsonPrimitive?.content,
+            )
+        }
+
+    @Test
+    fun `webhook does not mutate VpSession for wrong secret even when session exists`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            // Seed with an EXISTING captured credential so we can detect
+            // accidental overwrite.
+            seedVpSession(
+                vpSessions,
+                status = VpSessionStatus.PENDING,
+                captured = null,
+            )
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer attacker-guess")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody())
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(VpSessionStatus.PENDING, stored.status)
+            assertNull(stored.capturedCredential)
+        }
+
+    @Test
+    fun `webhook for SUCCESSFUL status transitions VpSession status to SUCCESSFUL`() =
+        testApplication {
+            val vpSessions = InMemoryVpSessionStore(5.minutes)
+            seedVpSession(vpSessions, status = VpSessionStatus.PENDING)
+            moduleForWebhook(vpSessions)
+
+            val r = jsonClient().post("/login/realm/vp/webhook") {
+                header(HttpHeaders.Authorization, "Bearer $testWebhookSecret")
+                contentType(ContentType.Application.Json)
+                setBody(webhookBody(status = "SUCCESSFUL"))
+            }
+
+            assertEquals(HttpStatusCode.OK, r.status)
+            val stored = assertNotNull(vpSessions.get(mockSessionId))
+            assertEquals(VpSessionStatus.SUCCESSFUL, stored.status)
+        }
+
+    @Test
+    fun `webhook handler source does not log credential body or secret`() {
+        // Code-inspection test: the webhook body and Bearer secret are
+        // sensitive. We disallow any invocation of a logger that might land
+        // them in log output. Since auth-op uses no loggers today, this also
+        // guards against a future refactor that adds one.
+        val src = Files.readString(
+            Path.of(
+                "src/main/kotlin/id/walt/authop/endpoints/VpFlowRoutes.kt",
+            ),
+        )
+        // Identify the vpWebhookRoutes region by bracketing markers.
+        val start = src.indexOf("fun Route.vpWebhookRoutes(")
+        assertTrue(start >= 0, "vpWebhookRoutes must exist")
+        val end = src.indexOf("// ---- helpers", start)
+        assertTrue(end > start, "webhook region must close before helpers comment")
+        val region = src.substring(start, end)
+
+        // Assert absence of logging calls and of any `println(suppliedSecret)`
+        // / `println(rawBody)` / `println(body)` leaks. These are blunt
+        // patterns but hit the obvious mistakes.
+        val forbidden = listOf(
+            "println(",
+            "logger.",
+            "log.info",
+            "log.debug",
+            "log.warn",
+            "log.error",
+            "log.trace",
+            "System.out",
+            "System.err",
+        )
+        for (pattern in forbidden) {
+            assertTrue(
+                !region.contains(pattern),
+                "webhook handler must not contain '$pattern' — leaks sensitive payload",
+            )
+        }
     }
 }

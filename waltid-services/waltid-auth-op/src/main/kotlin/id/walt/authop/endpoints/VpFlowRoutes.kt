@@ -3,6 +3,7 @@ package id.walt.authop.endpoints
 import id.walt.authop.AuthOpDeps
 import id.walt.authop.config.RealmConfig
 import id.walt.authop.domain.AuthRequest
+import id.walt.authop.domain.CapturedCredential
 import id.walt.authop.domain.VpSession
 import id.walt.authop.domain.VpSessionStatus
 import id.walt.authop.templates.respondVpQrPage
@@ -10,16 +11,23 @@ import id.walt.authop.upstream.Verifier2ClientException
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.util.getOrFail
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 
@@ -212,6 +220,187 @@ fun Route.vpStatusRoutes(deps: AuthOpDeps) {
 
         call.respond(HttpStatusCode.OK, mapOf("status" to vpSession.status.name))
     }
+}
+
+/**
+ * Registers `POST /login/realm/{realmId}/webhook` — the verifier-api2 session
+ * notification callback. verifier-api2 POSTs a JSON body of shape
+ * `{target, event, session}` where `session` is a serialized
+ * `Verification2Session`. The POST is authenticated via
+ * `Authorization: Bearer <webhookSecret>` — the same secret this OP minted at
+ * VP kickoff time and handed to verifier-api2 on session-create.
+ *
+ * Verified against verifier-api2 source (not only the doc):
+ *  - Bearer scheme: `WebhookNotifier.kt:28-30` calls `bearerAuth(config.bearerToken!!)`
+ *    against `VerificationSessionWebhookNotification.bearerToken`
+ *    (`waltid-libraries/web/waltid-ktor-notifications-core/.../KtorSessionNotifications.kt:21`).
+ *  - Envelope shape `{target,event,session}`:
+ *    `waltid-libraries/web/waltid-ktor-notifications-core/.../KtorSessionUpdate.kt:7-11`.
+ *  - Event name literal `policy_results_available`:
+ *    `waltid-libraries/protocols/waltid-openid4vp-verifier/.../SessionEvent.kt:10`.
+ *  - Session status literals (`SUCCESSFUL`, `UNSUCCESSFUL`, `FAILED`, `EXPIRED`):
+ *    `waltid-libraries/protocols/waltid-openid4vp-verifier/.../Verification2Session.kt:147-177`
+ *    (enum `VerificationSessionStatus`).
+ *  - Session fields `id`, `status`, `presentedCredentials`, `presentedPresentations`:
+ *    `waltid-libraries/protocols/waltid-openid4vp-verifier/.../Verification2Session.kt:33,58,99,100`.
+ *
+ * ## Security invariants
+ *
+ *  - **Secret compared constant-time** via [MessageDigest.isEqual] — never `==`.
+ *  - **Unknown-session and wrong-secret both return 401** (not 404). This
+ *    removes the "does this verifier sessionId exist on this OP?" oracle an
+ *    unauthenticated attacker could otherwise probe. Cost: a stale/replayed
+ *    request from the real verifier with a timed-out session id gets 401
+ *    instead of 404; the verifier's own logs record the delivery failure.
+ *  - **Capture only on `policy_results_available`.** Earlier events
+ *    (attempted_presentation, parsed_presentation_available, etc.) do not
+ *    carry final credential data. Other events → 200 without mutation so the
+ *    verifier doesn't retry.
+ *  - **No logging of credential data, the session body, or the secret.** The
+ *    webhook body is highly sensitive (signed credentials + VP). We log
+ *    nothing at all from this handler on the happy path; callers rely on the
+ *    status endpoint to observe transitions.
+ *  - **Status transition is always recorded.** Even an UNSUCCESSFUL final
+ *    status is persisted so the status endpoint can flip PENDING → UNSUCCESSFUL
+ *    for the polling QR page; credential capture is gated on SUCCESSFUL
+ *    (a UNSUCCESSFUL capture would be meaningless and is written as null
+ *    below).
+ */
+fun Route.vpWebhookRoutes(deps: AuthOpDeps) {
+    post("/login/realm/{realmId}/webhook") {
+        call.handleVpWebhook(deps)
+    }
+}
+
+/**
+ * Uniform unauthorized response. Both "wrong Bearer secret" and
+ * "unknown session id" route through this to close the enumeration oracle.
+ * Body is a static JSON error with no session-specific detail.
+ */
+private suspend fun ApplicationCall.respondWebhookAuthError() {
+    respond(HttpStatusCode.Unauthorized, mapOf("error" to "unauthorized"))
+}
+
+/**
+ * Constant-time byte-array equality. [MessageDigest.isEqual] does not
+ * short-circuit on first mismatch, so comparison time is independent of where
+ * the first differing byte sits. Use for any secret comparison.
+ *
+ * A length mismatch short-circuits here — that's fine: a TLS attacker
+ * observing on the wire already sees the Authorization header length. The
+ * constant-time guarantee we need is over the CONTENT of equal-length secrets.
+ */
+private fun constantTimeEqualsBytes(a: ByteArray, b: ByteArray): Boolean {
+    if (a.size != b.size) return false
+    return MessageDigest.isEqual(a, b)
+}
+
+private suspend fun ApplicationCall.handleVpWebhook(deps: AuthOpDeps) {
+    // --- 1. Extract bearer secret from Authorization header -------------------
+    // verifier-api2's WebhookNotifier sends `Authorization: Bearer <token>`;
+    // a missing or non-Bearer header is always 401.
+    val authHeader = request.headers["Authorization"]
+    if (authHeader == null || !authHeader.startsWith("Bearer ", ignoreCase = true)) {
+        return respondWebhookAuthError()
+    }
+    val suppliedSecret = authHeader.substring("Bearer ".length).trim()
+    if (suppliedSecret.isEmpty()) return respondWebhookAuthError()
+
+    // --- 2. Parse body as JSON -----------------------------------------------
+    // receiveText() first so we control parsing (no content-negotiation magic
+    // on a security-critical path). Malformed JSON → 400 so the verifier has a
+    // diagnostic; this doesn't leak session state.
+    val rawBody = receiveText()
+    val body = try {
+        Json.parseToJsonElement(rawBody).jsonObject
+    } catch (_: SerializationException) {
+        return respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid_body"))
+    } catch (_: IllegalArgumentException) {
+        // parseToJsonElement throws IAE on type mismatch (e.g. top-level is a JSON array)
+        return respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid_body"))
+    }
+
+    // --- 3. Extract session envelope -----------------------------------------
+    // Shape: {target, event, session}. `session` is the serialized
+    // Verification2Session whose `id` we keyed the local VpSession by.
+    val sessionObj = body["session"] as? JsonObject
+        ?: return respond(HttpStatusCode.BadRequest, mapOf("error" to "missing_session"))
+    val verifierSessionId = sessionObj["id"]?.jsonPrimitive?.contentOrNull
+        ?: return respond(HttpStatusCode.BadRequest, mapOf("error" to "missing_session_id"))
+
+    // --- 4. Look up VpSession, then constant-time compare secret -------------
+    // Unknown-session and wrong-secret BOTH return 401 (uniform response) to
+    // close the "does this sessionId exist?" oracle. See kdoc above. We still
+    // always do the isEqual() call (even on the unknown-session branch) to
+    // keep total handler time similar across branches — defence-in-depth, not
+    // a hard constant-time guarantee (JSON parsing time already leaks).
+    val vpSession = deps.vpSessionStore.get(verifierSessionId)
+    val suppliedBytes = suppliedSecret.toByteArray(Charsets.UTF_8)
+    val storedBytes = (vpSession?.webhookSecret ?: "").toByteArray(Charsets.UTF_8)
+    val secretOk = constantTimeEqualsBytes(storedBytes, suppliedBytes)
+    if (vpSession == null || !secretOk) {
+        return respondWebhookAuthError()
+    }
+
+    // --- 5. Gate on event type -----------------------------------------------
+    // Only `policy_results_available` carries final credential data per
+    // SessionEvent.kt:10 and TRANSACTIONAL_VERIFICATION.md ("Final event —
+    // credential data cleared after this"). Earlier events we ACK but do not
+    // capture — the verifier won't retry, and our VpSession stays PENDING
+    // until the final event lands.
+    val event = body["event"]?.jsonPrimitive?.contentOrNull
+    if (event != "policy_results_available") {
+        return respond(HttpStatusCode.OK, mapOf("accepted" to true))
+    }
+
+    // --- 6. Map verifier status to our domain enum ---------------------------
+    // Verifier2Session.VerificationSessionStatus values relevant here:
+    //   SUCCESSFUL  → SUCCESSFUL
+    //   UNSUCCESSFUL, FAILED, EXPIRED → UNSUCCESSFUL
+    //   any other (UNKNOWN, in-flight) → UNSUCCESSFUL (conservative — we only
+    //     reach this branch on the terminal event; an in-flight status there
+    //     is a verifier bug, treat as failure).
+    val statusStr = sessionObj["status"]?.jsonPrimitive?.contentOrNull
+    val mappedStatus = when (statusStr) {
+        "SUCCESSFUL" -> VpSessionStatus.SUCCESSFUL
+        "UNSUCCESSFUL", "FAILED", "EXPIRED" -> VpSessionStatus.UNSUCCESSFUL
+        else -> VpSessionStatus.UNSUCCESSFUL
+    }
+
+    // --- 7. Extract credential payload (only on SUCCESSFUL) ------------------
+    // Field names verified against Verification2Session.kt:99-100:
+    //   var presentedPresentations: Map<String, VerifiablePresentation>?
+    //   var presentedCredentials: Map<String, List<DigitalCredential>>?
+    // Serialize-through as JsonObject — /complete does JSONPath on them.
+    val captured = if (mappedStatus == VpSessionStatus.SUCCESSFUL) {
+        val presentedCredentials = sessionObj["presentedCredentials"] as? JsonObject
+            ?: JsonObject(emptyMap())
+        val presentedPresentations = sessionObj["presentedPresentations"] as? JsonObject
+            ?: JsonObject(emptyMap())
+        CapturedCredential(
+            presentedCredentials = presentedCredentials,
+            presentedPresentations = presentedPresentations,
+        )
+    } else {
+        // Preserve existing capture if any; otherwise remain null. An
+        // UNSUCCESSFUL final event should not clobber a prior SUCCESSFUL
+        // capture (defensive — in practice we only transition once).
+        vpSession.capturedCredential
+    }
+
+    // --- 8. Transition session -----------------------------------------------
+    deps.vpSessionStore.update(verifierSessionId) { current ->
+        current.copy(
+            status = mappedStatus,
+            capturedCredential = captured,
+        )
+    }
+
+    // --- 9. ACK the verifier -------------------------------------------------
+    // 200 with a minimal body so the verifier's WebhookNotifier doesn't
+    // interpret a blank/non-JSON response as an error. We intentionally do NOT
+    // echo anything from the request body or the VpSession.
+    respond(HttpStatusCode.OK, mapOf("accepted" to true))
 }
 
 // ---- helpers --------------------------------------------------------------
