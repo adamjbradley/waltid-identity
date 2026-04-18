@@ -164,7 +164,7 @@ async function verifyCredential(page: any, request: any, credId: string): Promis
   await verifyButton.click();
   await page.waitForURL(/\/verify/, { timeout: 15_000 });
 
-  await page.getByRole('button', { name: 'Open in EUDI Wallet' }).waitFor({ state: 'visible', timeout: 30_000 });
+  await page.getByRole('button', { name: 'Open Local Wallet' }).waitFor({ state: 'visible', timeout: 30_000 });
   await page.waitForTimeout(1_000);
 
   if (!verificationSessionUrl) {

@@ -444,7 +444,6 @@ export default function IssueSection() {
             ? {issuerName: tenants.find((t) => t.id === selectedTenantId)?.legalName || ''}
             : undefined
         }
-        isEudi={hasEudiFormat}
       />
     </>
   );

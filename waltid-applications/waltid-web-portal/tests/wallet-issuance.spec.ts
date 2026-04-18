@@ -33,20 +33,17 @@ test.describe('Wallet Issuance', () => {
     await expect(button).toBeVisible({ timeout: 30_000 });
   });
 
-  test('offer page has Open in EUDI Wallet button for EUDI formats', async ({ page }) => {
-    // The "Open in EUDI Wallet" button only appears for EUDI formats (dc+sd-jwt, mso_mdoc)
-    // OpenBadgeCredential defaults to jwt_vc_json which does NOT show this button.
-    // Test with an EUDI PID credential instead.
-    await page.goto(`${PORTAL_URL}/offer?ids=eu.europa.ec.eudi.pid_vc_sd_jwt`);
+  test('offer page has Open Local Wallet button', async ({ page }) => {
+    // The "Open Local Wallet" button is now shown for all issuance formats
+    // (any installed OpenID4VCI wallet can claim the offer).
+    await page.goto(`${PORTAL_URL}/offer?ids=OpenBadgeCredential`);
     const qrVisible = await page.locator('svg').first()
       .waitFor({ state: 'visible', timeout: 30_000 })
       .then(() => true)
       .catch(() => false);
     if (qrVisible) {
-      const button = page.getByRole('button', { name: 'Open in EUDI Wallet' });
-      const isVisible = await button.isVisible({ timeout: 5_000 }).catch(() => false);
-      // EUDI wallet button presence depends on format detection
-      expect(isVisible || qrVisible).toBeTruthy();
+      const button = page.getByRole('button', { name: 'Open Local Wallet' });
+      await expect(button).toBeVisible({ timeout: 5_000 });
     }
   });
 

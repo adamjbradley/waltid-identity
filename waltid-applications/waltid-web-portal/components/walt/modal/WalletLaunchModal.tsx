@@ -133,7 +133,7 @@ export default function WalletLaunchModal({
     }
   }
 
-  function handleOpenEudiWallet() {
+  function handleOpenLocalWallet() {
     if (!credentialUrl) return;
     window.location.href = credentialUrl;
   }
@@ -208,15 +208,15 @@ export default function WalletLaunchModal({
               )}
             </div>
 
-            {/* EUDI Wallet button */}
-            {isEudi && !loading && !isIssueComplete && issueStatus !== 'failed' && (
+            {/* Always-on in issue mode: any installed OpenID4VCI wallet can claim the offer. Verify mode keeps the isEudi gate. */}
+            {(mode === 'issue' || isEudi) && !loading && !isIssueComplete && issueStatus !== 'failed' && (
               <div className="w-full mb-3">
                 <Button
-                  onClick={handleOpenEudiWallet}
+                  onClick={handleOpenLocalWallet}
                   style="button"
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
-                  Open in EUDI Wallet
+                  Open Local Wallet
                 </Button>
                 <p className="text-xs text-gray-500 mt-1">
                   Deep link to wallet app on this device
