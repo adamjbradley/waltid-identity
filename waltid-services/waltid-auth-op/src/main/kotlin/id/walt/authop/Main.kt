@@ -8,6 +8,7 @@ import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.tokenRoutes
+import id.walt.authop.endpoints.userInfoRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
@@ -171,5 +172,6 @@ fun Application.module(deps: AuthOpDeps) {
         loginRoutes(deps)
         consentRoutes(deps)
         tokenRoutes(deps)
+        userInfoRoutes(deps)
     }
 }

@@ -51,6 +51,16 @@ class JwtIssuer(
 ) {
 
     /**
+     * Read the current instant from the issuer's clock. Exposed as a public
+     * accessor so downstream code (e.g. the `/userinfo` endpoint in
+     * [id.walt.authop.endpoints.userInfoRoutes]) can make `exp` comparisons
+     * against the same clock the minting side uses — without that, injecting a
+     * [TestClock]-style pinned clock for deterministic mint tests would leave
+     * the verify side reading `Clock.System.now()` and drifting.
+     */
+    fun now(): Instant = clock.now()
+
+    /**
      * Mint an OIDC Core §2 ID token.
      *
      * Standard claims (`iss`, `sub`, `aud`, `iat`, `exp`) are emitted verbatim.
