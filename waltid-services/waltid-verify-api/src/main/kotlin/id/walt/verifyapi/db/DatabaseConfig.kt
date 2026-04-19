@@ -109,18 +109,27 @@ private fun seedSystemTemplates() {
             displayName = "Age Verification",
             description = "Verify user is over 18 years old",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            // See note on `age_over_18` below: one credential query per VCT + credential_sets
+            // so iOS EudiWalletKit's CredentialQuery.docType (only reads the first vct_value)
+            // doesn't silently exclude all but the first VCT.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["age_over_18"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "age_over_18",
             displayName = "Age 18+ Verification",
             description = "Verify user is 18 years or older",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            // Use credential_sets so iOS EudiWalletKit can match any of the listed VCTs.
+            // EudiWalletKit's CredentialQuery.docType only inspects the FIRST entry of
+            // meta.vct_values (Openid4VpUtils.swift:155), so a single credential query
+            // with multiple vct_values silently excludes all but the first. One query
+            // per VCT, joined with options, gives wallets a spec-standard "any of"
+            // semantics that both iOS and Android resolve correctly.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["age_over_18"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
-            validCredentialTypes = """["urn:eudi:pid:1"]""",
+            validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "age_over_21",
