@@ -78,7 +78,24 @@ object OidcApi : CIProvider(), Klogging {
                         ?: throw IllegalArgumentException("standardVersion parameter is required"),
                 )
 
-                call.respond(metadata.toJSON())
+                // iOS EudiWalletKit filters out any credential configuration without
+                // `scope` (see OpenId4VciService.getCredentialOfferedModels), resulting
+                // in an empty "Add document"/offer list. Inject scope = config id when
+                // absent so iOS wallets treat walt.id-issued configs as valid.
+                val metadataMap = metadata.toJSON().toMutableMap()
+                val configs = metadataMap["credential_configurations_supported"]?.jsonObject
+                if (configs != null) {
+                    metadataMap["credential_configurations_supported"] = JsonObject(
+                        configs.mapValues { (configId, configElement) ->
+                            val config = configElement.jsonObject
+                            if (config["scope"] != null) configElement
+                            else JsonObject(config.toMutableMap().apply {
+                                this["scope"] = JsonPrimitive(configId)
+                            })
+                        }
+                    )
+                }
+                call.respond(JsonObject(metadataMap))
             }
 
             get("{standardVersion}/.well-known/oauth-authorization-server", getStandardVersionDocs()) {
