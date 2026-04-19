@@ -132,6 +132,19 @@ const getOfferUrl = async (
           exp: '<timestamp-in-seconds:365d>',
         };
 
+        // IETF SD-JWT VC §4 puts claims at the TOP of the JWT payload, not inside
+        // a `credentialSubject` wrapper. Walt.id preserves whatever shape we send
+        // and `selectiveDisclosure.fields` below uses top-level keys — if we leave
+        // credentialSubject nested, the signer never finds the fields to mark SD
+        // and the issued SD-JWT has `credentialSubject.age_over_18` as a plain
+        // non-disclosable claim. EudiWalletKit (iOS) requires exact path match on
+        // DCQL queries and reports "The requested document is not available".
+        // Flatten so claim names, SD map, and the resulting SD-JWT all align.
+        if (payload.credentialData && typeof payload.credentialData === 'object' && payload.credentialData.credentialSubject) {
+          const { credentialSubject, ...rest } = payload.credentialData;
+          payload.credentialData = { ...rest, ...credentialSubject };
+        }
+
         // Remove W3C-specific fields
         delete payload.credentialData['@context'];
         delete payload.credentialData['type'];
