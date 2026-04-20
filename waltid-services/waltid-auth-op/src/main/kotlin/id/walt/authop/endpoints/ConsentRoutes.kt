@@ -9,7 +9,6 @@ import id.walt.authop.domain.AuthRequest
 import id.walt.authop.errors.OidcError
 import id.walt.authop.errors.respondOidcError
 import id.walt.authop.templates.respondConsentPage
-import id.walt.authop.templates.respondPreferencesProgressPage
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.formUrlEncode
@@ -220,9 +219,26 @@ private suspend fun io.ktor.server.routing.RoutingContext.acceptConsent(
         return
     }
 
-    call.respondPreferencesProgressPage(
-        authRequestId = updated.authRequestId,
-        flowSessionId = flowSession.sessionId,
+    // Same /consent visual shell — claim-groups + form are swapped out
+    // for the progress view inline. Keeps branding identical, no flash
+    // between two templates, and the user never leaves /consent until
+    // the JS navigates to /consent/flow-done.
+    val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+    val client = deps.clientRegistry[authReq.clientId]
+    if (client == null) {
+        call.respondOidcError(
+            OidcError.ServerError("client no longer registered when rendering progress"),
+            authReq,
+        )
+        return
+    }
+    val csrf = deps.csrfTokenStore.issue(updated.authRequestId)
+    call.respondConsentPage(
+        authReq = updated,
+        client = client,
+        realm = realm,
+        csrfToken = csrf,
+        progressFlowSessionId = flowSession.sessionId,
     )
 }
 
