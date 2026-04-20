@@ -805,10 +805,13 @@ private suspend fun ApplicationCall.handleVpWebhook(deps: AuthOpDeps) {
  *   file read byte-for-byte — pre-scope-catalog behaviour.
  * - **Dynamic compose.** [Oid4vpRealmConfig.scopes] is a catalog; for each
  *   requested scope we union its [id.walt.authop.config.ScopeDefinition.claimPaths]
- *   into a single credential query wrapped in the realm's [Oid4vpRealmConfig.vctValues].
- *   One credential query, not N — EUDI wallets prompt per-query so a single union
- *   means one wallet interaction per session regardless of how many scopes the RP
- *   requested.
+ *   into the claim list. One credential query is emitted per entry in the realm's
+ *   [Oid4vpRealmConfig.vctValues] (each with a single-element `vct_values`), and
+ *   they're unioned under a single `credential_sets` option so the wallet can
+ *   satisfy the presentation by matching any one. Wallets still prompt once — the
+ *   spec's credential_sets semantics mean the wallet chooses a single credential.
+ *   Per-VCT queries also work around an EUDI iOS wallet-kit bug where multi-VCT
+ *   `vct_values` only ever matches the first entry.
  *
  * Composition rules:
  *  - Requested scopes not in the catalog are silently dropped (OIDC Core §3.1.2.1
@@ -850,20 +853,39 @@ private fun buildDcqlQuery(
             })
         }
     }
+    // Emit one credential query per VCT, then union them under a single
+    // credential_sets option. The EUDI iOS wallet-kit (eudi-lib-ios-wallet-kit
+    // Openid4VpUtils.swift) only reads the *first* entry of a multi-VCT
+    // `vct_values` array when resolving credentials, so a wallet holding any
+    // VCT other than the first would see "document not available". Per-VCT
+    // queries sidestep that — each query is single-valued, and credential_sets
+    // lets the wallet satisfy the presentation by matching *any one* of them.
+    val queryIds = cfg.vctValues.mapIndexed { idx, _ -> "pid_$idx" }
     val credentialsArray = buildJsonArray {
-        add(buildJsonObject {
-            put("id", JsonPrimitive("pid"))
-            put("format", JsonPrimitive(cfg.credentialFormat))
-            put("meta", buildJsonObject {
-                put("vct_values", buildJsonArray {
-                    cfg.vctValues.forEach { add(JsonPrimitive(it)) }
+        cfg.vctValues.forEachIndexed { idx, vct ->
+            add(buildJsonObject {
+                put("id", JsonPrimitive(queryIds[idx]))
+                put("format", JsonPrimitive(cfg.credentialFormat))
+                put("meta", buildJsonObject {
+                    put("vct_values", buildJsonArray { add(JsonPrimitive(vct)) })
                 })
+                put("claims", claimsArray)
             })
-            put("claims", claimsArray)
+        }
+    }
+    val credentialSets = buildJsonArray {
+        add(buildJsonObject {
+            put("required", JsonPrimitive(true))
+            put("options", buildJsonArray {
+                queryIds.forEach { id ->
+                    add(buildJsonArray { add(JsonPrimitive(id)) })
+                }
+            })
         })
     }
     return buildJsonObject {
         put("credentials", credentialsArray)
+        put("credential_sets", credentialSets)
     }
 }
 
