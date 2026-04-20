@@ -180,6 +180,7 @@
             padding: 4px 10px;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.08);
+            position: relative;
         }
         #profile-card .profile-info {
             display: flex;
@@ -195,6 +196,96 @@
         #profile-card .profile-meta {
             font-size: 10px;
             opacity: 0.75;
+        }
+
+        /* Hover popover — full claim set delivered by the OP. Appears on
+           hover, keyboard focus, or when the pill itself has focus so it
+           stays keyboard-accessible. */
+        #profile-claims {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 320px;
+            max-width: 420px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 14px 16px;
+            background: #111;
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 140ms ease, transform 140ms ease;
+            z-index: 200;
+            font-size: 12px;
+            text-align: left;
+            cursor: auto;
+        }
+        #profile-card:hover #profile-claims,
+        #profile-card:focus-within #profile-claims,
+        #profile-claims:hover {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        #profile-claims h4 {
+            margin: 0 0 8px;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 600;
+        }
+        #profile-claims .claim-row {
+            display: flex;
+            gap: 10px;
+            padding: 6px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            line-height: 1.4;
+        }
+        #profile-claims .claim-row:first-of-type { border-top: none; }
+        #profile-claims .claim-key {
+            flex-shrink: 0;
+            min-width: 110px;
+            max-width: 150px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            word-break: break-word;
+        }
+        #profile-claims .claim-val {
+            flex: 1;
+            color: var(--white);
+            word-break: break-word;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        #profile-claims .claim-val.bool-true  { color: #72d887; }
+        #profile-claims .claim-val.bool-false { color: #ff9191; }
+        #profile-claims .claim-group {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border-left: 2px solid var(--primary);
+            border-radius: 6px;
+        }
+        #profile-claims .claim-group-title {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        #profile-claims .claim-empty {
+            padding: 8px 0;
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
         }
 
         .store-btn {
@@ -1520,12 +1611,13 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                         Shop Your Local Store
                     </a>
-                    <div id="profile-card" class="header-action" hidden>
+                    <div id="profile-card" class="header-action" hidden tabindex="0">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         <div class="profile-info">
                             <span id="profile-name" class="profile-name"></span>
                             <span id="profile-meta" class="profile-meta"></span>
                         </div>
+                        <div id="profile-claims" role="tooltip" aria-label="All OIDC claims passed to this RP"></div>
                     </div>
                     <a class="header-action" href="#">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
@@ -2451,6 +2543,106 @@
                 metaEl.textContent = user.email || '';
             }
             card.hidden = false;
+            renderClaimsPopover(user);
+        }
+
+        /** Format a claim value for display. Objects render as nested
+         *  rows (one per leaf); arrays stringify; scalars go verbatim.
+         *  Keeps the full tree on-screen instead of collapsing to `[object]`. */
+        function formatClaimValue(v) {
+            if (v === null || v === undefined) return '—';
+            if (typeof v === 'boolean') return v ? 'true' : 'false';
+            if (Array.isArray(v)) return v.length === 0 ? '[]' : JSON.stringify(v);
+            if (typeof v === 'object') return JSON.stringify(v, null, 2);
+            return String(v);
+        }
+
+        function appendClaimRow(parent, key, value) {
+            const row = document.createElement('div');
+            row.className = 'claim-row';
+            const k = document.createElement('span');
+            k.className = 'claim-key';
+            k.textContent = key;
+            const v = document.createElement('span');
+            v.className = 'claim-val';
+            if (typeof value === 'boolean') v.classList.add(value ? 'bool-true' : 'bool-false');
+            v.textContent = formatClaimValue(value);
+            row.appendChild(k);
+            row.appendChild(v);
+            parent.appendChild(row);
+        }
+
+        /** Render a nested object as a framed sub-group inside the popover.
+         *  Depth-2 onwards is inlined as JSON for readability; depth-1 branches
+         *  (alcohol, fraud) get their own framed block so they're visually
+         *  distinct from top-level scalar claims. */
+        function appendClaimGroup(parent, title, obj) {
+            const group = document.createElement('div');
+            group.className = 'claim-group';
+            const t = document.createElement('div');
+            t.className = 'claim-group-title';
+            t.textContent = title;
+            group.appendChild(t);
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                Object.entries(obj).forEach(([k, v]) => appendClaimRow(group, k, v));
+            } else {
+                const row = document.createElement('div');
+                row.className = 'claim-val';
+                row.textContent = formatClaimValue(obj);
+                group.appendChild(row);
+            }
+            parent.appendChild(group);
+        }
+
+        function renderClaimsPopover(user) {
+            const pop = document.getElementById('profile-claims');
+            if (!pop) return;
+            while (pop.firstChild) pop.removeChild(pop.firstChild);
+
+            const title = document.createElement('h4');
+            title.textContent = 'Claims from OIDC provider';
+            pop.appendChild(title);
+
+            const claims = user.claims || {};
+            const keys = Object.keys(claims);
+            if (keys.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'claim-empty';
+                empty.textContent = 'No claims in session.';
+                pop.appendChild(empty);
+                return;
+            }
+
+            // Render scalars first, then peel out special claims that deserve
+            // their own framed group (preferences composite, any future
+            // nested claim). Keeps the top section readable when scanning.
+            const specialNestedKeys = ['preferences'];
+            const scalarKeys = keys.filter(k => !specialNestedKeys.includes(k));
+            // Sort so standard OIDC claims surface before non-standard ones.
+            const stdOrder = ['sub', 'name', 'given_name', 'family_name', 'email', 'email_verified', 'birth_date', 'birthdate', 'nationality', 'realm', 'acr', 'amr'];
+            scalarKeys.sort((a, b) => {
+                const ai = stdOrder.indexOf(a); const bi = stdOrder.indexOf(b);
+                if (ai !== -1 && bi !== -1) return ai - bi;
+                if (ai !== -1) return -1;
+                if (bi !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            scalarKeys.forEach(k => appendClaimRow(pop, k, claims[k]));
+
+            if (claims.preferences && typeof claims.preferences === 'object') {
+                const p = claims.preferences;
+                // Top-level scalars of preferences (customerId, meta timestamps)
+                ['customerId'].forEach(k => { if (p[k] !== undefined) appendClaimRow(pop, 'preferences.' + k, p[k]); });
+                if (p.alcohol) appendClaimGroup(pop, 'preferences · alcohol', p.alcohol);
+                if (p.fraud)   appendClaimGroup(pop, 'preferences · fraud',   p.fraud);
+                // Fall-through: any other key under preferences renders as
+                // JSON so nothing silently vanishes if the OP extends the shape.
+                const known = new Set(['customerId', 'alcohol', 'fraud', 'meta']);
+                Object.entries(p).forEach(([k, v]) => {
+                    if (!known.has(k)) appendClaimRow(pop, 'preferences.' + k, v);
+                });
+            }
         }
 
         async function renderAuthStatus() {

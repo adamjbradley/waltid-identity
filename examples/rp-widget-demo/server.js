@@ -363,19 +363,32 @@ function createApp() {
       );
       const claims = tokenSet.claims();
 
+      // Strip JWT-framing claims (not useful in the UI hover) before
+      // surfacing the full claim set. Keeps transport metadata out of
+      // `displayClaims` while everything else — including the
+      // `preferences` composite from auth-op's post-consent n8n
+      // workflow — stays for the hover panel to render.
+      const { iss, aud, iat, exp, nbf, nonce, auth_time, at_hash, jti, azp, ...displayClaims } = claims;
+
       // User profile shape. The auth-op scope catalog guarantees the
       // id_token only ever carries {sub, kyc_verified, age_over_18,
-      // age_over_21} for the authop provider — PII transits auth-op for
-      // consent display but never lands in our id_token. Keycloak has no
-      // such contract; we persist its standard profile/email claims so the
-      // widget still renders a name. The userStore layer also enforces the
-      // boolean-only allowlist for authop records (defence in depth).
+      // age_over_21, preferences?} for the authop provider — PII transits
+      // auth-op for consent display but never lands in our id_token.
+      // Keycloak has no such contract; we persist its standard
+      // profile/email claims so the widget still renders a name. The
+      // userStore layer also enforces the boolean-only allowlist for
+      // authop records (defence in depth).
+      //
+      // Both branches carry `claims: displayClaims` so the profile
+      // popover can render the complete set the OP projected, regardless
+      // of which named fields the server-side filter kept.
       const userProfile = (providerName === 'authop')
         ? {
             sub: claims.sub,
             kyc_verified: Boolean(claims.kyc_verified),
             age_over_18: Boolean(claims.age_over_18),
             age_over_21: Boolean(claims.age_over_21),
+            claims: displayClaims,
           }
         : {
             sub: claims.sub,
@@ -383,6 +396,7 @@ function createApp() {
             name: claims.name || claims.preferred_username,
             given_name: claims.given_name,
             family_name: claims.family_name,
+            claims: displayClaims,
           };
       req.session.user = userProfile;
       req.session.idToken = tokenSet.id_token;
