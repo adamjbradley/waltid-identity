@@ -194,6 +194,104 @@ internal suspend fun ApplicationCall.vpRealmKickoff(
  * polling endpoint used by the QR page JS. Returns `{status: "..."}` only;
  * never returns credential data.
  */
+/**
+ * JSON counterpart of `GET /login/realm/{id}` for OID4VP realms. Creates a
+ * fresh verifier-api2 session and returns the QR payload + polling URLs as
+ * JSON rather than rendering the full VpQrPage. Used by the redesigned
+ * `/login` glass page to render the wallet UX inline without navigating
+ * away to the standalone QR view.
+ *
+ * Scope-matches vpRealmKickoff's preconditions (sid + AuthRequest + realm +
+ * client.allowedRealms) but surfaces failures as JSON 400s so the caller
+ * can render an error in-place.
+ */
+fun Route.vpKickoffJsonRoutes(deps: AuthOpDeps) {
+    post("/login/realm/{realmId}/kickoff") {
+        val realmId = call.parameters.getOrFail("realmId")
+
+        val sid = call.request.cookies["sid"]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "missing sid cookie")
+
+        val authReq = deps.authRequestStore.get(sid)
+            ?: return@post call.respondJsonBadRequest("invalid_request", "auth request not found")
+
+        val client = deps.clientRegistry[authReq.clientId]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "client no longer registered")
+
+        val allowed = client.allowedRealms.takeIf { it.isNotEmpty() }
+        if (allowed != null && realmId !in allowed) {
+            return@post call.respondJsonBadRequest("access_denied", "realm '$realmId' not allowed for this client")
+        }
+
+        val realm = deps.realmRegistry[realmId]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "unknown realm '$realmId'")
+
+        val oid4vpCfg = realm.oid4vp
+            ?: return@post call.respondJsonBadRequest("invalid_request", "realm '$realmId' is not an oid4vp realm")
+
+        val dcqlQuery = try {
+            loadDcqlQuery(oid4vpCfg.dcqlQueryFile)
+        } catch (t: Throwable) {
+            return@post call.respondJsonBadRequest("server_error", "DCQL load failed: ${t.message}")
+        }
+
+        val webhookSecret = randomSecret()
+        val webhookUrl = "${deps.config.canonicalIssuer}${oid4vpCfg.webhookCallbackPath}"
+
+        val response = try {
+            deps.verifier2Client.createSession(
+                verifierBaseUrl = oid4vpCfg.verifierBaseUrl,
+                dcqlQuery = dcqlQuery,
+                webhookUrl = webhookUrl,
+                webhookSecret = webhookSecret,
+                rpId = oid4vpCfg.rpId,
+            )
+        } catch (e: Verifier2ClientException) {
+            return@post call.respondJsonBadRequest("server_error", "verifier-api2 create failed: ${e.code}")
+        }
+
+        deps.vpSessionStore.put(
+            response.sessionId,
+            VpSession(
+                verifierSessionId = response.sessionId,
+                realmId = realm.id,
+                authRequestId = authReq.authRequestId,
+                sessionCookieId = sid,
+                webhookSecret = webhookSecret,
+                status = VpSessionStatus.PENDING,
+                capturedCredential = null,
+            )
+        )
+        deps.authRequestStore.update(sid) { current ->
+            current.copy(
+                chosenRealmId = realm.id,
+                activeVpSessionId = response.sessionId,
+            )
+        }
+
+        val qrPayload = response.bootstrapAuthorizationRequestUrl ?: response.fullAuthorizationRequestUrl
+        call.respond(
+            kotlinx.serialization.json.buildJsonObject {
+                put("qrPayloadUrl", JsonPrimitive(qrPayload))
+                put("deepLink", JsonPrimitive(response.fullAuthorizationRequestUrl))
+                put("verifierSessionId", JsonPrimitive(response.sessionId))
+                put("statusUrl", JsonPrimitive("/login/realm/${realm.id}/status?verifierSessionId=${response.sessionId}"))
+                put("completeUrl", JsonPrimitive("/login/realm/${realm.id}/complete?verifierSessionId=${response.sessionId}"))
+            }
+        )
+    }
+}
+
+private suspend fun ApplicationCall.respondJsonBadRequest(code: String, description: String) {
+    respond(
+        HttpStatusCode.BadRequest,
+        kotlinx.serialization.json.buildJsonObject {
+            put("error", JsonPrimitive(code))
+            put("description", JsonPrimitive(description))
+        }
+    )
+}
+
 fun Route.vpStatusRoutes(deps: AuthOpDeps) {
     get("/login/realm/{realmId}/status") {
         val realmId = call.parameters.getOrFail("realmId")
