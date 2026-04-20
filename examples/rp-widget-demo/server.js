@@ -14,8 +14,22 @@ const session = require('express-session');
 const path = require('path');
 const { Issuer, generators } = require('openid-client');
 const { UserStore } = require('./userStore');
-const { CATALOGUE } = require('./catalogue');
-const { emptyCart, summary } = require('./cart');
+const { CATALOGUE, getProduct } = require('./catalogue');
+const { emptyCart, summary, addItem } = require('./cart');
+
+/**
+ * Does this session satisfy the `minAge` requirement? The demo treats a
+ * verified OIDC claim (`age_over_18` / `age_over_21`) as equivalent to a
+ * direct age-check flow that set `session.ageVerified = true`. Anything
+ * else — including a missing `minAge` being falsy — returns true so
+ * unrestricted products skip the gate entirely.
+ */
+function isAgeVerified(session, minAge) {
+  if (!minAge) return true;
+  if (session.user && session.user.age_over_21 === true && minAge <= 21) return true;
+  if (session.user && session.user.age_over_18 === true && minAge <= 18) return true;
+  return session.ageVerified === true;
+}
 
 // Configuration from environment
 // Default sandbox credentials - work immediately without any setup
@@ -281,6 +295,34 @@ function createApp() {
     req.session.cart = req.session.cart || emptyCart();
     res.json(summary(req.session.cart));
   });
+
+  /**
+   * POST /api/cart/items  { productId, qty? }
+   *
+   * Server-side age gate: the client can easily be bypassed, so we re-check
+   * every add here. 404 for unknown products, 403 with `minAge` when the
+   * product is age-restricted and the session isn't verified.
+   */
+  app.post('/api/cart/items', (req, res) => {
+    const product = getProduct(req.body.productId);
+    if (!product) return res.status(404).json({ error: 'unknown_product' });
+    if (product.ageRestricted && !isAgeVerified(req.session, product.minAge)) {
+      return res.status(403).json({ error: 'age_verification_required', minAge: product.minAge });
+    }
+    req.session.cart = req.session.cart || emptyCart();
+    addItem(req.session.cart, product, req.body.qty || 1);
+    res.json(summary(req.session.cart));
+  });
+
+  // Dev-only session hydration helper for tests. Lets supertest seed
+  // `ageVerified` / `user` without round-tripping a real OIDC login.
+  // Guarded on NODE_ENV to keep it out of production builds.
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/_test/session', (req, res) => {
+      Object.assign(req.session, req.body);
+      res.json({ ok: true });
+    });
+  }
 
   // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the

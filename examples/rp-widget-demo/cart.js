@@ -23,4 +23,24 @@ function summary(cart) {
     return { items: cart.items, subtotal, count };
 }
 
-module.exports = { emptyCart, summary };
+/**
+ * Add `qty` of `product` to `cart`. If the line already exists we bump its
+ * quantity; otherwise we push a new line using the product's single-unit
+ * price so the on-cart copy survives later catalogue edits.
+ */
+function addItem(cart, product, qty = 1) {
+    const existing = cart.items.find(i => i.productId === product.id);
+    if (existing) existing.qty += qty;
+    else cart.items.push({
+        productId: product.id,
+        qty,
+        priceAud: product.priceSingle,
+        title: product.name,
+        imageUrl: product.icon,
+        ageRestricted: product.ageRestricted
+    });
+    cart.updatedAt = Date.now();
+    return cart;
+}
+
+module.exports = { emptyCart, summary, addItem };
