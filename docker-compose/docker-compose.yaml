@@ -543,7 +543,9 @@ services:
       EMPLOYEES_OIDC_SECRET: ${EMPLOYEES_OIDC_SECRET}
       RP_THEAUSTRALIAHACK_SECRET: ${RP_THEAUSTRALIAHACK_SECRET}
     volumes:
-      - ./auth-op/config:/app/config
+      # Jib sets WORKDIR=/waltid-auth-op so hoplite resolves config/auth-op.conf
+      # relative to that — NOT /app/ (the design doc assumed /app).
+      - ./auth-op/config:/waltid-auth-op/config
     ports:
       - "${AUTH_OP_PORT:-7005}:${AUTH_OP_PORT:-7005}"
 
