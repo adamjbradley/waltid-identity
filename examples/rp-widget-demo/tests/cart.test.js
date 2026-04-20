@@ -34,6 +34,16 @@ describe('cart API', () => {
     expect(res.body).toEqual({ error: 'unknown_product' });
   });
 
+  it('POST /api/cart/items with qty<=0 returns 400 invalid_qty', async () => {
+    await agent.post('/_test/session').send({ ageVerified: true });
+    const r0 = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony', qty: 0 }).expect(400);
+    expect(r0.body).toEqual({ error: 'invalid_qty' });
+    const rNeg = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony', qty: -1 }).expect(400);
+    expect(rNeg.body).toEqual({ error: 'invalid_qty' });
+    const rNaN = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony', qty: 'abc' }).expect(400);
+    expect(rNaN.body).toEqual({ error: 'invalid_qty' });
+  });
+
   it('PATCH /api/cart/items/:id changes qty', async () => {
     await agent.post('/_test/session').send({ ageVerified: true });
     await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' });

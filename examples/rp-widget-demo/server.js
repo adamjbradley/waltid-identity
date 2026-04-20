@@ -284,6 +284,12 @@ function createApp() {
    */
   app.get('/api/catalogue', (_req, res) => res.json(CATALOGUE));
 
+  // Ensure every /api/cart* handler sees a real cart — replaces the five
+  // copies of `req.session.cart = req.session.cart || emptyCart()` that
+  // used to live in each handler.
+  const ensureCart = (req, _res, next) => { req.session.cart = req.session.cart || emptyCart(); next(); };
+  app.use('/api/cart', ensureCart);
+
   /**
    * GET /api/cart
    *
@@ -292,7 +298,6 @@ function createApp() {
    * `req.session.cart` existing.
    */
   app.get('/api/cart', (req, res) => {
-    req.session.cart = req.session.cart || emptyCart();
     res.json(summary(req.session.cart));
   });
 
@@ -306,11 +311,12 @@ function createApp() {
   app.post('/api/cart/items', (req, res) => {
     const product = getProduct(req.body.productId);
     if (!product) return res.status(404).json({ error: 'unknown_product' });
+    const qty = Number(req.body.qty ?? 1);
+    if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'invalid_qty' });
     if (product.ageRestricted && !isAgeVerified(req.session, product.minAge)) {
       return res.status(403).json({ error: 'age_verification_required', minAge: product.minAge });
     }
-    req.session.cart = req.session.cart || emptyCart();
-    addItem(req.session.cart, product, req.body.qty || 1);
+    addItem(req.session.cart, product, qty);
     res.json(summary(req.session.cart));
   });
 
@@ -323,7 +329,6 @@ function createApp() {
    * original add.
    */
   app.patch('/api/cart/items/:productId', (req, res) => {
-    req.session.cart = req.session.cart || emptyCart();
     const existing = req.session.cart.items.find(i => i.productId === req.params.productId);
     if (!existing) return res.status(404).json({ error: 'item_not_in_cart' });
     const newQty = Number(req.body.qty);
@@ -339,13 +344,11 @@ function createApp() {
   });
 
   app.delete('/api/cart/items/:productId', (req, res) => {
-    req.session.cart = req.session.cart || emptyCart();
     removeItem(req.session.cart, req.params.productId);
     res.json(summary(req.session.cart));
   });
 
   app.post('/api/cart/clear', (req, res) => {
-    req.session.cart = req.session.cart || emptyCart();
     clearCart(req.session.cart);
     res.json(summary(req.session.cart));
   });
