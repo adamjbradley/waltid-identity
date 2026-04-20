@@ -7,6 +7,7 @@ import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.endSessionRoutes
+import id.walt.authop.endpoints.flowUpdateRoutes
 import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
@@ -19,9 +20,11 @@ import id.walt.authop.endpoints.webauthnRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
+import id.walt.authop.store.FlowUpdateStore
 import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
+import id.walt.authop.store.InMemoryFlowUpdateStore
 import id.walt.authop.store.InMemoryLogoutFlowStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
@@ -188,6 +191,15 @@ suspend fun main(args: Array<String>) {
                     )
                 }
 
+                // Flow-update wiring is config-gated: null when
+                // flowCallbackSecret is absent. TTL 10 min — longer than
+                // any reasonable n8n workflow but short enough that stale
+                // sessions don't accumulate. Keep identical to VpSession's
+                // window so the two "session-like" concepts behave alike.
+                val flowUpdateStore: FlowUpdateStore? = cfg.flowCallbackSecret?.let {
+                    InMemoryFlowUpdateStore(ttl = 10.minutes)
+                }
+
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
                     signingKey = key,
@@ -205,6 +217,7 @@ suspend fun main(args: Array<String>) {
                     verifier2Client = verifier2Client,
                     passkeyStore = passkeyStore,
                     passkeyService = passkeyService,
+                    flowUpdateStore = flowUpdateStore,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -256,5 +269,6 @@ fun Application.module(deps: AuthOpDeps) {
         userInfoRoutes(deps)
         endSessionRoutes(deps)
         webauthnRoutes(deps)
+        flowUpdateRoutes(deps)
     }
 }
