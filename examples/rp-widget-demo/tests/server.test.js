@@ -229,6 +229,96 @@ describe('GET /api/token - Error Handling', () => {
   });
 });
 
+describe('POST /api/age-check/start', () => {
+  // verifier-api2's session-create contract (verified against
+  // waltid-auth-op/src/main/kotlin/id/walt/authop/upstream/Verifier2Client.kt
+  // which in turn cites VerificationSessionSetupData.kt line refs) uses
+  // `flow_type: "cross_device"` + a `core_flow` envelope, snake_case
+  // `dcql_query`, and webhook credentials nested under
+  // `core_flow.notifications.webhook.{url, bearer_token}`. The tests assert
+  // that real wire shape — not the sketch in the plan which was written
+  // before the upstream contract was double-checked.
+  let app;
+  let originalFetch;
+  beforeAll(() => {
+    app = createApp();
+    originalFetch = global.fetch;
+  });
+  afterAll(() => { global.fetch = originalFetch; });
+
+  beforeEach(() => {
+    global.fetch = jest.fn(async (url, opts) => {
+      if (typeof url === 'string' && url.includes('/verification-session/create')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            sessionId: 'sess-abc',
+            bootstrapAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=foo',
+            fullAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=foo_full',
+            creationTarget: null,
+          }),
+        };
+      }
+      throw new Error('unexpected fetch ' + url);
+    });
+  });
+
+  it('returns sessionId and qrCode and forwards an age-only DCQL query', async () => {
+    const agent = request.agent(app);
+    const res = await agent.post('/api/age-check/start').expect(200);
+    expect(res.body).toHaveProperty('sessionId', 'sess-abc');
+    expect(res.body).toHaveProperty('qrCode');
+    // QR code should be the bootstrap URL for cross-device (falls back to full).
+    expect(res.body.qrCode).toMatch(/^openid4vp:/);
+
+    // Inspect the payload we sent upstream.
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = global.fetch.mock.calls[0];
+    expect(url).toMatch(/\/verification-session\/create\?rpId=/);
+    const body = JSON.parse(opts.body);
+    expect(body.flow_type).toBe('cross_device');
+    expect(body.core_flow).toBeDefined();
+    expect(body.core_flow.dcql_query).toBeDefined();
+    // Age-only claim across the four EUDI-compat PID VCTs, expressed as
+    // per-VCT singletons + credential_sets (PR #88 workaround for the EUDI
+    // iOS wallet-kit's first-VCT-only matcher).
+    const serialized = JSON.stringify(body.core_flow.dcql_query);
+    expect(serialized).toContain('age_over_21');
+    expect(serialized).toContain('urn:eudi:pid:1');
+    expect(serialized).toContain('urn:au:gov:mygovid:pid:1');
+    expect(serialized).toContain('urn:in:gov:aadhaar:pid:1');
+    expect(serialized).toContain('urn:uk:gov:govuk-one-login:pid:1');
+    expect(body.core_flow.dcql_query.credential_sets).toBeDefined();
+    expect(body.core_flow.dcql_query.credentials).toHaveLength(4);
+    // Webhook registration nests under notifications.webhook (verifier-api2
+    // KtorSessionNotifications contract: url + bearer_token SerialName).
+    expect(body.core_flow.notifications).toBeDefined();
+    expect(body.core_flow.notifications.webhook).toBeDefined();
+    expect(body.core_flow.notifications.webhook.url).toMatch(/\/api\/age-check\/webhook\//);
+    expect(body.core_flow.notifications.webhook.bearer_token).toBeTruthy();
+  });
+
+  it('502s when verifier-api2 rejects the session-create', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+      text: async () => 'boom',
+      json: async () => ({}),
+    }));
+    const agent = request.agent(app);
+    const res = await agent.post('/api/age-check/start').expect(502);
+    expect(res.body).toEqual({ error: 'verifier_unavailable' });
+  });
+
+  it('502s when verifier-api2 is unreachable', async () => {
+    global.fetch = jest.fn(async () => { throw new Error('ECONNREFUSED'); });
+    const agent = request.agent(app);
+    const res = await agent.post('/api/age-check/start').expect(502);
+    expect(res.body).toEqual({ error: 'verifier_unavailable' });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;

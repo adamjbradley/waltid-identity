@@ -9,6 +9,7 @@
  * and pass them to your frontend.
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
@@ -16,6 +17,37 @@ const { Issuer, generators } = require('openid-client');
 const { UserStore } = require('./userStore');
 const { CATALOGUE, getProduct } = require('./catalogue');
 const { emptyCart, summary, addItem, setQty, removeItem, clearCart } = require('./cart');
+
+/**
+ * Per-VCT DCQL singleton query for the `age_over_21` claim. Four EUDI-compat
+ * PID VCTs share the same demo requirement ("prove you're 21+"). We emit them
+ * as four separate `credentials` entries with a single-element `vct_values`
+ * array each, then OR them via `credential_sets.options` — the EUDI iOS
+ * wallet-kit matcher only honours the FIRST entry of a `vct_values` array
+ * (upstream bug), so grouping them into one credential with a 4-item array
+ * leaves non-EUDI wallets ignored by EUDI and vice versa. PR #88 landed this
+ * shape in auth-op's `buildDcqlQuery`; same logic here.
+ */
+function buildAgeOnlyDcql() {
+  const vcts = [
+    'urn:eudi:pid:1',
+    'urn:au:gov:mygovid:pid:1',
+    'urn:in:gov:aadhaar:pid:1',
+    'urn:uk:gov:govuk-one-login:pid:1',
+  ];
+  return {
+    credentials: vcts.map((vct, i) => ({
+      id: `pid_${i}`,
+      format: 'dc+sd-jwt',
+      meta: { vct_values: [vct] },
+      claims: [{ path: ['age_over_21'] }],
+    })),
+    credential_sets: [{
+      required: true,
+      options: vcts.map((_, i) => [`pid_${i}`]),
+    }],
+  };
+}
 
 /**
  * Does this session satisfy the `minAge` requirement? The demo treats a
@@ -43,12 +75,18 @@ const VERIFY_API_KEY = process.env.VERIFY_API_KEY || 'vfy_test_sandbox_demo_key_
 const PUBLIC_VERIFY_API_URL = process.env.PUBLIC_VERIFY_API_URL || VERIFY_API_URL;
 
 // Registered RP configuration (from verifier-api2 RP Registrar)
-const RP_ID = process.env.RP_ID || '';
+const RP_ID = process.env.RP_ID || 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const RP_CLIENT_ID = process.env.RP_CLIENT_ID || '';
 const RP_DOMAIN = process.env.RP_DOMAIN || '';
 
 // Verifier API2 internal URL (for proxying verification-session responses from wallets)
 const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
+
+// Public base for webhook callbacks verifier-api2 can reach. The verifier-api2
+// server must be able to HTTP POST here when a wallet completes a presentation,
+// so it has to resolve from verifier-api2's network namespace (not just the
+// user's browser). For the demo stack this is the Cloudflare-tunnelled origin.
+const PUBLIC_URL = process.env.PUBLIC_URL || 'https://rp.theaustraliahack.com';
 
 // OIDC Providers — multiple are supported side-by-side. Each one needs its
 // own ISSUER/CLIENT_ID/CLIENT_SECRET trio; a provider is only enabled when
@@ -145,6 +183,15 @@ function oidcRedirectUri(name) {
  */
 function createApp() {
   const app = express();
+
+  // Cross-process state for age-check webhooks. Verifier-api2 calls us back
+  // from its own network namespace with no browser cookie, so we can't touch
+  // the user's req.session directly from the webhook handler. Keyed by a
+  // random URL token minted on /api/age-check/start; the same triple lives
+  // in req.session.ageCheck so the user's later /api/age-check/status poll
+  // knows which entry belongs to them. Scoped per createApp() call so jest
+  // test suites that build a fresh app don't inherit state from earlier ones.
+  const ageCheckByToken = new Map();
 
   // Trust proxy so secure cookies work behind Caddy/Cloudflare
   app.set('trust proxy', 1);
@@ -351,6 +398,78 @@ function createApp() {
   app.post('/api/cart/clear', (req, res) => {
     clearCart(req.session.cart);
     res.json(summary(req.session.cart));
+  });
+
+  /**
+   * POST /api/age-check/start
+   *
+   * Kick an age-only OID4VP session on verifier-api2 for the four EUDI-compat
+   * PID VCTs, return the QR payload for the browser.
+   *
+   * Wire shape for the upstream POST is the one actually implemented by
+   * verifier-api2's session-create route (verified against
+   * `waltid-services/waltid-auth-op/src/main/kotlin/id/walt/authop/upstream/
+   *  Verifier2Client.kt`, which documents the line refs into
+   *  VerificationSessionSetupData.kt):
+   *
+   *   { flow_type: "cross_device",
+   *     core_flow: {
+   *       dcql_query: {...},
+   *       signed_request: true,      // EUDI wallets require a signed JAR
+   *       notifications: {
+   *         webhook: { url, bearer_token }
+   *       }
+   *     } }
+   *
+   * We embed a random `token` in the webhook URL so a later handler (Task 7)
+   * can look up the in-memory map by path parameter (no session cookie
+   * arrives with the verifier-api2 → RP callback). Shared secret is minted
+   * here and stored in both `ageCheckByToken` (for the webhook bearer
+   * compare) and `req.session.ageCheck` (for the user's later status poll).
+   */
+  app.post('/api/age-check/start', async (req, res) => {
+    const token = crypto.randomBytes(16).toString('hex');
+    const webhookSecret = crypto.randomBytes(32).toString('base64url');
+    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, '')}/api/age-check/webhook/${token}`;
+    const body = {
+      flow_type: 'cross_device',
+      core_flow: {
+        dcql_query: buildAgeOnlyDcql(),
+        signed_request: true,
+        notifications: {
+          webhook: {
+            url: webhookUrl,
+            bearer_token: webhookSecret,
+          },
+        },
+      },
+    };
+    try {
+      const r = await fetch(
+        `${VERIFIER_API2_URL}/verification-session/create?rpId=${encodeURIComponent(RP_ID)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!r.ok) {
+        console.warn('[age-check] verifier-api2 session-create failed', r.status);
+        return res.status(502).json({ error: 'verifier_unavailable' });
+      }
+      const session = await r.json();
+      // verifier-api2 returns `sessionId` + `bootstrapAuthorizationRequestUrl`
+      // (cross-device QR target, may be null on same-device) +
+      // `fullAuthorizationRequestUrl`. Degrade to full URL if bootstrap
+      // is absent so the caller always gets something scannable.
+      const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
+      ageCheckByToken.set(token, { webhookSecret, verified: null });
+      req.session.ageCheck = { sessionId: session.sessionId, token, webhookSecret };
+      res.json({ sessionId: session.sessionId, qrCode });
+    } catch (err) {
+      console.warn('[age-check] session-create error', err.message || err);
+      res.status(502).json({ error: 'verifier_unavailable' });
+    }
   });
 
   // Dev-only session hydration helper for tests. Lets supertest seed
