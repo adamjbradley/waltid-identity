@@ -103,6 +103,47 @@ fun Application.tenantOidcRoutes() {
                                         add(JsonPrimitive("ES256"))
                                     }
                                 }
+                                // EudiWalletKit Android's DocumentOfferScreen keeps the "Add"
+                                // button disabled when a credential config has no `claims`
+                                // list — the UX is "consent to the claims you're about to
+                                // receive", so no claims = nothing to consent to = button
+                                // stays inactive and the user is stuck on the confirmation
+                                // screen. iOS is lenient and proceeds anyway.
+                                // The tenant registrar doesn't record claim templates, so
+                                // inject a minimal generic KYC claim set (given_name,
+                                // family_name, birth_date) for every SD-JWT-VC config that
+                                // lacks one. Operators can override by supplying `claims`
+                                // explicitly in the tenant config.
+                                val format = config["format"]?.jsonPrimitive?.contentOrNull
+                                val isSdJwtLike = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                if (isSdJwtLike && config["claims"] == null) {
+                                    patched["claims"] = buildJsonObject {
+                                        putJsonObject("given_name") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Given Name"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                        putJsonObject("family_name") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Family Name"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                        putJsonObject("birth_date") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Date of Birth"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                    }
+                                }
                                 if (config["scope"] == null) {
                                     patched["scope"] = JsonPrimitive(configId)
                                 }
