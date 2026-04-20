@@ -118,8 +118,15 @@ async function createApi2Session(
     preSessionId
   );
 
+  // Pass rpId as query param so verifier-api2 resolves the RP and applies the
+  // urlPrefix override (response_uri host must match the x509_san_dns client_id
+  // domain per OID4VP §5.10). Without this the client_id says rp.<domain> but
+  // response_uri stays on verifier2.<domain> and the wallet rejects.
+  const createUrl = rpId
+    ? `${verifier2Url}/verification-session/create?rpId=${encodeURIComponent(rpId)}`
+    : `${verifier2Url}/verification-session/create`;
   const response = await axios.post(
-    `${verifier2Url}/verification-session/create`,
+    createUrl,
     requestBody,
     {headers: {'Content-Type': 'application/json'}}
   );
