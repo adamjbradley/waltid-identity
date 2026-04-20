@@ -605,6 +605,10 @@ services:
       GENERIC_TIMEZONE: ${N8N_TIMEZONE:-UTC}
     volumes:
       - n8n_data:/home/node/.n8n
+    ports:
+      # Published so the Cloudflare tunnel (host.docker.internal:5678) can
+      # reach n8n. Other *.theaustraliahack.com services use the same pattern.
+      - "${N8N_PORT:-5678}:5678"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
       interval: 10s
