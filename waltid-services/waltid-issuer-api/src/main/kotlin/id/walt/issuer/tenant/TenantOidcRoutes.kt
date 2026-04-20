@@ -93,6 +93,16 @@ fun Application.tenantOidcRoutes() {
                                         }
                                     }
                                 }
+                                // EudiWalletKit parses Offer.credentialConfigurationsSupported
+                                // and bails silently when credentialSigningAlgorithmsSupported
+                                // is empty (it can't pick an alg for the credential request).
+                                // Inject a sensible default when the registrar doesn't supply
+                                // one — ES256 is what every in-tree tenant signs with.
+                                if (config["credential_signing_alg_values_supported"] == null) {
+                                    patched["credential_signing_alg_values_supported"] = buildJsonArray {
+                                        add(JsonPrimitive("ES256"))
+                                    }
+                                }
                                 if (config["scope"] == null) {
                                     patched["scope"] = JsonPrimitive(configId)
                                 }
