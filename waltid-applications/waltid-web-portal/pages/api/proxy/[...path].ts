@@ -12,12 +12,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const get = (key: string) => env[key];
   let targetBase: string | undefined;
 
+  // Prefer *_INTERNAL_URL for server-side calls — keeps traffic on the Docker network
+  // and avoids the portal needing to trust Caddy's internal TLS CA.
   if (pathStr.startsWith('issuer/')) {
-    targetBase = get('NEXT_PUBLIC_ISSUER');
+    targetBase = get('ISSUER_INTERNAL_URL') || get('NEXT_PUBLIC_ISSUER');
   } else if (pathStr.startsWith('verifier2/')) {
-    targetBase = get('NEXT_PUBLIC_VERIFIER2');
+    targetBase = get('VERIFIER2_INTERNAL_URL') || get('NEXT_PUBLIC_VERIFIER2');
   } else if (pathStr.startsWith('verifier/')) {
-    targetBase = get('NEXT_PUBLIC_VERIFIER');
+    targetBase = get('VERIFIER_INTERNAL_URL') || get('NEXT_PUBLIC_VERIFIER');
   } else {
     return res.status(400).json({ error: 'Unknown service prefix. Use issuer/, verifier/, or verifier2/' });
   }

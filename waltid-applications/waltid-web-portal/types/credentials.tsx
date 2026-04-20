@@ -901,7 +901,7 @@ export function buildDcqlQuery(credentials: AvailableCredential[], format: strin
           id: dcqlId,
           format: 'dc+sd-jwt',
           meta: {
-            vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
+            vct_values: [credential.offer.vct || credential.id],
           },
           claims,
         };

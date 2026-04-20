@@ -52,6 +52,7 @@ export default function IssueSection() {
   // Multi-tenant issuer selection
   const issuerRegistrarEnabled = (env.NEXT_PUBLIC_ISSUER_REGISTRAR_ENABLED ?? 'false') === 'true';
   const [tenants, setTenants] = useState<IssuerTenantSummary[]>([]);
+  const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [tenantCredentialKeys, setTenantCredentialKeys] = useState<string[]>([]);
   // Map of tenantId -> list of credential config identifiers (configId, vct, doctype)
@@ -77,6 +78,7 @@ export default function IssueSection() {
   useEffect(() => {
     if (!issuerRegistrarEnabled) return;
     const proxyBase = '/api/proxy/issuer';
+    setTenantsError(null);
     axios.get(`${proxyBase}/admin/issuer`).then(async (res) => {
       const active = (res.data as IssuerTenantSummary[]).filter(
         (t) => t.status === 'ACTIVE' && t.hasCertificate
@@ -122,7 +124,10 @@ export default function IssueSection() {
       if (qIssuerId && active.some((t) => t.id === qIssuerId)) {
         setSelectedTenantId(qIssuerId);
       }
-    }).catch(() => {});
+    }).catch((e) => {
+      const msg = e?.response?.data?.error || e?.message || 'Unknown error';
+      setTenantsError(msg);
+    });
   }, [issuerRegistrarEnabled]);
 
   // Filter tenants to only those whose credential configs match ALL idsToIssue
@@ -166,7 +171,7 @@ export default function IssueSection() {
         return false;
       })
     );
-  }, [AvailableCredentials]);
+  }, [AvailableCredentials, idsParam]);
 
   // Apply country-specific claims when tenant selection changes
   useEffect(() => {
@@ -292,8 +297,12 @@ export default function IssueSection() {
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-500">
-              {tenants.length === 0 ? 'Loading issuers...' : 'No issuers available for this credential'}
+            <p className={`text-sm ${tenantsError ? 'text-red-600' : 'text-gray-500'}`}>
+              {tenantsError
+                ? `Failed to load issuers: ${tenantsError}`
+                : tenants.length === 0
+                  ? 'Loading issuers...'
+                  : 'No issuers available for this credential'}
             </p>
           )}
         </div>

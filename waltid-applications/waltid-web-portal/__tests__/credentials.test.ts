@@ -111,7 +111,7 @@ describe('buildDcqlQuery', () => {
     expect(result.credentials[0].meta.doctype_value).toBe('org.iso.18013.5.1.mDL');
   });
 
-  it('should use default vct if not provided', () => {
+  it('should use credential id as vct if offer.vct not provided', () => {
     const credentials: AvailableCredential[] = [{
       id: 'some-pid',
       title: 'PID',
@@ -120,7 +120,7 @@ describe('buildDcqlQuery', () => {
 
     const result = buildDcqlQuery(credentials, 'dc+sd-jwt');
 
-    expect(result.credentials[0].meta.vct_values).toEqual(['urn:eudi:pid:1']);
+    expect(result.credentials[0].meta.vct_values).toEqual(['some-pid']);
   });
 
   it('should handle multiple credentials', () => {
@@ -224,7 +224,7 @@ describe('buildRequestCredentials (Legacy Verifier API)', () => {
   ) {
     if (format === 'dc+sd-jwt') {
       return {
-        vct: credential.offer.vct || 'urn:eudi:pid:1',
+        vct: credential.offer.vct || credential.id,
         format: 'dc+sd-jwt',
       };
     } else if (format === 'mso_mdoc') {
@@ -262,7 +262,7 @@ describe('buildRequestCredentials (Legacy Verifier API)', () => {
       });
     });
 
-    it('should fallback to default vct if not provided', () => {
+    it('should use credential id as vct if not provided', () => {
       const credential: AvailableCredential = {
         id: 'some-id',
         title: 'Some Credential',
@@ -270,7 +270,7 @@ describe('buildRequestCredentials (Legacy Verifier API)', () => {
       };
       const result = buildRequestCredential(credential, 'dc+sd-jwt');
       expect(result).toEqual({
-        vct: 'urn:eudi:pid:1',
+        vct: 'some-id',
         format: 'dc+sd-jwt',
       });
     });
@@ -408,7 +408,7 @@ describe('Verifier API2 DCQL Query Builder', () => {
       return {
         ...baseQuery,
         meta: {
-          vct_values: [credential.offer.vct || 'urn:eudi:pid:1'],
+          vct_values: [credential.offer.vct || credential.id],
         },
         claims: [
           {
@@ -517,14 +517,14 @@ describe('Verifier API2 DCQL Query Builder', () => {
       });
     });
 
-    it('should use default vct if not provided', () => {
+    it('should use credential id as vct if offer.vct not provided', () => {
       const credential: AvailableCredential = {
         id: 'some-sdjwt',
         title: 'Some SD-JWT Credential',
         offer: {},
       };
       const result = buildDcqlCredentialQuery(credential, 'dc+sd-jwt');
-      expect(result.meta.vct_values).toEqual(['urn:eudi:pid:1']);
+      expect(result.meta.vct_values).toEqual(['some-sdjwt']);
     });
   });
 
