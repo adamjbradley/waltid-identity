@@ -204,3 +204,7 @@ docker-compose/.env.local
 
 # AI tool scratch files (design-review notes, not tracked)
 *.feedback
+
+# Issuer-api runtime status-list state (regenerated on every credential issuance)
+docker-compose/issuer-api/config/status-lists/*.json
+docker-compose/issuer-api/config/status-lists/registry/*.json

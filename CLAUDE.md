@@ -46,9 +46,8 @@ docker compose --profile identity pull && docker compose --profile identity up
 ### Rebuilding Individual Images
 
 ```bash
-# Portal (Next.js) — image name is waltid/portal, NOT waltid/waltid-web-portal
-cd waltid-applications/waltid-web-portal
-docker build -t waltid/portal:stable .
+# Portal (Next.js) — build from REPO ROOT, image name is waltid/portal
+docker build -f waltid-applications/waltid-web-portal/Dockerfile -t waltid/portal:stable .
 
 # Kotlin services (via Gradle jib) — run from repo root
 ./gradlew :waltid-services:waltid-issuer-api:jibDockerBuild
