@@ -81,8 +81,7 @@ export default function Offer() {
     );
   }
 
-  function openInEudiWallet() {
-    // Deep link directly to EUDI wallet app
+  function openInLocalWallet() {
     window.location.href = offerURL;
   }
 
@@ -129,11 +128,10 @@ export default function Offer() {
             />
           )}
         </div>
-        {/* Same-device button for EUDI wallet */}
         {!loading && (
           <div className="mb-4">
-            <Button onClick={openInEudiWallet} style="button" className="w-full bg-blue-600 hover:bg-blue-700">
-              Open in EUDI Wallet
+            <Button onClick={openInLocalWallet} style="button" className="w-full bg-blue-600 hover:bg-blue-700">
+              Open Local Wallet
             </Button>
           </div>
         )}

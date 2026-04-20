@@ -66,38 +66,49 @@ fun Application.tenantOidcRoutes() {
                     }
 
                     // Ensure credential configs have binding methods + proof types (required for wallet key proofs)
+                    // and scope (iOS EudiWalletKit filters out configs without scope — see
+                    // OpenId4VciService.getCredentialOfferedModels).
                     val configs = metadataMap["credential_configurations_supported"]?.jsonObject
                     if (configs != null) {
                         metadataMap["credential_configurations_supported"] = JsonObject(
-                            configs.mapValues { (_, configElement) ->
+                            configs.mapValues { (configId, configElement) ->
                                 val config = configElement.jsonObject
-                                if (config["cryptographic_binding_methods_supported"] != null) {
-                                    configElement
-                                } else {
+                                val patched = config.toMutableMap()
+                                if (config["cryptographic_binding_methods_supported"] == null) {
                                     val format = config["format"]?.jsonPrimitive?.contentOrNull
                                     val isMdoc = format == "mso_mdoc"
                                     val isSdJwt = format == "dc+sd-jwt" || format == "vc+sd-jwt"
-                                    JsonObject(config.toMutableMap().apply {
-                                        this["cryptographic_binding_methods_supported"] = buildJsonArray {
-                                            add(JsonPrimitive(when {
-                                                isMdoc -> "cose_key"
-                                                isSdJwt -> "jwk"
-                                                else -> "did"
-                                            }))
+                                    patched["cryptographic_binding_methods_supported"] = buildJsonArray {
+                                        add(JsonPrimitive(when {
+                                            isMdoc -> "cose_key"
+                                            isSdJwt -> "jwk"
+                                            else -> "did"
+                                        }))
+                                    }
+                                    patched["proof_types_supported"] = buildJsonObject {
+                                        putJsonObject("jwt") {
+                                            put("proof_signing_alg_values_supported", buildJsonArray {
+                                                add(JsonPrimitive("ES256"))
+                                            })
                                         }
-                                        this["proof_types_supported"] = buildJsonObject {
-                                            putJsonObject("jwt") {
-                                                put("proof_signing_alg_values_supported", buildJsonArray {
-                                                    add(JsonPrimitive("ES256"))
-                                                })
-                                            }
-                                        }
-                                    })
+                                    }
+                                }
+                                if (config["scope"] == null) {
+                                    patched["scope"] = JsonPrimitive(configId)
+                                }
+                                if (patched.size != config.size || patched["scope"] != config["scope"]) {
+                                    JsonObject(patched)
+                                } else {
+                                    configElement
                                 }
                             }
                         )
                     }
 
+                    // Advertise batch issuance (see OidcApi.BATCH_SIZE_ADVERTISED).
+                    metadataMap["batch_credential_issuance"] = buildJsonObject {
+                        put("batch_size", JsonPrimitive(1000))
+                    }
                     call.respond(JsonObject(metadataMap))
                 }
 

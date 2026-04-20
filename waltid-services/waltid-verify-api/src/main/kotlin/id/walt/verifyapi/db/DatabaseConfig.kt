@@ -109,7 +109,10 @@ private fun seedSystemTemplates() {
             displayName = "Age Verification",
             description = "Verify user is over 18 years old",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            // See note on `age_over_18` below: one credential query per VCT + credential_sets
+            // so iOS EudiWalletKit's CredentialQuery.docType (only reads the first vct_value)
+            // doesn't silently exclude all but the first VCT.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["age_over_18"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
@@ -118,7 +121,13 @@ private fun seedSystemTemplates() {
             displayName = "Age 18+ Verification",
             description = "Verify user is 18 years or older",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]}]}""",
+            // Use credential_sets so iOS EudiWalletKit can match any of the listed VCTs.
+            // EudiWalletKit's CredentialQuery.docType only inspects the FIRST entry of
+            // meta.vct_values (Openid4VpUtils.swift:155), so a single credential query
+            // with multiple vct_values silently excludes all but the first. One query
+            // per VCT, joined with options, gives wallets a spec-standard "any of"
+            // semantics that both iOS and Android resolve correctly.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["age_over_18"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["age_over_18"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"age_over_18":"is_adult"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
@@ -127,7 +136,9 @@ private fun seedSystemTemplates() {
             displayName = "Age 21+ Verification",
             description = "Verify user is 21 years or older",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]}]}""",
+            // One credential query per VCT + credential_sets so any country-specific
+            // PID the wallet holds satisfies the request.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["age_over_21"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["age_over_21"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["age_over_21"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"age_over_21":"is_adult"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
@@ -136,7 +147,7 @@ private fun seedSystemTemplates() {
             displayName = "Basic KYC",
             description = "Basic identity verification with name and date of birth",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]}]}""",
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
@@ -145,7 +156,9 @@ private fun seedSystemTemplates() {
             displayName = "Full KYC",
             description = "Complete identity verification with name, birth date, and nationality",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["nationality"]}]}]}""",
+            // EUDI PID option also requests `nationality`; AU/IN variants request only the
+            // base three claims since those PID types don't carry a nationality claim.
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["nationality"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth","nationality":"nationality"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
@@ -163,24 +176,27 @@ private fun seedSystemTemplates() {
             displayName = "Basic Identity",
             description = "Verify basic identity with name only",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]}]}""",
+            dcqlQuery = """{"credentials":[{"id":"eudi_pid","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]},{"id":"au_mygovid","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:mygovid:pid:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]}]}],"credential_sets":[{"options":[["eudi_pid"],["au_mygovid"],["in_dl"]]}]}""",
             claimMappings = """{"family_name":"last_name","given_name":"first_name"}""",
             validCredentialTypes = """["urn:eudi:pid:1","urn:au:gov:mygovid:pid:1","urn:in:gov:dl:1"]""",
         ),
         SystemTemplate(
             name = "mdl_verification",
             displayName = "Driving License",
-            description = "Verify mobile driving license (mDL)",
+            description = "Verify mobile driving license (mDL) — accepts ISO 18013-5 mDoc or country-specific SD-JWT DL",
             templateType = "identity",
-            dcqlQuery = """{"credentials":[{"id":"mdl","format":"mso_mdoc","meta":{"doctype_value":"org.iso.18013.5.1.mDL"},"claims":[{"path":["org.iso.18013.5.1","family_name"]},{"path":["org.iso.18013.5.1","given_name"]},{"path":["org.iso.18013.5.1","birth_date"]},{"path":["org.iso.18013.5.1","document_number"]}]}]}""",
-            claimMappings = """{"org.iso.18013.5.1.family_name":"last_name","org.iso.18013.5.1.given_name":"first_name","org.iso.18013.5.1.birth_date":"date_of_birth","org.iso.18013.5.1.document_number":"license_number"}""",
-            validCredentialTypes = """["org.iso.18013.5.1.mDL"]""",
+            // Accepts either the ISO mso_mdoc mDL or country-specific SD-JWT driving
+            // licences. credential_sets gives wallets an "any of" semantic.
+            dcqlQuery = """{"credentials":[{"id":"mdl_mdoc","format":"mso_mdoc","meta":{"doctype_value":"org.iso.18013.5.1.mDL"},"claims":[{"path":["org.iso.18013.5.1","family_name"]},{"path":["org.iso.18013.5.1","given_name"]},{"path":["org.iso.18013.5.1","birth_date"]},{"path":["org.iso.18013.5.1","document_number"]}]},{"id":"au_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:au:gov:dl:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["document_number"]}]},{"id":"in_dl","format":"dc+sd-jwt","meta":{"vct_values":["urn:in:gov:dl:1"]},"claims":[{"path":["family_name"]},{"path":["given_name"]},{"path":["birth_date"]},{"path":["document_number"]}]}],"credential_sets":[{"options":[["mdl_mdoc"],["au_dl"],["in_dl"]]}]}""",
+            claimMappings = """{"org.iso.18013.5.1.family_name":"last_name","org.iso.18013.5.1.given_name":"first_name","org.iso.18013.5.1.birth_date":"date_of_birth","org.iso.18013.5.1.document_number":"license_number","family_name":"last_name","given_name":"first_name","birth_date":"date_of_birth","document_number":"license_number"}""",
+            validCredentialTypes = """["org.iso.18013.5.1.mDL","urn:au:gov:dl:1","urn:in:gov:dl:1"]""",
         ),
     )
 
     transaction {
         val now = Instant.now()
-        var seeded = 0
+        var inserted = 0
+        var updated = 0
 
         for (tmpl in templates) {
             val existing = VerifyTemplates.selectAll()
@@ -201,27 +217,30 @@ private fun seedSystemTemplates() {
                     it[createdAt] = now
                     it[updatedAt] = now
                 }
-                seeded++
-            } else if (
-                existing[VerifyTemplates.dcqlQuery] != tmpl.dcqlQuery ||
-                existing[VerifyTemplates.validCredentialTypes] != tmpl.validCredentialTypes
-            ) {
-                VerifyTemplates.update({
+                inserted++
+            } else {
+                // Upsert: system templates (organizationId = null) are owned by the code —
+                // override any drift in the DB so DCQL shape + claim mappings stay in sync
+                // with the latest seed on every boot (subsumes main's "only when
+                // dcql/vct_values changed" check). Organization-scoped copies are
+                // left alone.
+                val rows = VerifyTemplates.update({
                     (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name)
                 }) {
+                    it[displayName] = tmpl.displayName
+                    it[description] = tmpl.description
+                    it[templateType] = tmpl.templateType
                     it[dcqlQuery] = tmpl.dcqlQuery
+                    it[responseMode] = "answers"
+                    it[claimMappings] = tmpl.claimMappings
                     it[validCredentialTypes] = tmpl.validCredentialTypes
                     it[updatedAt] = now
                 }
-                logger.info { "Updated system template '${tmpl.name}' (dcql or vct_values changed)" }
+                if (rows > 0) updated++
             }
         }
 
-        if (seeded > 0) {
-            logger.info { "Seeded $seeded new system templates (${templates.size} total defined)" }
-        } else {
-            logger.info { "All ${templates.size} system templates already exist, nothing to seed" }
-        }
+        logger.info { "System templates: inserted=$inserted, updated=$updated, total=${templates.size}" }
     }
 }
 

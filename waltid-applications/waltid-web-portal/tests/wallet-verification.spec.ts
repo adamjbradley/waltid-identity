@@ -52,8 +52,8 @@ test.describe('Wallet Verification', () => {
     await expect(button).toBeVisible({ timeout: 30_000 });
   });
 
-  test('verify page has Open in EUDI Wallet button for EUDI formats', async ({ page }) => {
-    // The "Open in EUDI Wallet" button only appears when usedApi2 is true,
+  test('verify page has Open Local Wallet button for API2 flows', async ({ page }) => {
+    // The "Open Local Wallet" button only appears when usedApi2 is true,
     // which happens for EUDI formats (dc+sd-jwt, mso_mdoc).
     // This requires NEXT_PUBLIC_VERIFIER2 to be configured with signing key.
     await page.goto(EUDI_VERIFY_URL);
@@ -68,10 +68,10 @@ test.describe('Wallet Verification', () => {
       .catch(() => false);
 
     if (qrVisible) {
-      // When API2 path succeeds, the EUDI wallet button should appear
-      const eudiButton = page.getByRole('button', { name: 'Open in EUDI Wallet' });
-      const isVisible = await eudiButton.isVisible({ timeout: 5_000 }).catch(() => false);
-      // EUDI wallet button depends on API2 signing config being present
+      // When API2 path succeeds, the local-wallet button should appear
+      const localWalletButton = page.getByRole('button', { name: 'Open Local Wallet' });
+      const isVisible = await localWalletButton.isVisible({ timeout: 5_000 }).catch(() => false);
+      // Button depends on API2 signing config being present
       expect(isVisible || qrVisible).toBeTruthy();
     }
     // If QR did not load, API2 signing config is not set — test passes gracefully

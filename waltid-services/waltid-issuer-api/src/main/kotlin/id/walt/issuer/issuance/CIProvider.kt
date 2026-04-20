@@ -611,7 +611,15 @@ open class CIProvider(
 
         require(credentialRequestFormats.distinct().size < 2) { "Credential requests don't have the same format: ${credentialRequestFormats.joinToString { it?.value ?: "unknown" }}" }
 
-        val keyIdsDistinct = batchCredentialRequest.credentialRequests.map { credReq ->
+        // Every batch entry still needs a valid JWT proof — but unlike the
+        // previous restriction, the holder keys are REQUIRED to differ across
+        // batch entries (OID4VCI single-use batch issuance, EUDI ARF). Each
+        // issued copy binds to its own fresh key so the wallet can burn one
+        // per presentation without cross-linkability. We therefore just
+        // validate that each request carries a JWT proof; per-key uniqueness
+        // is a wallet concern and not enforceable here without inspecting
+        // every key.
+        batchCredentialRequest.credentialRequests.forEach { credReq ->
             credReq.proof?.jwt?.let { jwt -> JwtUtils.parseJWTHeader(jwt) }
                 ?.get(JWTClaims.Header.keyID)
                 ?.jsonPrimitive?.content
@@ -620,9 +628,7 @@ open class CIProvider(
                     errorCode = CredentialErrorCode.invalid_or_missing_proof,
                     message = "Proof must be JWT proof"
                 )
-        }.distinct()
-
-        require(keyIdsDistinct.size < 2) { "More than one key id requested" }
+        }
 
         return BatchCredentialResponse.success(
             credentialResponses = batchCredentialRequest.credentialRequests.map {
@@ -763,9 +769,27 @@ open class CIProvider(
     }
 
     private fun validateAuthorizationRequest(authorizationRequest: AuthorizationRequest): Boolean {
-        return authorizationRequest.authorizationDetails != null && authorizationRequest.authorizationDetails!!.any {
-            isSupportedAuthorizationDetails(it)
-        }
+        // OID4VCI Draft 13 §5.1.2 lets a client use EITHER authorization_details
+        // OR scope to identify the credentials it wants. Both are valid; accept
+        // whichever is present.
+        val byAuthDetails = authorizationRequest.authorizationDetails
+            ?.any { isSupportedAuthorizationDetails(it) } == true
+
+        // For scope-based requests, each scope value is either "openid" (ignored
+        // here) or a scope string registered on a credential configuration.
+        // We advertise scope = configId for every config (see OidcApi.kt
+        // metadataMap patch + TenantOidcRoutes.kt), so a scope matches when it
+        // equals any config's id or its explicit `scope` field.
+        val byScope = authorizationRequest.scope
+            .filterNot { it == "openid" }
+            .any { scope ->
+                config.credentialConfigurationsSupported.let { configs ->
+                    configs.containsKey(scope) ||
+                        configs.values.any { it.scope == scope }
+                }
+            }
+
+        return byAuthDetails || byScope
     }
 
     fun initializeIssuanceSession(

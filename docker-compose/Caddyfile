@@ -116,7 +116,20 @@
 
 # Verify API (Feature-flagged, port 7010)
 :{$VERIFY_API_PORT:7010} {
-    reverse_proxy http://verify-api:{$VERIFY_API_PORT:7010}
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization"
+
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    reverse_proxy http://verify-api:{$VERIFY_API_PORT:7010} {
+        header_down -Access-Control-Allow-Origin
+        header_down -Access-Control-Allow-Methods
+        header_down -Access-Control-Allow-Headers
+    }
 }
 
 # Verify Portal - Admin UI for Verify API (port 7011)
@@ -131,6 +144,27 @@ issuer.theaustraliahack.com:443 {
     reverse_proxy http://issuer-api:{$ISSUER_API_PORT}
 }
 
-# RP Demo containers expose ports directly (4000 and 7020)
-# External routing (e.g., rp.theaustraliahack.com) is handled outside this Caddyfile
+# Internal HTTPS for auth-op - OIDC Provider with realm discovery
+# Public entry point for RPs (https://auth-op.theaustraliahack.com) serving
+# /.well-known/openid-configuration and /login/realm/{id} flows.
+auth-op.theaustraliahack.com:443 {
+    tls internal
+    reverse_proxy http://auth-op:{$AUTH_OP_PORT}
+}
+
+# Keycloak admin / OIDC (fronted by Cloudflare tunnel)
+keycloak.theaustraliahack.com:443 {
+    tls internal
+    reverse_proxy http://keycloak:{$KEYCLOAK_PORT}
+}
+
+# RP Widget Demo (port 4000)
+:{$RP_WIDGET_PORT:-4000} {
+    reverse_proxy http://rp-widget-example-1:{$RP_WIDGET_PORT:-4000}
+}
+
+# Next.js RP Demo (port 7020)
+:{$RP_NEXTJS_PORT:-7020} {
+    reverse_proxy http://rp-nextjs-example-1:3000
+}
 
