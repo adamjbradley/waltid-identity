@@ -41,66 +41,62 @@ object RpCertificateService {
     )
 
     fun generateCertificate(legalName: String, domain: String): GeneratedCertificate {
-        val keyPair = KeyPairGenerator.getInstance("EC", "BC").apply {
-            initialize(ECGenParameterSpec("secp256r1"))
-        }.generateKeyPair()
-
+        val extUtils = JcaX509ExtensionUtils()
         val now = Date()
         val oneYear = Date(now.time + 365L * 24 * 3600 * 1000)
 
-        val subject = X500Name("CN=$legalName, O=$legalName")
-
-        val builder = JcaX509v3CertificateBuilder(
-            subject, // self-signed: issuer == subject
-            BigInteger(160, SecureRandom()),
-            now,
-            oneYear,
-            subject,
-            keyPair.public
+        // Step 1: generate a Root CA (goes into /.well-known/rp-certificates as the trust anchor)
+        val caKeyPair = KeyPairGenerator.getInstance("EC", "BC").apply {
+            initialize(ECGenParameterSpec("secp256r1"))
+        }.generateKeyPair()
+        val caSubject = X500Name("CN=$domain RP CA")
+        val caBuilder = JcaX509v3CertificateBuilder(
+            caSubject, BigInteger(160, SecureRandom()), now, oneYear, caSubject, caKeyPair.public
+        )
+        caBuilder.addExtension(Extension.basicConstraints, true,
+            org.bouncycastle.asn1.x509.BasicConstraints(true))
+        caBuilder.addExtension(Extension.keyUsage, true,
+            KeyUsage(KeyUsage.keyCertSign or KeyUsage.cRLSign))
+        caBuilder.addExtension(Extension.subjectKeyIdentifier, false,
+            extUtils.createSubjectKeyIdentifier(caKeyPair.public))
+        val caCert = JcaX509CertificateConverter().setProvider("BC").getCertificate(
+            caBuilder.build(JcaContentSignerBuilder("SHA256withECDSA").setProvider("BC").build(caKeyPair.private))
         )
 
-        // Add SAN extension with dNSName
-        builder.addExtension(
-            Extension.subjectAlternativeName,
-            false,
-            GeneralNames(GeneralName(GeneralName.dNSName, domain))
+        // Step 2: generate the leaf cert signed by the Root CA (goes in x5c[0])
+        val leafKeyPair = KeyPairGenerator.getInstance("EC", "BC").apply {
+            initialize(ECGenParameterSpec("secp256r1"))
+        }.generateKeyPair()
+        val leafSubject = X500Name("CN=$legalName, O=$legalName")
+        val leafBuilder = JcaX509v3CertificateBuilder(
+            caSubject, BigInteger(160, SecureRandom()), now, oneYear, leafSubject, leafKeyPair.public
         )
-
-        builder.addExtension(
-            Extension.keyUsage,
-            true,
-            KeyUsage(KeyUsage.digitalSignature)
-        )
-
-        // Add ExtendedKeyUsage with mdoc reader auth OID (required by EUDI wallet profile validation)
+        leafBuilder.addExtension(Extension.basicConstraints, true,
+            org.bouncycastle.asn1.x509.BasicConstraints(false))
+        leafBuilder.addExtension(Extension.subjectAlternativeName, false,
+            GeneralNames(GeneralName(GeneralName.dNSName, domain)))
+        leafBuilder.addExtension(Extension.keyUsage, true,
+            KeyUsage(KeyUsage.digitalSignature))
         val readerAuthOid = KeyPurposeId.getInstance(ASN1ObjectIdentifier("1.0.18013.5.1.6"))
-        builder.addExtension(
-            Extension.extendedKeyUsage,
-            false,
-            ExtendedKeyUsage(readerAuthOid)
+        leafBuilder.addExtension(Extension.extendedKeyUsage, false,
+            ExtendedKeyUsage(readerAuthOid))
+        leafBuilder.addExtension(Extension.subjectKeyIdentifier, false,
+            extUtils.createSubjectKeyIdentifier(leafKeyPair.public))
+        leafBuilder.addExtension(Extension.authorityKeyIdentifier, false,
+            extUtils.createAuthorityKeyIdentifier(caCert))
+        val leafCert = JcaX509CertificateConverter().setProvider("BC").getCertificate(
+            leafBuilder.build(JcaContentSignerBuilder("SHA256withECDSA").setProvider("BC").build(caKeyPair.private))
         )
 
-        // Add SKI and AKI extensions (required by EUDI wallet trust store validation)
-        val extUtils = JcaX509ExtensionUtils()
-        builder.addExtension(
-            Extension.subjectKeyIdentifier,
-            false,
-            extUtils.createSubjectKeyIdentifier(keyPair.public)
-        )
-        builder.addExtension(
-            Extension.authorityKeyIdentifier,
-            false,
-            extUtils.createAuthorityKeyIdentifier(keyPair.public)
+        val certInfo = extractCertInfo(leafCert)
+        val jwk = ecKeyToJwk(leafKeyPair)
+        // x5c: leaf first, then CA — wallet validates chain leaf → CA → trust anchor
+        val x5c = listOf(
+            Base64.getEncoder().encodeToString(leafCert.encoded),
+            Base64.getEncoder().encodeToString(caCert.encoded)
         )
 
-        val signer = JcaContentSignerBuilder("SHA256withECDSA").setProvider("BC").build(keyPair.private)
-        val cert = JcaX509CertificateConverter().setProvider("BC").getCertificate(builder.build(signer))
-
-        val certInfo = extractCertInfo(cert)
-        val jwk = ecKeyToJwk(keyPair)
-        val x5c = listOf(Base64.getEncoder().encodeToString(cert.encoded))
-
-        return GeneratedCertificate(cert, keyPair, certInfo, jwk, x5c)
+        return GeneratedCertificate(leafCert, leafKeyPair, certInfo, jwk, x5c)
     }
 
     fun extractCertInfo(cert: X509Certificate): X509CertInfo {
