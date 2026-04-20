@@ -21,6 +21,37 @@
 
 ---
 
+## Task 0 — resolved (2026-04-21)
+
+**Verdict: Plan B (fallback).**
+
+Grep across `waltid-libraries/protocols/waltid-openid4vp-verifier/` and `waltid-services/waltid-verifier-api2/` turns up exactly one reference to `transaction_data`, and it's commented-out:
+
+```
+waltid-libraries/protocols/waltid-openid4vp-verifier/src/commonMain/kotlin/
+  id/walt/openid4vp/verifier/handlers/sessioncreation/VerificationSessionCreator.kt:208
+  //val transactionData : List < String >? = null, // List of base64url encoded JSON strings
+```
+
+Wallet side (`waltid-openid4vp-wallet`, `waltid-dcql`) has zero references. The spec-compliant RFC008 path (signed JAR carries `transaction_data`, wallet renders amount/payee, returns a kb-JWT with `transaction_data_hashes`) is not available in this stack without a multi-week library patch.
+
+**Decision for the demo:** use a standard PWA OID4VP presentation with a per-order nonce generated server-side, and render the transaction details on the RP's `/checkout` page (not in the wallet). The wallet-side UX shows a generic "Present your payment credential" prompt; the RP-side confirmation makes the narrative clear. Document the limitation in the `/checkout` page and in the design doc.
+
+**Plan B shape for Task 17** (overrides the Plan A shape in the design doc):
+- `POST /api/checkout`:
+  - Generate `orderId = "ORDER-" + uuid`, compute `total`.
+  - Create a verifier-api2 session for a plain `PaymentWalletAttestation` DCQL presentation, passing the orderId as the session nonce.
+  - Store `req.session.pendingOrder = { orderId, total, items, nonce, txData }` — `txData` kept server-side only, used at receipt rendering.
+- `POST /api/checkout/webhook/:orderId`:
+  - Verify webhook secret (constant-time compare).
+  - Verify the VP's kb-JWT nonce equals the session nonce we issued (standard OID4VP binding — weaker than RFC008 but what the library supports today).
+  - Persist order, clear cart, return orderId.
+- `/order/:id` receipt page displays the full transaction summary that would have been in `transaction_data`, labelled "Authorized by EUDI Wallet presentation — transaction binding via RFC008 `transaction_data` not yet supported by verifier-api2 (tracked separately)."
+
+**Task 19 deleted.** No verifier-api2 passthrough needed for the demo. A separate future ticket should upgrade both library sides when walt.id's OID4VP library catches up with Draft 22+ `transaction_data`.
+
+---
+
 ## Task 0: Spike — does verifier-api2 accept `transaction_data`?
 
 **Why before code:** Task 18 forks sharply based on this answer.
