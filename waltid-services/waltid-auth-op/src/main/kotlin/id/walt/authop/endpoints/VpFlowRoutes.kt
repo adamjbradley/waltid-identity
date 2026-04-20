@@ -441,8 +441,16 @@ private suspend fun ApplicationCall.handleVpComplete(deps: AuthOpDeps) {
     // the point they've been mapped to claims.
     deps.vpSessionStore.update(verifierSessionId) { it.copy(capturedCredential = null) }
 
-    // 17. Redirect to /consent.
-    respondRedirect("/consent")
+    // 17. Redirect to /register-passkey (if the passkey feature is
+    // configured) so the user can enrol a convenience credential before
+    // landing on /consent. The register page navigates to /consent itself
+    // on success or skip. When passkey support is off we preserve the
+    // pre-feature behaviour of going straight to /consent.
+    if (deps.passkeyService != null) {
+        respondRedirect("/register-passkey")
+    } else {
+        respondRedirect("/consent")
+    }
 }
 
 /**

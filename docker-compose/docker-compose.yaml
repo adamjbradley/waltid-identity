@@ -557,6 +557,9 @@ services:
       # Jib sets WORKDIR=/waltid-auth-op so hoplite resolves config/auth-op.conf
       # relative to that — NOT /app/ (the design doc assumed /app).
       - ./auth-op/config:/waltid-auth-op/config
+      # Passkey registry lives on disk so credentials survive container
+      # restarts. auth-op.conf points passkey.registryFile at this path.
+      - ./auth-op/data:/waltid-auth-op/data
     ports:
       - "${AUTH_OP_PORT:-7005}:${AUTH_OP_PORT:-7005}"
 
