@@ -521,7 +521,7 @@ services:
   # ==================================================
   # Drop-in OIDC OP in front of Keycloak (employees realm via OIDC)
   # and verifier-api2 (citizens realm via OID4VP).
-  # External: https://auth.theaustraliahack.com
+  # External: https://auth-op.theaustraliahack.com
   # Local:    http://localhost:7005
   # ==================================================
   auth-op:
@@ -539,7 +539,7 @@ services:
         required: false
     environment:
       AUTH_OP_PORT: ${AUTH_OP_PORT:-7005}
-      AUTH_OP_ISSUER: ${AUTH_OP_ISSUER:-https://auth.theaustraliahack.com}
+      AUTH_OP_ISSUER: ${AUTH_OP_ISSUER:-https://auth-op.theaustraliahack.com}
       EMPLOYEES_OIDC_SECRET: ${EMPLOYEES_OIDC_SECRET}
       RP_THEAUSTRALIAHACK_SECRET: ${RP_THEAUSTRALIAHACK_SECRET}
     volumes:

@@ -11,9 +11,9 @@ For the design rationale see
 
 ## At a glance
 
-- **Runtime URL (default):** `https://auth.theaustraliahack.com`
+- **Runtime URL (default):** `https://auth-op.theaustraliahack.com`
 - **Service port (container):** `7005`
-- **Discovery URL:** `https://auth.theaustraliahack.com/.well-known/openid-configuration`
+- **Discovery URL:** `https://auth-op.theaustraliahack.com/.well-known/openid-configuration`
 - **Design stance:** drop-in replacement for Keycloak at the OIDC layer — most
   RPs integrate by changing one env var.
 - **Non-negotiable flow constraints:**
@@ -26,7 +26,7 @@ For the design rationale see
 
 | Endpoint | Path |
 |---|---|
-| `issuer` | `https://auth.theaustraliahack.com` |
+| `issuer` | `https://auth-op.theaustraliahack.com` |
 | `authorization_endpoint` | `/authorize` |
 | `token_endpoint` | `/token` |
 | `userinfo_endpoint` | `/userinfo` |
@@ -60,7 +60,7 @@ name; only change the issuer:
 
 ```diff
 - AUTH_KEYCLOAK_ISSUER=https://keycloak.theaustraliahack.com/realms/issuer
-+ AUTH_KEYCLOAK_ISSUER=https://auth.theaustraliahack.com
++ AUTH_KEYCLOAK_ISSUER=https://auth-op.theaustraliahack.com
   AUTH_KEYCLOAK_ID=rp_theaustraliahack
   AUTH_KEYCLOAK_SECRET=<same rp secret>
 ```
@@ -73,7 +73,7 @@ Vanilla `oidc-client-ts` configuration. Point `OIDC_ISSUER` at auth-op:
 
 ```diff
 - OIDC_ISSUER=https://keycloak.theaustraliahack.com/realms/issuer
-+ OIDC_ISSUER=https://auth.theaustraliahack.com
++ OIDC_ISSUER=https://auth-op.theaustraliahack.com
 ```
 
 Callback URI stays `/callback` (registered).
@@ -123,7 +123,7 @@ docker compose --profile identity up -d --force-recreate auth-op
 Any spec-compliant OIDC library should work. Feed the discovery URL:
 
 ```
-https://auth.theaustraliahack.com/.well-known/openid-configuration
+https://auth-op.theaustraliahack.com/.well-known/openid-configuration
 ```
 
 Tested / known-compatible:
@@ -204,7 +204,7 @@ Every ID token carries:
 | `nonce` | string | echoed from your `/authorize` request (if sent) |
 | `acr` | string | `"urn:walt:upstream-oidc"` (OIDC realm) or `"urn:walt:vp"` (VP realm) |
 | `amr` | string array | propagated from upstream (OIDC) or `["swk"]` (VP) |
-| `https://auth.theaustraliahack.com/realm` | string | the realm the user picked (e.g. `"employees"`, `"citizens"`). **Namespaced** by issuer URL to avoid collisions with other OPs. |
+| `https://auth-op.theaustraliahack.com/realm` | string | the realm the user picked (e.g. `"employees"`, `"citizens"`). **Namespaced** by issuer URL to avoid collisions with other OPs. |
 
 Plus any claims produced by the realm's `claim_mapping` — typically
 `given_name`, `family_name`, `email`, etc.
@@ -286,13 +286,13 @@ Behaviour depends on the session's realm:
 
 Before the service is reachable externally:
 
-1. **Cloudflare tunnel route** — `auth.theaustraliahack.com` must be added as
+1. **Cloudflare tunnel route** — `auth-op.theaustraliahack.com` must be added as
    a public hostname pointing at the Caddy origin in the Cloudflare Zero Trust
    dashboard. The tunnel is remote-managed via `TUNNEL_TOKEN` (not a code
    change).
 2. **Keycloak client** — for the `employees` OIDC realm, register a
    confidential client in Keycloak's `issuer` realm named `auth-op` with
-   redirect URI `https://auth.theaustraliahack.com/callback/oidc`.
+   redirect URI `https://auth-op.theaustraliahack.com/callback/oidc`.
 3. **Real secrets** — replace the placeholder `EMPLOYEES_OIDC_SECRET` and
    `RP_THEAUSTRALIAHACK_SECRET` in `docker-compose/.env.local` (or via
    Doppler). Do not commit real secrets to `.env`.
@@ -306,7 +306,7 @@ Before the service is reachable externally:
 | `error=invalid_grant` at `/token` | Code already consumed (single-use), expired (60 s TTL), PKCE verifier mismatch, or `redirect_uri` doesn't byte-match the one from `/authorize` |
 | `error=login_required` on `/authorize` with `prompt=none` | User has no valid session cookie at auth-op; drop `prompt=none` to render the realm picker |
 | 400 "unregistered redirect_uri" (plain HTML) | The `redirect_uri` in your request isn't in the client's `redirect_uris` list. auth-op deliberately does **not** redirect in this case (RFC 6749 §4.1.2.1); add the URI to `clients.conf`. |
-| 502 from Cloudflare on `auth.theaustraliahack.com` | Tunnel route not configured (see Operational prerequisites #1) |
+| 502 from Cloudflare on `auth-op.theaustraliahack.com` | Tunnel route not configured (see Operational prerequisites #1) |
 | Container fails to start: `Hoplite config error: 'issuer': Missing String from config` | `auth-op.conf` / `web.conf` missing under `docker-compose/auth-op/config/`; ensure both exist |
 
 ## References

@@ -78,7 +78,7 @@ class OidcFlowE2ETest {
     private val upstreamKid = "upstream-kid-1"
     private val upstreamKey: JWKKey = runBlocking { JWKKey.generate(KeyType.RSA) }
 
-    private val ourIssuer = "https://auth.theaustraliahack.com"
+    private val ourIssuer = "https://auth-op.theaustraliahack.com"
 
     private val rpClientId = "rp1"
     private val rpClientSecret = "rp-secret"

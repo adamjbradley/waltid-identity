@@ -696,7 +696,7 @@ git commit -am "feat(auth-op): jib Docker build + image layering"
 
 **Files:**
 - Modify: `docker-compose/docker-compose.yaml` — add `auth-op` service under `profiles: [identity, all]`
-- Modify: `docker-compose/Caddyfile` — add `auth.theaustraliahack.com:443` vhost block
+- Modify: `docker-compose/Caddyfile` — add `auth-op.theaustraliahack.com:443` vhost block
 - Modify: `docker-compose/.env` — add `AUTH_OP_PORT=7005`, client secrets placeholders, realm secrets
 - Create: `docker-compose/auth-op/config/realms.conf`
 - Create: `docker-compose/auth-op/config/clients.conf`
@@ -705,7 +705,7 @@ git commit -am "feat(auth-op): jib Docker build + image layering"
 **Caddy block** (matches design — use existing `issuer.theaustraliahack.com:443` as template):
 
 ```caddy
-auth.theaustraliahack.com:443 {
+auth-op.theaustraliahack.com:443 {
     tls internal
     reverse_proxy http://auth-op:{$AUTH_OP_PORT}
 }
@@ -722,7 +722,7 @@ auth-op:
   env_file: [.env]
   environment:
     AUTH_OP_PORT: ${AUTH_OP_PORT:-7005}
-    AUTH_OP_ISSUER: https://auth.theaustraliahack.com
+    AUTH_OP_ISSUER: https://auth-op.theaustraliahack.com
     RP_THEAUSTRALIAHACK_SECRET: ${RP_THEAUSTRALIAHACK_SECRET}
     EMPLOYEES_OIDC_SECRET: ${EMPLOYEES_OIDC_SECRET}
   volumes:
@@ -733,21 +733,21 @@ auth-op:
 
 **Realms/clients config** — populate from design doc's drop-in example; point `issuer` at the in-tree Keycloak (`https://keycloak.theaustraliahack.com/realms/issuer`).
 
-**Infra note (manual, out-of-repo):** add public-hostname `auth.theaustraliahack.com` → Caddy origin in the Cloudflare Zero Trust dashboard (tunnel is `TUNNEL_TOKEN`-managed; see `memory/infrastructure.md`). Test plan will fail at the external-URL step until this is done.
+**Infra note (manual, out-of-repo):** add public-hostname `auth-op.theaustraliahack.com` → Caddy origin in the Cloudflare Zero Trust dashboard (tunnel is `TUNNEL_TOKEN`-managed; see `memory/infrastructure.md`). Test plan will fail at the external-URL step until this is done.
 
 **Smoke:**
 ```bash
 docker compose --profile identity up -d auth-op caddy
 sleep 3
 docker compose logs auth-op --tail 20 | grep -i "started"
-curl -sk https://auth.theaustraliahack.com/health     # 200
-curl -sk https://auth.theaustraliahack.com/.well-known/openid-configuration | jq '.issuer'
+curl -sk https://auth-op.theaustraliahack.com/health     # 200
+curl -sk https://auth-op.theaustraliahack.com/.well-known/openid-configuration | jq '.issuer'
 ```
 
 **Commit:**
 ```bash
 git add docker-compose
-git commit -m "feat(auth-op): docker-compose + Caddy vhost + config for auth.theaustraliahack.com"
+git commit -m "feat(auth-op): docker-compose + Caddy vhost + config for auth-op.theaustraliahack.com"
 ```
 
 ---

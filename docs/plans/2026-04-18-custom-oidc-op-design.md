@@ -52,7 +52,7 @@ New Kotlin/Ktor service: **`waltid-services/waltid-auth-op`** on port **7005**. 
                                     RP: POST /token → id_token + access_token
 ```
 
-**Single issuer URL:** `https://auth.theaustraliahack.com` (byte-exact, no trailing slash — whatever appears in `.well-known/openid-configuration#issuer` must be identical to `iss` in every issued token). Realm surfaced in ID token as custom claim + `acr` for the auth context class.
+**Single issuer URL:** `https://auth-op.theaustraliahack.com` (byte-exact, no trailing slash — whatever appears in `.well-known/openid-configuration#issuer` must be identical to `iss` in every issued token). Realm surfaced in ID token as custom claim + `acr` for the auth context class.
 
 ## Components
 
@@ -118,7 +118,7 @@ Claim mapping uses `com.eygraber:jsonpathkt-kotlinx` (already on the project cla
 
 ### Client registry (static config)
 
-**Drop-in intent:** auth-op is designed as a drop-in replacement for Keycloak as the OIDC provider in the existing demos. RPs keep their current callback URIs and provider identifiers — only their `issuer` env var (e.g. `AUTH_KEYCLOAK_ISSUER`) is repointed at `https://auth.theaustraliahack.com`. The `redirect_uris` below mirror what's already in `docker-compose/keycloak/realm-export.json#rp-theaustraliahack` so no RP-side changes are needed to demo.
+**Drop-in intent:** auth-op is designed as a drop-in replacement for Keycloak as the OIDC provider in the existing demos. RPs keep their current callback URIs and provider identifiers — only their `issuer` env var (e.g. `AUTH_KEYCLOAK_ISSUER`) is repointed at `https://auth-op.theaustraliahack.com`. The `redirect_uris` below mirror what's already in `docker-compose/keycloak/realm-export.json#rp-theaustraliahack` so no RP-side changes are needed to demo.
 
 ```hocon
 clients = [
@@ -219,7 +219,7 @@ All behind thin interfaces so a Valkey-backed implementation slots in cleanly la
 2. User picks realm `citizens` (`method=oid4vp`). Server-side auth-op:
    - Load DCQL from `dcql_query_file`.
    - Generate a short-lived **webhook secret** bound to this pending login, store in `VpSessionStore`.
-   - `POST verifier-api2 /verification-session/create` (optionally `?rpId=...`) with `flow_type`, `dcqlQuery`, and a notifications block registering `{webhook_url: "https://auth.theaustraliahack.com/login/realm/citizens/webhook", webhook_secret}`.
+   - `POST verifier-api2 /verification-session/create` (optionally `?rpId=...`) with `flow_type`, `dcqlQuery`, and a notifications block registering `{webhook_url: "https://auth-op.theaustraliahack.com/login/realm/citizens/webhook", webhook_secret}`.
    - Response: `{ sessionId, bootstrapAuthorizationRequestUrl, fullAuthorizationRequestUrl }`.
    - Store `{verifierSessionId, authRequestId, sessionCookieId, webhookSecret, status: PENDING, capturedCredential: null}` in `VpSessionStore`.
    - Render a page with QR for `bootstrapAuthorizationRequestUrl` + `openid4vp://` deep-link. Embed `verifierSessionId` only (not the webhook secret).
@@ -260,7 +260,7 @@ Key insight: **the VP result itself establishes identity**. No separate credenti
 
 ```json
 {
-  "iss": "https://auth.theaustraliahack.com",
+  "iss": "https://auth-op.theaustraliahack.com",
   "sub": "PEF3ZDA...Base64UrlClaimHash",
   "aud": "rp-nextjs-demo",
   "iat": 1777000000,
@@ -269,7 +269,7 @@ Key insight: **the VP result itself establishes identity**. No separate credenti
   "nonce": "<RP nonce>",
   "amr": ["swk"],
   "acr": "urn:walt:vp",
-  "https://auth.theaustraliahack.com/realm": "citizens",
+  "https://auth-op.theaustraliahack.com/realm": "citizens",
   "given_name": "Alice",
   "family_name": "Smith",
   "birth_date": "1990-01-01"
@@ -331,18 +331,18 @@ All redirect-based errors echo `state` byte-for-byte. All errors log the `authRe
 ## Infrastructure prerequisites
 
 - **Port:** expose 7005 inside docker, publish as `${AUTH_OP_PORT:-7005}`.
-- **Caddy vhost** at `auth.theaustraliahack.com:443` pattern matching the existing `issuer.theaustraliahack.com:443` block:
+- **Caddy vhost** at `auth-op.theaustraliahack.com:443` pattern matching the existing `issuer.theaustraliahack.com:443` block:
   ```caddy
-  auth.theaustraliahack.com:443 {
+  auth-op.theaustraliahack.com:443 {
       tls internal
       reverse_proxy http://auth-op:{$AUTH_OP_PORT}
   }
   ```
-- **Cloudflare tunnel** — remote-managed via `TUNNEL_TOKEN` (see `memory/infrastructure.md`). Needs a public-hostname entry in the Cloudflare Zero Trust dashboard mapping `auth.theaustraliahack.com` → the caddy origin. **This must be done manually by someone with dashboard access; no code change makes it happen.**
+- **Cloudflare tunnel** — remote-managed via `TUNNEL_TOKEN` (see `memory/infrastructure.md`). Needs a public-hostname entry in the Cloudflare Zero Trust dashboard mapping `auth-op.theaustraliahack.com` → the caddy origin. **This must be done manually by someone with dashboard access; no code change makes it happen.**
 - **Keycloak OIDC client** — in the chosen Keycloak realm, register a client with:
   - Client ID matching the realm config (e.g. `auth-op`)
   - `Confidential` access type
-  - Valid redirect URI: `https://auth.theaustraliahack.com/callback/oidc`
+  - Valid redirect URI: `https://auth-op.theaustraliahack.com/callback/oidc`
   - Client secret → supplied via env to auth-op as `EMPLOYEES_OIDC_SECRET` etc.
 
 ## Files that will be created
@@ -438,8 +438,8 @@ docker-compose/
 ## Verification plan
 
 1. Build the service, `docker compose --profile identity up -d auth-op`.
-2. `curl https://auth.theaustraliahack.com/.well-known/openid-configuration` → valid JSON, `issuer` byte-matches what's in the config.
-3. `curl https://auth.theaustraliahack.com/jwks.json` → valid JWKS with one RSA key.
+2. `curl https://auth-op.theaustraliahack.com/.well-known/openid-configuration` → valid JSON, `issuer` byte-matches what's in the config.
+3. `curl https://auth-op.theaustraliahack.com/jwks.json` → valid JWKS with one RSA key.
 4. Point `rp-nextjs-example-1` at auth-op as its OIDC provider (env vars for discovery URL, client_id, client_secret).
 5. **Classic flow:** Login in RP → `/login` → pick `employees` → Keycloak login → back to RP. Decode ID token, confirm `iss`, `aud`, `realm="employees"`, `acr="urn:walt:upstream-oidc"`, mapped claims present.
 6. **VP flow:** Login → pick `citizens` → scan QR with walt.id demo wallet holding a configured credential → back to RP. Decode ID token, confirm `realm="citizens"`, `acr="urn:walt:vp"`, `amr=["swk"]`, `sub` matches expected strategy output, credential claims present.
