@@ -174,6 +174,29 @@
             height: 22px;
         }
 
+        #profile-card {
+            flex-direction: row;
+            gap: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        #profile-card .profile-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.2;
+        }
+        #profile-card .profile-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+        }
+        #profile-card .profile-meta {
+            font-size: 10px;
+            opacity: 0.75;
+        }
+
         .store-btn {
             display: inline-flex;
             align-items: center;
@@ -1497,10 +1520,13 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                         Shop Your Local Store
                     </a>
-                    <a class="header-action" href="#">
+                    <div id="profile-card" class="header-action" hidden>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        Sign In
-                    </a>
+                        <div class="profile-info">
+                            <span id="profile-name" class="profile-name"></span>
+                            <span id="profile-meta" class="profile-meta"></span>
+                        </div>
+                    </div>
                     <a class="header-action" href="#">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
                         Basket
@@ -2397,17 +2423,31 @@
         // When multiple OIDC providers are configured, show one link per
         // provider. On successful login the banner shows which provider
         // the user came in through.
+        function renderProfileCard(user) {
+            const card = document.getElementById('profile-card');
+            if (!card) return;
+            if (!user) { card.hidden = true; return; }
+            const nameEl = card.querySelector('#profile-name');
+            const metaEl = card.querySelector('#profile-meta');
+            const fullName = [user.given_name, user.family_name].filter(Boolean).join(' ').trim();
+            nameEl.textContent = fullName || user.name || user.email || 'Signed in';
+            metaEl.textContent = user.birth_date ? 'DOB ' + user.birth_date : (user.email || '');
+            card.hidden = false;
+        }
+
         async function renderAuthStatus() {
             const el = document.getElementById('auth-status');
             if (!el) return;
             try {
                 const res = await fetch('/api/me', { credentials: 'same-origin' });
-                if (!res.ok) { el.textContent = ''; return; }
+                if (!res.ok) { el.textContent = ''; renderProfileCard(null); return; }
                 const data = await res.json();
                 while (el.firstChild) el.removeChild(el.firstChild);
-                if (!data.oidcEnabled) return;
+                if (!data.oidcEnabled) { renderProfileCard(null); return; }
+                renderProfileCard(data.user || null);
                 if (data.user) {
-                    const who = data.user.email || data.user.name || data.user.sub || '';
+                    const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();
+                    const who = fullName || data.user.name || data.user.email || data.user.sub || '';
                     const via = data.activeProvider ? ' via ' + data.activeProvider : '';
                     const label = document.createElement('span');
                     label.textContent = 'Signed in: ' + who + via + ' ';
