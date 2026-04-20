@@ -72,7 +72,22 @@ services:
       - .env
     extra_hosts:
       - "$SERVICE_HOST:host-gateway"
-    entrypoint: ["/bin/sh", "-c", "keytool -import -trustcacerts -cacerts -storepass changeit -noprompt -alias caddy-local -file /etc/ssl/certs/caddy-root-ca.crt 2>/dev/null; exec java -cp @/app/jib-classpath-file id.walt.openid4vp.verifier.MainKt"]
+    # Re-import Caddy's root CA on every start so cert rotations (and
+    # plain container restarts where the caddy-local alias persists) pick
+    # up the current cert. Fails loudly rather than silently if the mount
+    # or password is wrong — revocation checks cannot work without this.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |-
+        keytool -delete -cacerts -storepass changeit -alias caddy-local 2>/dev/null || true
+        if keytool -import -trustcacerts -cacerts -storepass changeit -noprompt -alias caddy-local -file /etc/ssl/certs/caddy-root-ca.crt; then
+          echo "[entrypoint] caddy-local root CA imported into JVM truststore"
+        else
+          echo "[entrypoint] FAILED to import caddy root CA" >&2
+          exit 1
+        fi
+        exec java -cp @/app/jib-classpath-file id.walt.openid4vp.verifier.MainKt
     environment:
       RP_REGISTRAR_ENABLED: ${RP_REGISTRAR_ENABLED:-false}
     volumes:
@@ -150,6 +165,11 @@ services:
       NEXT_PUBLIC_ISSUER: "${ISSUER_EXTERNAL_HTTPS_URL:-https://issuer.theaustraliahack.com}"
       NEXT_PUBLIC_VERIFIER: "${VERIFIER_EXTERNAL_HTTPS_URL:-https://verifier.theaustraliahack.com}"
       NEXT_PUBLIC_VERIFIER2: "${VERIFIER2_EXTERNAL_HTTPS_URL:-https://verifier2.theaustraliahack.com}"
+      # Server-side (Next.js API routes) talks to backends on the Docker network
+      # so it doesn't need to trust Caddy's internal TLS CA.
+      ISSUER_INTERNAL_URL: "http://issuer-api:${ISSUER_API_PORT:-7002}"
+      VERIFIER_INTERNAL_URL: "http://verifier-api:${VERIFIER_API_PORT:-7003}"
+      VERIFIER2_INTERNAL_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
       NEXT_PUBLIC_WALLET: "${WALLET_EXTERNAL_URL:-http://$SERVICE_HOST:$DEMO_WALLET_FRONTEND_PORT}"
       NEXT_PUBLIC_VERIFIER2_CLIENT_ID: "${NEXT_PUBLIC_VERIFIER2_CLIENT_ID:-}"
       NEXT_PUBLIC_VERIFIER2_SIGNING_KEY: "${NEXT_PUBLIC_VERIFIER2_SIGNING_KEY:-}"
