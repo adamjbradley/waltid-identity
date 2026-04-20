@@ -10,12 +10,19 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -81,10 +88,16 @@ object VerificationService {
             logger.info { "Organization $organizationId is linked to registered RP: $rpId" }
         }
 
-        // 3. Create session on verifier-api2 with signed JAR request
+        // 3. Inject the template's validCredentialTypes into DCQL meta.vct_values so the
+        //    wallet (EUDI DcqlRequestProcessor) gets a non-empty vct_values array even if
+        //    the stored DCQL has "meta":{}, and so one template can match multiple country
+        //    PID VCTs (EU, AU, IN).
+        val enrichedDcql = enrichDcqlWithVctValues(template.dcqlQuery, template.validCredentialTypes)
+
+        // 4. Create session on verifier-api2 with signed JAR request
         //    Self-healing: if "Unknown RP" error, resolve correct RP by domain and retry
         val verifierSession = try {
-            Verifier2Client.createSession(template.dcqlQuery, rpId)
+            Verifier2Client.createSession(enrichedDcql, rpId)
         } catch (e: Exception) {
             if (rpId != null && e.message?.contains("Unknown RP") == true) {
                 logger.warn { "RP $rpId not found in verifier-api2, attempting self-healing resolution..." }
@@ -92,7 +105,7 @@ object VerificationService {
                 if (resolvedRpId != null) {
                     logger.info { "Self-healed RP ID: $rpId -> $resolvedRpId, retrying session creation" }
                     try {
-                        Verifier2Client.createSession(template.dcqlQuery, resolvedRpId)
+                        Verifier2Client.createSession(enrichedDcql, resolvedRpId)
                     } catch (retryEx: Exception) {
                         logger.error(retryEx) { "Failed to create verifier-api2 session after self-healing" }
                         throw RuntimeException("Failed to create verification session: ${retryEx.message}", retryEx)
@@ -306,6 +319,40 @@ object VerificationService {
             is JsonObject -> value.toString()
             is JsonArray -> value.toString()
             else -> value.toString()
+        }
+    }
+
+    /**
+     * Returns a copy of [dcqlQuery] with every `dc+sd-jwt` credential entry's `meta.vct_values`
+     * replaced by [validCredentialTypes]. Other meta keys (e.g. `doctype_value`) and other formats
+     * (e.g. `mso_mdoc`) are left alone.
+     *
+     * Without this, the wallet's DcqlRequestProcessor throws NPE on empty `meta:{}`. Having it
+     * also lets a single template (e.g. age_over_18) accept multiple country-specific PID VCTs.
+     */
+    private fun enrichDcqlWithVctValues(
+        dcqlQuery: JsonObject,
+        validCredentialTypes: List<String>?
+    ): JsonObject {
+        if (validCredentialTypes.isNullOrEmpty()) return dcqlQuery
+        val credentials = dcqlQuery["credentials"]?.jsonArray ?: return dcqlQuery
+
+        val patched = credentials.map { credEl ->
+            val cred = credEl.jsonObject
+            if (cred["format"]?.jsonPrimitive?.content != "dc+sd-jwt") return@map credEl
+            buildJsonObject {
+                cred.forEach { (k, v) -> if (k != "meta") put(k, v) }
+                val existingMeta = cred["meta"] as? JsonObject
+                putJsonObject("meta") {
+                    existingMeta?.forEach { (mk, mv) -> if (mk != "vct_values") put(mk, mv) }
+                    putJsonArray("vct_values") { validCredentialTypes.forEach { add(JsonPrimitive(it)) } }
+                }
+            }
+        }
+
+        return buildJsonObject {
+            dcqlQuery.forEach { (k, v) -> if (k != "credentials") put(k, v) }
+            putJsonArray("credentials") { patched.forEach { add(it) } }
         }
     }
 

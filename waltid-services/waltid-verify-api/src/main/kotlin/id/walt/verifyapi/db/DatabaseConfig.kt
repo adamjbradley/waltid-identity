@@ -199,28 +199,11 @@ private fun seedSystemTemplates() {
         var updated = 0
 
         for (tmpl in templates) {
-            val exists = VerifyTemplates.selectAll()
+            val existing = VerifyTemplates.selectAll()
                 .where { (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name) }
-                .count() > 0
+                .firstOrNull()
 
-            if (exists) {
-                // Upsert: system templates (organizationId = null) are owned by the code —
-                // override any drift in the DB so DCQL shape + claim mappings stay in sync
-                // with the latest seed. Organization-scoped copies are left alone.
-                val rows = VerifyTemplates.update({
-                    (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name)
-                }) {
-                    it[displayName] = tmpl.displayName
-                    it[description] = tmpl.description
-                    it[templateType] = tmpl.templateType
-                    it[dcqlQuery] = tmpl.dcqlQuery
-                    it[responseMode] = "answers"
-                    it[claimMappings] = tmpl.claimMappings
-                    it[validCredentialTypes] = tmpl.validCredentialTypes
-                    it[updatedAt] = now
-                }
-                if (rows > 0) updated++
-            } else {
+            if (existing == null) {
                 VerifyTemplates.insert {
                     it[organizationId] = null
                     it[name] = tmpl.name
@@ -235,6 +218,25 @@ private fun seedSystemTemplates() {
                     it[updatedAt] = now
                 }
                 inserted++
+            } else {
+                // Upsert: system templates (organizationId = null) are owned by the code —
+                // override any drift in the DB so DCQL shape + claim mappings stay in sync
+                // with the latest seed on every boot (subsumes main's "only when
+                // dcql/vct_values changed" check). Organization-scoped copies are
+                // left alone.
+                val rows = VerifyTemplates.update({
+                    (VerifyTemplates.organizationId eq null) and (VerifyTemplates.name eq tmpl.name)
+                }) {
+                    it[displayName] = tmpl.displayName
+                    it[description] = tmpl.description
+                    it[templateType] = tmpl.templateType
+                    it[dcqlQuery] = tmpl.dcqlQuery
+                    it[responseMode] = "answers"
+                    it[claimMappings] = tmpl.claimMappings
+                    it[validCredentialTypes] = tmpl.validCredentialTypes
+                    it[updatedAt] = now
+                }
+                if (rows > 0) updated++
             }
         }
 
