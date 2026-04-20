@@ -2601,9 +2601,23 @@
          * Score a product against the user's alcohol preferences.
          * Returns `{score, verdict}` where verdict ∈ {match, alt, neutral, avoid}.
          *
-         *   +10 per tag in `alcohol`/`style`    → 'match'
-         *    +4 per tag in `alternatives`       → 'alt'
-         *   -20 per tag in `avoid`              → 'avoid' (filtered out)
+         * Rules (designed around realistic shopper prefs, not maximally fuzzy):
+         *
+         *  - **Unidirectional substring match** — a preference token `pref`
+         *    matches a product tag `tag` iff `tag === pref || tag.includes(pref)`.
+         *    We deliberately DON'T test `pref.includes(tag)`: a product tagged
+         *    "whisky" should not match an avoid pref "grain whisky" (that
+         *    direction leaks the common word into unrelated products).
+         *
+         *  - **Positive wins over avoid.** If a product matches `alcohol`/
+         *    `style` (primary) OR `alternatives`, avoid is ignored. Example:
+         *    user says `alcohol: "Japanese whisky", avoid: ["blended"]` — a
+         *    blended Japanese whisky (Hibiki) matches both, and the user's
+         *    stated alcohol pref clearly wins over the generic avoid.
+         *
+         *  - **Scoring:** primary = +10, alternate = +4, avoid = -20. Only one
+         *    verdict applies per product, so scores are effectively discrete.
+         *    Stable sort preserves catalogue order within a verdict bucket.
          */
         function scoreProduct(product, prefs) {
             if (!prefs || typeof prefs !== 'object') return { score: 0, verdict: 'neutral' };
@@ -2611,16 +2625,11 @@
             const primary    = [...prefTokens(prefs.alcohol), ...prefTokens(prefs.style)];
             const alternates = prefTokens(prefs.alternatives);
             const avoided    = prefTokens(prefs.avoid);
-            const hit = (bucket) => bucket.some(pref => tags.some(tag => tag === pref || tag.includes(pref) || pref.includes(tag)));
-            let score = 0;
-            if (hit(primary))    score += 10;
-            if (hit(alternates)) score += 4;
-            if (hit(avoided))    score -= 20;
-            let verdict = 'neutral';
-            if (score < 0) verdict = 'avoid';
-            else if (hit(primary)) verdict = 'match';
-            else if (hit(alternates)) verdict = 'alt';
-            return { score, verdict };
+            const hit = (bucket) => bucket.some(pref => tags.some(tag => tag === pref || tag.includes(pref)));
+            if (hit(primary))    return { score:  10, verdict: 'match' };
+            if (hit(alternates)) return { score:   4, verdict: 'alt'   };
+            if (hit(avoided))    return { score: -20, verdict: 'avoid' };
+            return { score: 0, verdict: 'neutral' };
         }
 
         /** Build a product card using only DOM methods — no innerHTML, so
