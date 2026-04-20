@@ -14,6 +14,7 @@ import id.walt.authop.endpoints.userInfoRoutes
 import id.walt.authop.endpoints.vpCompleteRoutes
 import id.walt.authop.endpoints.vpStatusRoutes
 import id.walt.authop.endpoints.vpWebhookRoutes
+import id.walt.authop.endpoints.webauthnRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
@@ -43,6 +44,8 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import id.walt.authop.passkey.PasskeyService
+import id.walt.authop.passkey.PasskeyStore
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
 import kotlin.time.Duration.Companion.hours
@@ -170,6 +173,20 @@ suspend fun main(args: Array<String>) {
                     lifetime = 1.hours,
                 )
 
+                // Passkey wiring is config-gated: if cfg.passkey is unset we
+                // leave both fields null and the routes short-circuit with 404.
+                val passkeyStore: PasskeyStore? = cfg.passkey?.let {
+                    PasskeyStore(Paths.get(it.registryFile))
+                }
+                val passkeyService: PasskeyService? = cfg.passkey?.let {
+                    PasskeyService(
+                        store = passkeyStore!!,
+                        rpId = it.rpId,
+                        origin = it.origin,
+                        rpName = it.rpName,
+                    )
+                }
+
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
                     signingKey = key,
@@ -185,6 +202,8 @@ suspend fun main(args: Array<String>) {
                     jwtIssuer = jwtIssuer,
                     oidcClient = oidcClient,
                     verifier2Client = verifier2Client,
+                    passkeyStore = passkeyStore,
+                    passkeyService = passkeyService,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -234,5 +253,6 @@ fun Application.module(deps: AuthOpDeps) {
         tokenRoutes(deps)
         userInfoRoutes(deps)
         endSessionRoutes(deps)
+        webauthnRoutes(deps)
     }
 }

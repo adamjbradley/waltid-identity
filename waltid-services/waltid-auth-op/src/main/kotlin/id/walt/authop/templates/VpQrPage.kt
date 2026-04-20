@@ -111,6 +111,56 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                     """.trimIndent()
                 }
             }
+
+            // Conditional-UI passkey login. Runs independently of the wallet
+            // QR polling above: if the browser has a discoverable passkey
+            // for this origin, the platform authenticator surfaces a silent
+            // prompt; otherwise nothing happens and the user scans the QR
+            // as today. When passkey support is disabled at the server,
+            // /webauthn/login/begin returns 404 and we no-op.
+            script {
+                unsafe {
+                    +"""
+                    (function() {
+                      if (!window.PublicKeyCredential ||
+                          !PublicKeyCredential.parseRequestOptionsFromJSON ||
+                          !PublicKeyCredential.isConditionalMediationAvailable) {
+                        return;
+                      }
+                      PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
+                        if (!ok) return;
+                        fetch('/webauthn/login/begin', { method: 'POST', credentials: 'same-origin' })
+                          .then(function(r) { return r.ok ? r.json() : null; })
+                          .then(function(envelope) {
+                            if (!envelope) return;
+                            var opts = PublicKeyCredential.parseRequestOptionsFromJSON(
+                              envelope.options.publicKey || envelope.options
+                            );
+                            return navigator.credentials.get({
+                              publicKey: opts,
+                              mediation: 'conditional'
+                            }).then(function(assertion) {
+                              if (!assertion) return;
+                              return fetch('/webauthn/login/complete', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                  flow_id: envelope.flow_id,
+                                  assertion: assertion.toJSON()
+                                })
+                              }).then(function(r) { return r.ok ? r.json() : null; })
+                                .then(function(j) {
+                                  if (j && j.redirect) window.location.replace(j.redirect);
+                                });
+                            });
+                          })
+                          .catch(function() { /* silent — QR path still works */ });
+                      });
+                    })();
+                    """.trimIndent()
+                }
+            }
         }
     }
 }
