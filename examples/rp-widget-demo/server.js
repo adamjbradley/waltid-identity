@@ -313,8 +313,16 @@ function createApp() {
 
       req.session.oidc = { name, code_verifier, state, nonce };
 
+      // Scope selection. `auth-op` honours a scope catalog (KYC + age
+      // attestations — see docs/plans/2026-04-20-rp-scope-hints-design.md);
+      // other providers like Keycloak just get the OIDC standard scopes.
+      // AUTH_SCOPES env lets an operator override the authop request scope
+      // without a rebuild (e.g. to test a KYC-only flow).
+      const scope = (name === 'authop')
+        ? (process.env.AUTH_SCOPES || 'openid kyc age_over_18 age_over_21')
+        : 'openid profile email';
       const url = client.authorizationUrl({
-        scope: 'openid profile email',
+        scope,
         code_challenge,
         code_challenge_method: 'S256',
         state,
@@ -355,15 +363,27 @@ function createApp() {
       );
       const claims = tokenSet.claims();
 
-      const userProfile = {
-        sub: claims.sub,
-        email: claims.email,
-        name: claims.name || claims.preferred_username,
-        given_name: claims.given_name,
-        family_name: claims.family_name,
-        birth_date: claims.birth_date || claims.birthdate,
-        nationality: claims.nationality,
-      };
+      // User profile shape. The auth-op scope catalog guarantees the
+      // id_token only ever carries {sub, kyc_verified, age_over_18,
+      // age_over_21} for the authop provider — PII transits auth-op for
+      // consent display but never lands in our id_token. Keycloak has no
+      // such contract; we persist its standard profile/email claims so the
+      // widget still renders a name. The userStore layer also enforces the
+      // boolean-only allowlist for authop records (defence in depth).
+      const userProfile = (providerName === 'authop')
+        ? {
+            sub: claims.sub,
+            kyc_verified: Boolean(claims.kyc_verified),
+            age_over_18: Boolean(claims.age_over_18),
+            age_over_21: Boolean(claims.age_over_21),
+          }
+        : {
+            sub: claims.sub,
+            email: claims.email,
+            name: claims.name || claims.preferred_username,
+            given_name: claims.given_name,
+            family_name: claims.family_name,
+          };
       req.session.user = userProfile;
       req.session.idToken = tokenSet.id_token;
       req.session.provider = providerName;

@@ -65,20 +65,65 @@ data class OidcRealmConfig(
 /**
  * OID4VP verifier configuration for a realm (method = "oid4vp").
  *
+ * Two modes for expressing the DCQL query:
+ *  - Static: [dcqlQueryFile] points at a JSON file read on each kickoff.
+ *  - Dynamic: [scopes] declares a catalog of OIDC-scope → DCQL-claim-paths +
+ *    id-token-claim projections. At kickoff the composer unions the claim
+ *    paths for the scopes actually requested on this authorize call and
+ *    wraps them in a single credential query against [vctValues].
+ *
+ * Exactly one of the two must be present; [RealmRegistry.load] validates this.
+ *
  * @property verifierBaseUrl Base URL of the walt.id verifier-api2 instance.
  * @property dcqlQueryFile Path (relative to the service working directory) to the DCQL JSON
- *   this realm presents to the wallet.
+ *   this realm presents to the wallet. Mutually exclusive with [scopes].
  * @property webhookCallbackPath URL path the verifier invokes on this OP when a presentation
  *   succeeds; the OP then resolves the pending authorize session.
  * @property rpId Optional RP ID forwarded to verifier-api2 as `?rpId=` on session-create
  *   so verifier-api2 resolves the per-RP signing key / x5c chain when the RP registrar
  *   is enabled. Null means "verifier-api2 uses its default RP identity".
+ * @property credentialFormat DCQL `format` for the composed credential query. Defaults to
+ *   `dc+sd-jwt` — the format every PID VCT in this stack speaks.
+ * @property vctValues DCQL `meta.vct_values` for the composed query — the list of VCT URIs
+ *   the wallet may match against. Only meaningful with [scopes].
+ * @property scopes Scope catalog: each entry maps a requested OIDC scope to the DCQL
+ *   claim paths the wallet must disclose and (optionally) the claim the RP receives in
+ *   its id_token. Unknown scopes on an authorize request are dropped silently.
  */
 data class Oid4vpRealmConfig(
     val verifierBaseUrl: String,
-    val dcqlQueryFile: String,
     val webhookCallbackPath: String,
+    val dcqlQueryFile: String? = null,
     val rpId: String? = null,
+    val credentialFormat: String = "dc+sd-jwt",
+    val vctValues: List<String> = emptyList(),
+    val scopes: Map<String, ScopeDefinition> = emptyMap(),
+)
+
+/**
+ * One entry in an OID4VP realm's scope catalog.
+ *
+ * @property claimPaths DCQL `claims[*].path` entries the composer asks the wallet to
+ *   disclose. A single scope can demand multiple paths (e.g. KYC = given_name +
+ *   family_name + nationality).
+ * @property requiredClaims Claim-mapping OUTPUT keys (from
+ *   [RealmConfig.claimMapping]) that must all be present (non-null, non-false) for
+ *   this scope to be considered satisfied. When empty the scope is considered
+ *   always satisfied if requested — useful for informational scopes.
+ *   Separate from [claimPaths] because the claim_mapping already flattens nested
+ *   DCQL paths (`age_equal_or_over.18` → `age_over_18`); matching by mapped name
+ *   avoids re-walking the raw credential in the projector.
+ * @property idTokenClaim Name of the id-token claim emitted to the RP when all
+ *   [requiredClaims] are present. Null means "don't emit anything to the RP" —
+ *   scope is informational-only.
+ * @property consentLabel Human-readable label shown on the consent screen under
+ *   the "during this session" group. Null falls back to the scope name.
+ */
+data class ScopeDefinition(
+    val claimPaths: List<List<String>>,
+    val requiredClaims: List<String> = emptyList(),
+    val idTokenClaim: String? = null,
+    val consentLabel: String? = null,
 )
 
 /**
