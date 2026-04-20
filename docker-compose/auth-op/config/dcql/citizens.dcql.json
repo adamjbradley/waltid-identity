@@ -18,7 +18,7 @@
       "claims": [
         {"path": ["given_name"]},
         {"path": ["family_name"]},
-        {"path": ["birthdate"]}
+        {"path": ["birth_date"]}
       ]
     }
   ]
