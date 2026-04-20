@@ -15,7 +15,9 @@ COPY . .
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 demoapp
-RUN chown -R demoapp:nodejs /app
+# Persistent user profile registry dir. Mount a volume at /app/data to
+# keep users across container recreates.
+RUN mkdir -p /app/data && chown -R demoapp:nodejs /app
 
 USER demoapp
 
