@@ -99,6 +99,48 @@ fun Route.consentRoutes(deps: AuthOpDeps) {
     }
 
     // ---------------------------------------------------------------------
+    // GET /consent/progress
+    //
+    // Entry point for the passkey re-auth path. The webauthn finish-assertion
+    // handler kicks off a flow session and tells the client to navigate
+    // here; we render the same inline progress view the consent-accept path
+    // uses. State-machine invariant: AuthRequest must already have
+    // `flowSessionId` stamped (the passkey handler does that before
+    // returning the redirect). If it's missing we surface server_error to
+    // the RP rather than render a dead progress page.
+    // ---------------------------------------------------------------------
+    get("/consent/progress") {
+        val (authReq, client) = loadConsentContext(deps) ?: return@get
+        val flowSid = authReq.flowSessionId
+        if (flowSid == null) {
+            call.respondOidcError(
+                OidcError.ServerError("flow session not started for this auth request"),
+                authReq,
+            )
+            return@get
+        }
+        if (deps.flowUpdateStore?.get(flowSid) == null) {
+            call.respondOidcError(
+                OidcError.ServerError("flow session expired"),
+                authReq,
+            )
+            return@get
+        }
+        val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+        // The progress view doesn't submit a form, but respondConsentPage's
+        // contract requires a CSRF token. Issue a throwaway that co-expires
+        // with the AuthRequest.
+        val csrf = deps.csrfTokenStore.issue(authReq.authRequestId)
+        call.respondConsentPage(
+            authReq = authReq,
+            client = client,
+            realm = realm,
+            csrfToken = csrf,
+            progressFlowSessionId = flowSid,
+        )
+    }
+
+    // ---------------------------------------------------------------------
     // GET /consent/flow-done
     //
     // Landing spot after the `preferences` progress page has seen its final
