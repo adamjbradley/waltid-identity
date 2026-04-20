@@ -246,16 +246,44 @@ private suspend fun ApplicationCall.handleLoginComplete(
     )
     deps.sessionStore.put(sid, session)
 
-    // Passkey re-authentications skip the consent screen and mint an auth
-    // code directly — the user already consented the first time via the
-    // wallet flow, and a passkey ceremony here doesn't disclose any new
-    // attributes to the RP. Mirrors the trusted-client short-circuit in
-    // ConsentRoutes.completeConsent (same shape; no shared helper because
-    // pulling this into ConsentRoutes would re-import an HTTP-level surface
-    // here). Skipping consent on first-ever passkey login is also correct:
-    // passkey registration itself is a post-consent step (see
-    // VpFlowRoutes.handleVpComplete → /register-passkey), so the RP has
-    // already received whatever attributes it asked for in this session.
+    // Passkey re-authentications normally skip the consent screen and mint
+    // an auth code directly. BUT: when the RP asked for the `preferences`
+    // scope (or any future auth-op-synthesised scope), we still need to
+    // run the post-login workflow so the RP gets the composite claim. In
+    // that case we kick off a flow session, stamp it on the AuthRequest,
+    // and tell the client to navigate to /consent/progress — the same
+    // inline progress view the wallet flow uses. /consent/flow-done
+    // finishes by stamping preferences + minting the code.
+    val wantsPreferences = "preferences" in authReq.scope
+    val flowStore = deps.flowUpdateStore
+    if (wantsPreferences && flowStore != null) {
+        val flowSession = flowStore.create(
+            context = JsonObject(
+                mapOf("authRequestId" to JsonPrimitive(authReq.authRequestId)),
+            ),
+        )
+        // Stamp subject on the AuthRequest so loadConsentContext's state-
+        // machine guard accepts the subsequent /consent/progress and
+        // /consent/flow-done requests (those both require a non-null
+        // subject). Also park the flow session id for the progress page.
+        deps.authRequestStore.update(authReq.authRequestId) {
+            it.copy(subject = resolution.sub, flowSessionId = flowSession.sessionId)
+        } ?: return respondPlainBadRequest("invalid_request", "AuthRequest expired")
+
+        return respond(
+            HttpStatusCode.OK,
+            buildJsonObject {
+                put("sub", resolution.sub)
+                put("displayName", resolution.displayName)
+                // Client JS follows `redirect` with window.location.replace.
+                // Progress page handles the rest.
+                put("redirect", "/consent/progress")
+            },
+        )
+    }
+
+    // Legacy fast path: no preferences scope → mint auth code directly,
+    // user already consented, passkey ceremony disclosed nothing new.
     val code = randomAuthCode()
     deps.authCodeStore.put(
         code,
