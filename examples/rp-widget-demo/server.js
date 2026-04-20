@@ -15,6 +15,7 @@ const path = require('path');
 const { Issuer, generators } = require('openid-client');
 const { UserStore } = require('./userStore');
 const { CATALOGUE } = require('./catalogue');
+const { emptyCart, summary } = require('./cart');
 
 // Configuration from environment
 // Default sandbox credentials - work immediately without any setup
@@ -268,6 +269,18 @@ function createApp() {
    * and cart validation consume this so there's one source of truth.
    */
   app.get('/api/catalogue', (_req, res) => res.json(CATALOGUE));
+
+  /**
+   * GET /api/cart
+   *
+   * Returns the current session cart as a wire-shaped summary. Initialises
+   * an empty cart on first call so every subsequent handler can rely on
+   * `req.session.cart` existing.
+   */
+  app.get('/api/cart', (req, res) => {
+    req.session.cart = req.session.cart || emptyCart();
+    res.json(summary(req.session.cart));
+  });
 
   // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the
