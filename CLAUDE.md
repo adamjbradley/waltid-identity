@@ -41,7 +41,7 @@ docker compose --profile identity pull && docker compose --profile identity up
 
 `--profile` flag is required. `VERSION_TAG` in `.env` defaults to `stable`. Tag local builds: `docker tag waltid/issuer-api:latest waltid/issuer-api:stable`
 
-**Service Ports:** Wallet API: 7001, Issuer API: 7002, Verifier API: 7003, Verifier API2: 7004, Demo Wallet: 7101, Web Portal: 7102
+**Service Ports:** Wallet API: 7001, Issuer API: 7002, Verifier API: 7003, Verifier API2: 7004, Demo Wallet: 7101, Web Portal: 7102, n8n: https://n8n.theaustraliahack.com (via Caddy)
 
 ### Rebuilding Individual Images
 

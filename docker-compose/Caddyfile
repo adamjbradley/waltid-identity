@@ -168,3 +168,9 @@ keycloak.theaustraliahack.com:443 {
     reverse_proxy http://rp-nextjs-example-1:3000
 }
 
+# n8n - workflow automation, internal HTTPS
+n8n.theaustraliahack.com:443 {
+    tls internal
+    reverse_proxy http://n8n:5678
+}
+
