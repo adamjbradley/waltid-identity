@@ -305,9 +305,10 @@ private suspend fun ApplicationCall.handleRegisterPasskeyPage(deps: AuthOpDeps) 
     }
 }
 
-// Browser-side WebAuthn registration. Uses the modern
-// PublicKeyCredential.parseCreationOptionsFromJSON() / toJSON() APIs so we
-// don't hand-roll base64url on client.
+// Browser-side WebAuthn registration. Uses manual base64url <-> ArrayBuffer
+// conversion so the code works on any WebAuthn-capable browser, not just
+// those that ship PublicKeyCredential.parseCreationOptionsFromJSON (added
+// to Chrome/Safari in late 2023; not yet on all shipped versions).
 private val WEBAUTHN_REGISTER_JS = """
 (function() {
   var body = document.body;
@@ -317,17 +318,59 @@ private val WEBAUTHN_REGISTER_JS = """
   var btn = document.getElementById('register-btn');
 
   function skip() { window.location.replace('/consent'); }
+  function show(msg) { console.log('[passkey]', msg); if (status) status.textContent = msg; }
 
-  if (!window.PublicKeyCredential ||
-      !PublicKeyCredential.parseCreationOptionsFromJSON) {
-    status.textContent = 'Your browser does not support passkeys. Continuing without one.';
+  function b64urlToBuf(s) {
+    s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var a = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return a.buffer;
+  }
+  function bufToB64url(b) {
+    var bytes = new Uint8Array(b);
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+${'$'}/, '');
+  }
+  function hydrateCreation(o) {
+    // Manually convert every base64url field the WebAuthn API expects as
+    // ArrayBuffer. Mirror of PublicKeyCredential.parseCreationOptionsFromJSON.
+    var p = o.publicKey || o;
+    p.challenge = b64urlToBuf(p.challenge);
+    if (p.user && p.user.id) p.user.id = b64urlToBuf(p.user.id);
+    if (Array.isArray(p.excludeCredentials)) {
+      p.excludeCredentials = p.excludeCredentials.map(function(c) {
+        return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+      });
+    }
+    return p;
+  }
+  function serializeAttestation(cred) {
+    var r = cred.response;
+    return {
+      id: cred.id,
+      rawId: bufToB64url(cred.rawId),
+      type: cred.type,
+      clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+      response: {
+        clientDataJSON: bufToB64url(r.clientDataJSON),
+        attestationObject: bufToB64url(r.attestationObject),
+        transports: r.getTransports ? r.getTransports() : []
+      }
+    };
+  }
+
+  if (!window.PublicKeyCredential) {
+    show('Your browser does not support passkeys. Continuing without one.');
     setTimeout(skip, 1500);
     return;
   }
 
   btn.addEventListener('click', function() {
     btn.disabled = true;
-    status.textContent = 'Follow your browser / OS prompt…';
+    show('Follow your browser / OS prompt…');
 
     fetch('/webauthn/register/begin', {
       method: 'POST',
@@ -335,26 +378,29 @@ private val WEBAUTHN_REGISTER_JS = """
       credentials: 'same-origin',
       body: JSON.stringify({ sub: sub, displayName: displayName })
     })
-      .then(function(r) { if (!r.ok) throw new Error('begin failed'); return r.json(); })
+      .then(function(r) { if (!r.ok) throw new Error('begin HTTP ' + r.status); return r.json(); })
       .then(function(envelope) {
-        var opts = PublicKeyCredential.parseCreationOptionsFromJSON(envelope.options.publicKey || envelope.options);
+        var opts = hydrateCreation(envelope.options);
+        console.log('[passkey] calling navigator.credentials.create', opts);
         return navigator.credentials.create({ publicKey: opts }).then(function(cred) {
+          console.log('[passkey] create succeeded', cred);
           return fetch('/webauthn/register/complete', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             credentials: 'same-origin',
-            body: JSON.stringify({ flow_id: envelope.flow_id, attestation: cred.toJSON() })
+            body: JSON.stringify({ flow_id: envelope.flow_id, attestation: serializeAttestation(cred) })
           });
         });
       })
-      .then(function(r) { if (!r.ok) throw new Error('complete failed'); return r.json(); })
+      .then(function(r) { if (!r.ok) return r.text().then(function(t){ throw new Error('complete HTTP ' + r.status + ': ' + t); }); return r.json(); })
       .then(function() {
-        status.textContent = 'Passkey registered! Continuing…';
+        show('Passkey registered! Continuing…');
         setTimeout(skip, 800);
       })
       .catch(function(err) {
-        status.textContent = 'Passkey registration failed (' + (err.message || 'error') + '). Continuing without one.';
-        setTimeout(skip, 1500);
+        console.error('[passkey] registration error', err);
+        show('Passkey registration failed (' + (err.message || 'error') + '). Continuing without one.');
+        setTimeout(skip, 2500);
       });
   });
 })();
