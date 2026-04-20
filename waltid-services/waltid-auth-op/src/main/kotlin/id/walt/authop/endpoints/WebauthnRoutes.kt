@@ -6,8 +6,13 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.yubico.webauthn.AssertionRequest
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions
 import id.walt.authop.AuthOpDeps
+import id.walt.authop.domain.AuthCode
 import id.walt.authop.domain.Session
 import id.walt.authop.passkey.PasskeyService
+import io.ktor.http.parametersOf
+import io.ktor.http.formUrlEncode
+import java.security.SecureRandom
+import java.util.Base64
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.html.respondHtml
@@ -226,20 +231,10 @@ private suspend fun ApplicationCall.handleLoginComplete(
         )
     }
 
-    deps.authRequestStore.get(sid)
+    val authReq = deps.authRequestStore.get(sid)
         ?: return respondPlainBadRequest("invalid_request", "no active AuthRequest for sid")
 
-    // Hydrate the AuthRequest with the sub minted by the passkey ceremony.
-    // We don't have fresh claim_mapping inputs here (the wallet wasn't
-    // re-presented), so we reuse the sub as both subject and the minimal
-    // claim set. Downstream consent / token routes only need `sub`.
-    deps.authRequestStore.update(sid) { current ->
-        current.copy(
-            subject = resolution.sub,
-            claims = mapOf("sub" to JsonPrimitive(resolution.sub)),
-        )
-    }
-
+    // Session always gets stamped — /userinfo + end_session depend on it.
     val session = Session(
         sessionId = sid,
         subject = resolution.sub,
@@ -251,14 +246,66 @@ private suspend fun ApplicationCall.handleLoginComplete(
     )
     deps.sessionStore.put(sid, session)
 
+    // Passkey re-authentications skip the consent screen and mint an auth
+    // code directly — the user already consented the first time via the
+    // wallet flow, and a passkey ceremony here doesn't disclose any new
+    // attributes to the RP. Mirrors the trusted-client short-circuit in
+    // ConsentRoutes.completeConsent (same shape; no shared helper because
+    // pulling this into ConsentRoutes would re-import an HTTP-level surface
+    // here). Skipping consent on first-ever passkey login is also correct:
+    // passkey registration itself is a post-consent step (see
+    // VpFlowRoutes.handleVpComplete → /register-passkey), so the RP has
+    // already received whatever attributes it asked for in this session.
+    val code = randomAuthCode()
+    deps.authCodeStore.put(
+        code,
+        AuthCode(
+            code = code,
+            clientId = authReq.clientId,
+            redirectUri = authReq.redirectUri,
+            subject = resolution.sub,
+            // Only `sub` for passkey logins — no wallet disclosure means no
+            // scope-catalog claims to project, and OIDC Core lets a scope go
+            // unfulfilled silently. The RP sees the same user id it got on
+            // the first login, which is exactly the "faster login" contract.
+            claims = mapOf("sub" to JsonPrimitive(resolution.sub)),
+            codeChallenge = authReq.codeChallenge,
+            codeChallengeMethod = authReq.codeChallengeMethod,
+            nonce = authReq.nonce,
+            authTime = Clock.System.now(),
+            scope = authReq.scope,
+        ),
+    )
+    // Single-use: delete the AuthRequest so a replay of the passkey ceremony
+    // on the same sid can't mint a second code.
+    deps.authRequestStore.remove(authReq.authRequestId)
+
+    val pairs = buildList<Pair<String, List<String>>> {
+        add("code" to listOf(code))
+        authReq.state?.let { add("state" to listOf(it)) }
+    }
+    val redirect = "${authReq.redirectUri}?${parametersOf(*pairs.toTypedArray()).formUrlEncode()}"
+
     respond(
         HttpStatusCode.OK,
         buildJsonObject {
             put("sub", resolution.sub)
             put("displayName", resolution.displayName)
-            put("redirect", "/consent")
+            // Client JS follows `redirect` with window.location.replace.
+            // Bypassing /consent is the whole point of this branch.
+            put("redirect", redirect)
         },
     )
+}
+
+/** 256-bit Base64URL auth code — same entropy as ConsentRoutes.randomCode.
+ *  Duplicated here rather than exposed as an internal helper to keep the
+ *  two consent/passkey code paths independently testable. */
+private val webauthnSecureRandom = SecureRandom()
+private fun randomAuthCode(): String {
+    val bytes = ByteArray(32)
+    webauthnSecureRandom.nextBytes(bytes)
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
 }
 
 private suspend fun ApplicationCall.handleRegisterPasskeyPage(deps: AuthOpDeps) {
