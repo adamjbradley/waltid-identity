@@ -13,6 +13,7 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const { Issuer, generators } = require('openid-client');
+const { UserStore } = require('./userStore');
 
 // Configuration from environment
 // Default sandbox credentials - work immediately without any setup
@@ -40,6 +41,13 @@ const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-change-me';
 // Public base URL of this app (used as the OIDC redirect_uri base)
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
+
+// Path to the file-backed user profile registry. Defaulted under the
+// container WORKDIR (/usr/src/app) but overridable for tests / local dev.
+// When bind-mounted from the host, profiles survive container recycles.
+const USER_STORE_FILE = process.env.USER_STORE_FILE || path.join(__dirname, 'data', 'users.json');
+const userStore = new UserStore(USER_STORE_FILE);
+console.log(`[userStore] loaded ${userStore.count()} profile(s) from ${USER_STORE_FILE}`);
 
 const OIDC_PROVIDERS = {
   keycloak: {
@@ -273,6 +281,19 @@ function createApp() {
   });
 
   /**
+   * GET /api/users — list of all known users persisted by the RP, newest
+   * login first. Read-only admin view for the demo; if/when this moves
+   * beyond demo use it should be gated by a role / auth check.
+   *
+   * Intentionally returns the full profile including email and DOB — the
+   * stack is a private demo and this endpoint is the fastest way to
+   * confirm that the upsert hook fires on every successful OIDC callback.
+   */
+  app.get('/api/users', (req, res) => {
+    res.json({ count: userStore.count(), users: userStore.list() });
+  });
+
+  /**
    * GET /login          — alias for the first enabled provider (back-compat:
    *                        keycloak when that is configured).
    * GET /login/:name    — kick off Authorization Code flow with PKCE against
@@ -334,7 +355,7 @@ function createApp() {
       );
       const claims = tokenSet.claims();
 
-      req.session.user = {
+      const userProfile = {
         sub: claims.sub,
         email: claims.email,
         name: claims.name || claims.preferred_username,
@@ -343,9 +364,20 @@ function createApp() {
         birth_date: claims.birth_date || claims.birthdate,
         nationality: claims.nationality,
       };
+      req.session.user = userProfile;
       req.session.idToken = tokenSet.id_token;
       req.session.provider = providerName;
       delete req.session.oidc;
+
+      // Persist the profile for this sub across sessions. Upsert semantics:
+      // new claims overlay the existing record, loginCount bumps, first/last
+      // seen timestamps update. The store is the source of truth for the
+      // /api/users admin listing and for any future "welcome back" UX.
+      try {
+        userStore.upsert(Object.assign({}, userProfile, { provider: providerName }));
+      } catch (err) {
+        console.warn(`[userStore] upsert failed for sub=${claims.sub}:`, err.message);
+      }
 
       res.redirect('/');
     } catch (err) {
