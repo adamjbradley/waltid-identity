@@ -202,7 +202,15 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                         };
                       }
 
-                      function runGet(mediation) {
+                      // AbortController lets us cancel the conditional-
+                      // mediation call that runs on page load. WebAuthn only
+                      // permits one navigator.credentials.get() in flight
+                      // at a time — without this abort, clicking the
+                      // "Sign in with passkey" button throws:
+                      //   OperationError: A request is already pending.
+                      var conditionalAbort = new AbortController();
+
+                      function runGet(mediation, signal) {
                         return fetch('/webauthn/login/begin', {
                           method: 'POST', credentials: 'same-origin'
                         })
@@ -211,10 +219,9 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                             if (!envelope) return null;
                             var opts = hydrateRequest(envelope.options);
                             console.log('[passkey] login options', opts, 'mediation', mediation);
-                            return navigator.credentials.get({
-                              publicKey: opts,
-                              mediation: mediation
-                            }).then(function(assertion) {
+                            var getOpts = { publicKey: opts, mediation: mediation };
+                            if (signal) getOpts.signal = signal;
+                            return navigator.credentials.get(getOpts).then(function(assertion) {
                               if (!assertion) return null;
                               console.log('[passkey] assertion received', assertion);
                               return fetch('/webauthn/login/complete', {
@@ -236,6 +243,9 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                       if (btn) {
                         btn.addEventListener('click', function() {
                           btn.disabled = true;
+                          // Cancel the conditional-mediation attempt so the
+                          // optional one can run without a concurrency conflict.
+                          try { conditionalAbort.abort(); } catch (_) {}
                           runGet('optional').catch(function(err) {
                             console.error('[passkey] login error', err);
                             btn.disabled = false;
@@ -245,7 +255,7 @@ internal suspend fun ApplicationCall.respondVpQrPage(
 
                       if (PublicKeyCredential.isConditionalMediationAvailable) {
                         PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
-                          if (ok) runGet('conditional').catch(function() {});
+                          if (ok) runGet('conditional', conditionalAbort.signal).catch(function() {});
                         });
                       }
                     })();
