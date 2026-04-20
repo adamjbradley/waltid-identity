@@ -84,6 +84,14 @@ describe('Widget Demo Server', () => {
       expect(response.text).toContain('Age Verification');
     });
   });
+
+  describe('GET /api/catalogue', () => {
+    it('returns 12 products with ageRestricted flags', async () => {
+      const res = await request(app).get('/api/catalogue').expect(200);
+      expect(res.body).toHaveLength(12);
+      expect(res.body[0]).toHaveProperty('ageRestricted', true);
+    });
+  });
 });
 
 describe('GET /api/token - Error Handling', () => {

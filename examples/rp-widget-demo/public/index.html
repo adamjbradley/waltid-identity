@@ -2571,20 +2571,12 @@
         // we set it via textContent, not innerHTML, so every DOM write in
         // renderProductCard is XSS-safe even if the catalogue ever grew
         // user-sourced fields.
-        const PRODUCT_CATALOGUE = [
-            { id: 'hibiki-harmony',  name: 'Hibiki Japanese Harmony',                     meta: 'Japan · Blended Japanese Whisky · 70cl · 43% ABV', icon: '\uD83E\uDD43', priceMix: 79.05,  priceSingle: 89.00,  was: 99.00,  ratingStars: 5, ratingCount: 412, minAge: 21, savePct: 10, tags: ['japanese', 'japanese whisky', 'whisky', 'blended'] },
-            { id: 'yamazaki-12',     name: 'Yamazaki 12 Year Old Single Malt',            meta: 'Japan · Single Malt · 70cl · 43% ABV',              icon: '\uD83E\uDD43', priceMix: 175.50, priceSingle: 195.00, was: 219.00, ratingStars: 5, ratingCount: 288, minAge: 21, savePct: 11, tags: ['japanese', 'japanese whisky', 'single malt', 'whisky'] },
-            { id: 'laphroaig-10',    name: 'Laphroaig 10 Year Old',                       meta: 'Islay, Scotland · Peated Single Malt · 70cl · 40% ABV', icon: '\uD83E\uDD43', priceMix: 44.55, priceSingle: 49.50, ratingStars: 5, ratingCount: 624, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
-            { id: 'ardbeg-10',       name: 'Ardbeg 10 Year Old',                          meta: 'Islay, Scotland · Peated Single Malt · 70cl · 46% ABV', icon: '\uD83E\uDD43', priceMix: 48.00, priceSingle: 53.00, ratingStars: 5, ratingCount: 504, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
-            { id: 'bookers-bourbon', name: "Booker's Bourbon Small Batch",                meta: 'Kentucky, USA · Bourbon · 75cl · 62.6% ABV',         icon: '\uD83E\uDD43', priceMix: 80.10, priceSingle: 89.00, was: 99.00, ratingStars: 5, ratingCount: 196, minAge: 21, savePct: 10, tags: ['bourbon', 'american whiskey', 'whisky'] },
-            { id: 'maker-46',        name: "Maker's Mark 46",                             meta: 'Kentucky, USA · Bourbon · 70cl · 47% ABV',            icon: '\uD83E\uDD43', priceMix: 40.05, priceSingle: 44.50, ratingStars: 4, ratingCount: 332, minAge: 21, tags: ['bourbon', 'american whiskey', 'whisky'] },
-            { id: 'redbreast-18',    name: 'Redbreast 18 Year Old Single Pot Still',      meta: 'Ireland · Single Pot Still Irish Whiskey · 70cl · 46% ABV', icon: '\uD83E\uDD47', priceMix: 160.65, priceSingle: 169.00, was: 189.00, ratingStars: 4, ratingCount: 87, minAge: 21, savePct: 15, tags: ['irish', 'irish whiskey', 'single pot still', 'whisky'] },
-            { id: 'famous-grouse',   name: 'The Famous Grouse',                           meta: 'Scotland · Blended Scotch Whisky · 70cl · 40% ABV',   icon: '\uD83E\uDD43', priceMix: 18.00, priceSingle: 20.00, ratingStars: 3, ratingCount: 812, minAge: 21, tags: ['scotch', 'blended', 'blended whisky', 'whisky'] },
-            { id: 'haigs-gold',      name: 'Haig Club Clubman',                           meta: 'Scotland · Single Grain Scotch · 70cl · 40% ABV',    icon: '\uD83E\uDD43', priceMix: 25.20, priceSingle: 28.00, ratingStars: 3, ratingCount: 241, minAge: 21, tags: ['scotch', 'grain whisky', 'single grain', 'whisky'] },
-            { id: 'chateau-margaux', name: 'Château Margaux 2015',                        meta: 'Bordeaux, France · Red · 75cl',                       icon: '\uD83C\uDF77', priceMix: 224.25, priceSingle: 249.00, was: 299.00, ratingStars: 5, ratingCount: 142, minAge: 18, savePct: 25, tags: ['wine', 'red', 'bordeaux'] },
-            { id: 'louis-roederer',  name: 'Louis Roederer Collection Brut NV',           meta: 'Champagne, France · Sparkling · 75cl',                icon: '\uD83C\uDF7E', priceMix: 38.25, priceSingle: 42.99, ratingStars: 5, ratingCount: 203, minAge: 18, tags: ['wine', 'champagne', 'sparkling'] },
-            { id: 'tanqueray-ten',   name: 'Tanqueray No. Ten',                           meta: 'England · London Dry Gin · 70cl · 47.3% ABV',         icon: '\uD83C\uDF77', priceMix: 31.50, priceSingle: 35.00, ratingStars: 4, ratingCount: 278, minAge: 18, tags: ['gin'] },
-        ];
+        let PRODUCT_CATALOGUE = [];
+        async function loadCatalogue() {
+            const res = await fetch('/api/catalogue');
+            if (!res.ok) throw new Error('Catalogue load failed: ' + res.status);
+            PRODUCT_CATALOGUE = await res.json();
+        }
 
         /** Normalise free-form preference text to a set of comparable tokens. */
         function prefTokens(raw) {
@@ -2784,9 +2776,13 @@
         }
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             handleResize();
             initializeSDK();
+            // Fetch the catalogue from the server before any code consumes
+            // PRODUCT_CATALOGUE. renderProductShelf reads the global, so
+            // this await must resolve before the first render.
+            await loadCatalogue();
             // Populate the shelf immediately (unauthenticated view) so the
             // grid isn't empty while /api/me is in flight. renderAuthStatus
             // will re-render it with preferences if the user is signed in.
