@@ -769,9 +769,27 @@ open class CIProvider(
     }
 
     private fun validateAuthorizationRequest(authorizationRequest: AuthorizationRequest): Boolean {
-        return authorizationRequest.authorizationDetails != null && authorizationRequest.authorizationDetails!!.any {
-            isSupportedAuthorizationDetails(it)
-        }
+        // OID4VCI Draft 13 §5.1.2 lets a client use EITHER authorization_details
+        // OR scope to identify the credentials it wants. Both are valid; accept
+        // whichever is present.
+        val byAuthDetails = authorizationRequest.authorizationDetails
+            ?.any { isSupportedAuthorizationDetails(it) } == true
+
+        // For scope-based requests, each scope value is either "openid" (ignored
+        // here) or a scope string registered on a credential configuration.
+        // We advertise scope = configId for every config (see OidcApi.kt
+        // metadataMap patch + TenantOidcRoutes.kt), so a scope matches when it
+        // equals any config's id or its explicit `scope` field.
+        val byScope = authorizationRequest.scope
+            .filterNot { it == "openid" }
+            .any { scope ->
+                config.credentialConfigurationsSupported.let { configs ->
+                    configs.containsKey(scope) ||
+                        configs.values.any { it.scope == scope }
+                }
+            }
+
+        return byAuthDetails || byScope
     }
 
     fun initializeIssuanceSession(
