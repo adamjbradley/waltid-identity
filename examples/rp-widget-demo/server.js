@@ -96,7 +96,9 @@ function getOidcClient(name) {
         client_secret: p.clientSecret,
         redirect_uris: [oidcRedirectUri(name)],
         response_types: ['code'],
-        token_endpoint_auth_method: 'client_secret_post',
+        // client_secret_basic is universally supported (auth-op registers
+        // this client with that method; Keycloak accepts both).
+        token_endpoint_auth_method: 'client_secret_basic',
       });
     }).catch((err) => {
       console.error(`[OIDC:${name}] Issuer discovery failed:`, err.message);

@@ -119,24 +119,23 @@ test.describe('Existing wallet-verify UI is not regressed', () => {
 });
 
 /**
- * Full round-trip test. Gated on TEST_OIDC_FLOW=true because it requires
- * a reachable OP (Keycloak or auth-op), a valid user, and browser cookies
- * that can round-trip through a real identity provider.
+ * Full round-trip tests. Gated on TEST_OIDC_FLOW=true because they require
+ * reachable OPs (Keycloak + auth-op), a valid user, and browser cookies
+ * that can round-trip through real identity providers.
  */
 test.describe('OIDC RP login — full round trip @integration', () => {
   test.skip(({}, testInfo) => !process.env.TEST_OIDC_FLOW,
     'set TEST_OIDC_FLOW=true and start docker compose identity profile to run');
 
-  test('login → callback → /api/me reports authenticated user', async ({ page }) => {
-    const username = process.env.TEST_OIDC_USERNAME || 'adam_j_bradley';
-    const password = process.env.TEST_OIDC_PASSWORD;
+  const username = process.env.TEST_OIDC_USERNAME || 'adam_j_bradley';
+  const password = process.env.TEST_OIDC_PASSWORD;
+
+  test('/login (Keycloak provider) → callback → /api/me reports authenticated user', async ({ page }) => {
     test.skip(!password, 'set TEST_OIDC_PASSWORD');
 
     await page.goto('/login');
-    await page.waitForURL(/\/realms\/|\/login\/realm/);
+    await page.waitForURL(/\/realms\//);  // Keycloak's authorize URL
 
-    // Keycloak-style login form (also works against auth-op's realm picker
-    // when an OIDC realm is selected and it bounces to Keycloak)
     await page.fill('input[name="username"]', username);
     await page.fill('input[name="password"]', password);
     await page.click('input[type="submit"], button[type="submit"]');
@@ -146,5 +145,38 @@ test.describe('OIDC RP login — full round trip @integration', () => {
     expect(me.oidcEnabled).toBe(true);
     expect(me.user).not.toBeNull();
     expect(me.user.sub).toBeTruthy();
+    expect(me.activeProvider).toBe('keycloak');
+  });
+
+  test('/login/authop → realm picker → employees realm → Keycloak → callback → /api/me', async ({ page }) => {
+    test.skip(!password, 'set TEST_OIDC_PASSWORD');
+
+    // Kick off the OIDC flow against auth-op
+    await page.goto('/login/authop');
+
+    // Auth-op serves a minimal realm picker at /login
+    await page.waitForURL(/auth-op\.theaustraliahack\.com\/login$/);
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Employees' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Citizens' })).toBeVisible();
+
+    // Pick the employees realm — delegates to Keycloak via OIDC
+    await page.getByRole('link', { name: 'Employees' }).click();
+    await page.waitForURL(/keycloak\.theaustraliahack\.com\/realms\//);
+
+    // Authenticate at Keycloak
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[type="submit"], button[type="submit"]');
+
+    // Chain: Keycloak → auth-op /callback/oidc → (possible /consent) →
+    // auth-op /authorize code redirect → RP /callback/authop → RP /
+    await page.waitForURL('**/', { timeout: 30000 });
+
+    const me = await (await page.request.get('/api/me')).json();
+    expect(me.oidcEnabled).toBe(true);
+    expect(me.user).not.toBeNull();
+    expect(me.user.sub, 'auth-op should mint a sub claim').toBeTruthy();
+    expect(me.activeProvider).toBe('authop');
   });
 });

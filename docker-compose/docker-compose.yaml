@@ -540,14 +540,17 @@ services:
       - caddy
       - keycloak
     env_file:
+      # IMPORTANT: secrets (EMPLOYEES_OIDC_SECRET, RP_THEAUSTRALIAHACK_SECRET)
+      # are loaded through this chain only — NOT the `environment:` block
+      # below. Entries in `environment:` are expanded at compose-parse time
+      # against `.env` (placeholder values), which would shadow the real
+      # values kept in .env.local. Keep secret keys out of `environment:`.
       - .env
       - path: .env.local
         required: false
     environment:
       AUTH_OP_PORT: ${AUTH_OP_PORT:-7005}
       AUTH_OP_ISSUER: ${AUTH_OP_ISSUER:-https://auth-op.theaustraliahack.com}
-      EMPLOYEES_OIDC_SECRET: ${EMPLOYEES_OIDC_SECRET}
-      RP_THEAUSTRALIAHACK_SECRET: ${RP_THEAUSTRALIAHACK_SECRET}
     volumes:
       # Jib sets WORKDIR=/waltid-auth-op so hoplite resolves config/auth-op.conf
       # relative to that — NOT /app/ (the design doc assumed /app).
