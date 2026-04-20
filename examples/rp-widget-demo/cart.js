@@ -43,4 +43,30 @@ function addItem(cart, product, qty = 1) {
     return cart;
 }
 
-module.exports = { emptyCart, summary, addItem };
+/**
+ * Set the quantity of `productId` to `qty`. Missing lines are a no-op —
+ * callers decide whether that's a 404 or a silent skip. `qty <= 0` drops
+ * the line entirely so PATCH can double as a soft-delete.
+ */
+function setQty(cart, productId, qty) {
+    const item = cart.items.find(i => i.productId === productId);
+    if (!item) return cart;
+    if (qty <= 0) cart.items = cart.items.filter(i => i.productId !== productId);
+    else item.qty = qty;
+    cart.updatedAt = Date.now();
+    return cart;
+}
+
+function removeItem(cart, productId) {
+    cart.items = cart.items.filter(i => i.productId !== productId);
+    cart.updatedAt = Date.now();
+    return cart;
+}
+
+function clearCart(cart) {
+    cart.items = [];
+    cart.updatedAt = Date.now();
+    return cart;
+}
+
+module.exports = { emptyCart, summary, addItem, setQty, removeItem, clearCart };

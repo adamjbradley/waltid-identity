@@ -15,7 +15,7 @@ const path = require('path');
 const { Issuer, generators } = require('openid-client');
 const { UserStore } = require('./userStore');
 const { CATALOGUE, getProduct } = require('./catalogue');
-const { emptyCart, summary, addItem } = require('./cart');
+const { emptyCart, summary, addItem, setQty, removeItem, clearCart } = require('./cart');
 
 /**
  * Does this session satisfy the `minAge` requirement? The demo treats a
@@ -311,6 +311,42 @@ function createApp() {
     }
     req.session.cart = req.session.cart || emptyCart();
     addItem(req.session.cart, product, req.body.qty || 1);
+    res.json(summary(req.session.cart));
+  });
+
+  /**
+   * PATCH /api/cart/items/:productId  { qty }
+   *
+   * 404 when the line isn't in the cart, 400 on non-numeric / negative qty.
+   * Re-runs the age gate when the quantity is going UP on an age-restricted
+   * line so a stale `ageVerified=false` session can't bump qty past the
+   * original add.
+   */
+  app.patch('/api/cart/items/:productId', (req, res) => {
+    req.session.cart = req.session.cart || emptyCart();
+    const existing = req.session.cart.items.find(i => i.productId === req.params.productId);
+    if (!existing) return res.status(404).json({ error: 'item_not_in_cart' });
+    const newQty = Number(req.body.qty);
+    if (!Number.isFinite(newQty) || newQty < 0) return res.status(400).json({ error: 'invalid_qty' });
+    if (newQty > existing.qty && existing.ageRestricted) {
+      const product = getProduct(req.params.productId);
+      if (!isAgeVerified(req.session, product && product.minAge)) {
+        return res.status(403).json({ error: 'age_verification_required', minAge: (product && product.minAge) || 21 });
+      }
+    }
+    setQty(req.session.cart, req.params.productId, newQty);
+    res.json(summary(req.session.cart));
+  });
+
+  app.delete('/api/cart/items/:productId', (req, res) => {
+    req.session.cart = req.session.cart || emptyCart();
+    removeItem(req.session.cart, req.params.productId);
+    res.json(summary(req.session.cart));
+  });
+
+  app.post('/api/cart/clear', (req, res) => {
+    req.session.cart = req.session.cart || emptyCart();
+    clearCart(req.session.cart);
     res.json(summary(req.session.cart));
   });
 
