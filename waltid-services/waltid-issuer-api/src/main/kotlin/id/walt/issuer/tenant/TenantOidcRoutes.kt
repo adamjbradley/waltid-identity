@@ -105,6 +105,10 @@ fun Application.tenantOidcRoutes() {
                         )
                     }
 
+                    // Advertise batch issuance (see OidcApi.BATCH_SIZE_ADVERTISED).
+                    metadataMap["batch_credential_issuance"] = buildJsonObject {
+                        put("batch_size", JsonPrimitive(1000))
+                    }
                     call.respond(JsonObject(metadataMap))
                 }
 

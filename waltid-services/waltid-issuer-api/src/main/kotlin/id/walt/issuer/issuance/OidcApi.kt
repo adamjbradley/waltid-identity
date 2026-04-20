@@ -50,6 +50,15 @@ import kotlin.time.ExperimentalTime
 
 object OidcApi : CIProvider(), Klogging {
 
+    /**
+     * Number of single-use credential copies we advertise per
+     * `batch_credential_issuance.batch_size` (OID4VCI Draft 13 §11.2.3).
+     * EUDI iOS/Android wallets use this to fetch a pool up front and burn
+     * one copy per presentation — a high value here effectively gives the
+     * user "infinite presentations" for the lifetime of the credential.
+     */
+    private const val BATCH_SIZE_ADVERTISED = 1000
+
     private val tenantByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val tenantSessionByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -94,6 +103,13 @@ object OidcApi : CIProvider(), Klogging {
                             })
                         }
                     )
+                }
+                // Advertise batch issuance so EUDI wallets fetch a large pool of
+                // single-use credentials in one go, rather than running out after
+                // a handful of presentations. OID4VCI Draft 13 §11.2.3 —
+                // absence of this field means wallets assume batch_size = 1.
+                metadataMap["batch_credential_issuance"] = buildJsonObject {
+                    put("batch_size", JsonPrimitive(BATCH_SIZE_ADVERTISED))
                 }
                 call.respond(JsonObject(metadataMap))
             }
