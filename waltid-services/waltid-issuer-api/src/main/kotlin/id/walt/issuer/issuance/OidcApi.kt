@@ -50,15 +50,6 @@ import kotlin.time.ExperimentalTime
 
 object OidcApi : CIProvider(), Klogging {
 
-    /**
-     * Number of single-use credential copies we advertise per
-     * `batch_credential_issuance.batch_size` (OID4VCI Draft 13 §11.2.3).
-     * EUDI iOS/Android wallets use this to fetch a pool up front and burn
-     * one copy per presentation — a high value here effectively gives the
-     * user "infinite presentations" for the lifetime of the credential.
-     */
-    private const val BATCH_SIZE_ADVERTISED = 1000
-
     private val tenantByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val tenantSessionByAuthState = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -104,13 +95,16 @@ object OidcApi : CIProvider(), Klogging {
                         }
                     )
                 }
-                // Advertise batch issuance so EUDI wallets fetch a large pool of
-                // single-use credentials in one go, rather than running out after
-                // a handful of presentations. OID4VCI Draft 13 §11.2.3 —
-                // absence of this field means wallets assume batch_size = 1.
-                metadataMap["batch_credential_issuance"] = buildJsonObject {
-                    put("batch_size", JsonPrimitive(BATCH_SIZE_ADVERTISED))
-                }
+                // NOTE: batch_credential_issuance advertisement removed. The
+                // intent was to let wallets pre-fetch a pool of single-use
+                // credentials (OID4VCI Draft 13 §11.2.3), but /credential only
+                // signs one credential per request regardless of how many
+                // proofs arrive in proofs.jwt[]. EUDI Android threw
+                // "Issuer provided data size (1) does not match credentials
+                // size (100)" on receipt because it generated 100 key pairs
+                // and expected 100 credentials back. Re-advertise once
+                // CIProvider actually loops over proofs and signs one
+                // credential per proof pubkey.
                 // Replace the library's hardcoded scopes_supported (which only
                 // listed "openid" + "org.iso.23220.photoid.1") with the scopes
                 // of every credential we actually offer. EudiWalletKit checks
