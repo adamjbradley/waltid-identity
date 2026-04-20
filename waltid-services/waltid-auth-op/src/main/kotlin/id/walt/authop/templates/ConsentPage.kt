@@ -7,9 +7,9 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.html.respondHtml
 import kotlinx.html.ButtonType
 import kotlinx.html.FormMethod
-import kotlinx.html.InputType
 import kotlinx.html.body
 import kotlinx.html.button
+import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.head
@@ -19,19 +19,14 @@ import kotlinx.html.meta
 import kotlinx.html.p
 import kotlinx.html.title
 import kotlinx.html.ul
+import kotlinx.html.unsafe
 
 /**
- * Minimal consent page rendered by `GET /consent` for non-trusted clients.
+ * Consent page rendered by `GET /consent` for non-trusted clients.
  *
- * Scope rendering is deliberately narrow: only the three standard OIDC scopes
- * carry a human-readable description. Any additional scopes the RP requested
- * render as the raw scope string — that's a conscious v1 tradeoff. Custom
- * scopes are a Task 14+ concern once realm-level claim mapping expands.
- *
- * Escaping: `client_id` comes straight from attacker-controllable config /
- * URL lookup (the RP could in theory be registered with an exotic id), and
- * scope values similarly travel end-to-end from the wire. Ktor HTML DSL's
- * `+"..."` escapes text nodes, so every interpolated value renders as text.
+ * Escaping: all interpolated values go through Ktor HTML DSL's `+"..."` which
+ * escapes text nodes, preventing XSS from attacker-controllable client IDs or
+ * scope strings.
  *
  * The hidden `csrf_token` input carries the one-time value issued by
  * [id.walt.authop.store.CsrfTokenStore.issue]; the POST handler calls
@@ -45,28 +40,54 @@ internal suspend fun ApplicationCall.respondConsentPage(
     respondHtml(HttpStatusCode.OK) {
         head {
             meta(charset = "utf-8")
+            meta(name = "viewport", content = "width=device-width, initial-scale=1")
             title { +"Authorize ${client.clientId}" }
+            unsafe {
+                +"""<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.05);padding:2.5rem 2rem;width:100%;max-width:400px;margin:1rem}
+.brand{display:flex;justify-content:center;margin-bottom:1.75rem}
+h1{font-size:1.25rem;font-weight:700;color:#111827;text-align:center;margin-bottom:.375rem}
+.sub{font-size:.875rem;color:#6b7280;text-align:center;margin-bottom:1.5rem}
+ul{list-style:none;display:flex;flex-direction:column;gap:.375rem;margin-bottom:1.75rem;padding:.75rem 1rem;background:#f9fafb;border-radius:8px;border:1px solid #f3f4f6}
+ul li{font-size:.875rem;color:#374151;padding:.25rem 0;display:flex;align-items:center;gap:.625rem}
+ul li::before{content:'✓';color:#059669;font-weight:700;flex-shrink:0}
+.actions{display:flex;gap:.75rem}
+.btn{flex:1;padding:.875rem 1rem;border-radius:10px;font-size:.9375rem;font-weight:600;cursor:pointer;border:none;transition:background .15s,opacity .15s}
+.btn-allow{background:#4f46e5;color:#fff}
+.btn-allow:hover{background:#4338ca}
+.btn-deny{background:#fff;color:#6b7280;border:1.5px solid #e5e7eb}
+.btn-deny:hover{border-color:#d1d5db;color:#374151}
+</style>"""
+            }
         }
         body {
-            // client_id is the only identity we have for v1 — no display_name
-            // yet on ClientConfig (design doc explicitly cuts that). If we add
-            // a display_name field later, this is the single place to update.
-            h1 { +"Authorize ${client.clientId}" }
-            p { +"The application is requesting:" }
-            ul {
-                authReq.scope.forEach { scope ->
-                    li { +scopeDescription(scope) }
+            div(classes = "card") {
+                div(classes = "brand") {
+                    unsafe {
+                        +"""<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="11" fill="#ede9fe"/><path d="M22 9L12 14v10c0 6.1 4.8 11.7 10 13.3C27.2 35.7 32 30.1 32 24V14L22 9z" fill="#4f46e5"/><path d="M18.5 22l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
+                    }
                 }
-            }
-            form(action = "/consent", method = FormMethod.post) {
-                hiddenInput(name = "csrf_token") { value = csrfToken }
-                button(type = ButtonType.submit, name = "decision") {
-                    attributes["value"] = "accept"
-                    +"Allow"
+                h1 { +"Authorize ${client.clientId}" }
+                p(classes = "sub") { +"The application is requesting:" }
+                ul {
+                    authReq.scope.forEach { scope ->
+                        li { +scopeDescription(scope) }
+                    }
                 }
-                button(type = ButtonType.submit, name = "decision") {
-                    attributes["value"] = "deny"
-                    +"Deny"
+                form(action = "/consent", method = FormMethod.post) {
+                    hiddenInput(name = "csrf_token") { value = csrfToken }
+                    div(classes = "actions") {
+                        button(type = ButtonType.submit, name = "decision", classes = "btn btn-allow") {
+                            attributes["value"] = "accept"
+                            +"Allow"
+                        }
+                        button(type = ButtonType.submit, name = "decision", classes = "btn btn-deny") {
+                            attributes["value"] = "deny"
+                            +"Deny"
+                        }
+                    }
                 }
             }
         }
@@ -75,8 +96,7 @@ internal suspend fun ApplicationCall.respondConsentPage(
 
 /**
  * Human-readable description for a requested scope. Only the three standard
- * OIDC scopes carry copy; anything else falls through to the raw scope string.
- * Copy comes from the Task 10 spec §Consent page HTML.
+ * OIDC scopes carry a description; anything else falls through to the raw scope string.
  */
 private fun scopeDescription(scope: String): String = when (scope) {
     "openid" -> "Verify your identity"

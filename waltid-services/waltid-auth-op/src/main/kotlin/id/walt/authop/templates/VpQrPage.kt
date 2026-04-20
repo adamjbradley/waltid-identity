@@ -19,26 +19,16 @@ import kotlinx.html.title
 import kotlinx.html.unsafe
 
 /**
- * Minimal QR-scan page rendered by the OID4VP kickoff.
+ * QR-scan page rendered by the OID4VP kickoff.
  *
- * The page has three moving parts:
- *  1. A QR image whose `src` encodes [qrPayloadUrl] — the wallet scans this to
- *     fetch the verifier-api2 authorization request. We use the external
- *     `api.qrserver.com` renderer as the MVP path (no JS library dependency);
- *     a future iteration can swap to an inline JS QR generator.
- *  2. A same-device deep link (`<a href="openid4vp://…">`) that triggers a
- *     wallet on the same device (phone users hitting this page directly).
- *  3. Inline polling JS that hits `statusUrl` every 2s and redirects to
- *     `/login/realm/{id}/complete` on `SUCCESSFUL`. `UNSUCCESSFUL` surfaces an
- *     inline error. Tests find the polling URL via `data-status-url` on
- *     `<body>`, and find the verifier session id via `data-verifier-session-id`.
+ * Three moving parts:
+ *  1. A QR image whose `src` encodes [qrPayloadUrl] — the wallet scans this.
+ *  2. A same-device deep link (`openid4vp://…`) for phone users.
+ *  3. Polling JS that hits `statusUrl` every 2s and navigates to [completeUrl] on SUCCESSFUL.
  *
- * Test-friendliness: all load-bearing values (QR payload, deep link, status
- * URL, verifier session id) are rendered as HTML text or attributes so tests
- * can assert on them without parsing JavaScript. The `data-*` attributes on
- * `<body>` are the designated machine-readable surface.
- *
- * No CSS, no branding — the page will grow cosmetics under separate tasks.
+ * Test-friendliness: all load-bearing values are in data-* attributes on <body>
+ * so tests can assert without parsing JavaScript. The `#qr`, `#vp-error`,
+ * `#passkey-btn`, `#passkey-username`, `#passkey-status` IDs are stable handles.
  */
 internal suspend fun ApplicationCall.respondVpQrPage(
     qrPayloadUrl: String,
@@ -50,59 +40,80 @@ internal suspend fun ApplicationCall.respondVpQrPage(
     respondHtml(HttpStatusCode.OK) {
         head {
             meta(charset = "utf-8")
+            meta(name = "viewport", content = "width=device-width, initial-scale=1")
             title { +"Present your credential" }
+            unsafe {
+                +"""<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.05);padding:2rem 2rem 2.5rem;width:100%;max-width:440px;margin:1rem;text-align:center}
+.brand{display:flex;justify-content:center;margin-bottom:1.25rem}
+h1{font-size:1.25rem;font-weight:700;color:#111827;margin-bottom:.5rem}
+.intro{font-size:.875rem;color:#6b7280;margin-bottom:1.5rem;line-height:1.5}
+#qr{display:inline-flex;padding:12px;border:1.5px solid #e5e7eb;border-radius:12px;margin-bottom:1.5rem}
+#qr img{display:block;border-radius:4px}
+.divider{display:flex;align-items:center;gap:.75rem;margin:.25rem 0 1rem;color:#9ca3af;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e5e7eb}
+.btn-device{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.875rem 1.25rem;background:#4f46e5;color:#fff;border-radius:10px;text-decoration:none;font-size:.9375rem;font-weight:600;transition:background .15s}
+.btn-device:hover{background:#4338ca}
+#passkey-login{margin-top:1rem}
+#passkey-btn{width:100%;padding:.8rem 1.25rem;background:#fff;color:#374151;border:1.5px solid #d1d5db;border-radius:10px;font-size:.9rem;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s}
+#passkey-btn:hover{border-color:#4f46e5;background:#fafafe}
+#passkey-status{margin-top:.5rem;font-size:.8125rem;color:#6b7280}
+#vp-error{margin-top:1rem;padding:.75rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;font-size:.875rem;display:none}
+#vp-error:not(:empty){display:block}
+</style>"""
+            }
         }
         body {
-            // The data-attrs let tests key on stable handles instead of
-            // parsing the embedded script body. JS reads them too.
             attributes["data-status-url"] = statusUrl
             attributes["data-verifier-session-id"] = verifierSessionId
             attributes["data-complete-url"] = completeUrl
 
-            h1 { +"Present your credential" }
-            p { +"Scan the QR code below with your wallet, or open the wallet on this device." }
-
-            // QR image — external renderer keeps this MVP small.
-            val qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" +
-                java.net.URLEncoder.encode(qrPayloadUrl, "UTF-8")
-            div {
-                id = "qr"
-                attributes["data-url"] = qrPayloadUrl
-                img(alt = "QR code", src = qrSrc)
-            }
-
-            // Same-device deep link. openid4vp:// is an app-scheme URI;
-            // the DSL's a(href = ...) passes through URL-scheme values.
-            p {
-                a(href = deepLink) { +"Open wallet on this device" }
-            }
-
-            // Passkey login surface. Two-layered: (a) an explicit button for
-            // returning users who know they have a passkey — triggered with
-            // `mediation: 'optional'` so the browser prompt appears
-            // immediately on click, and (b) a hidden input with
-            // autocomplete="username webauthn" that lets Chrome/Safari
-            // attach conditional-UI autofill for users who tab into it.
-            // Click on the hidden input does nothing visible; it exists
-            // only as an anchor for the conditional mediation call below.
-            div {
-                id = "passkey-login"
-                button {
-                    id = "passkey-btn"
-                    attributes["type"] = "button"
-                    attributes["style"] = "display:none;"
-                    +"Sign in with passkey"
+            div(classes = "card") {
+                div(classes = "brand") {
+                    unsafe {
+                        +"""<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" rx="11" fill="#ede9fe"/><path d="M22 9L12 14v10c0 6.1 4.8 11.7 10 13.3C27.2 35.7 32 30.1 32 24V14L22 9z" fill="#4f46e5"/><path d="M18.5 22l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
+                    }
                 }
-                input {
-                    id = "passkey-username"
-                    attributes["autocomplete"] = "username webauthn"
-                    attributes["style"] = "position:absolute;left:-10000px;width:1px;height:1px;"
-                    attributes["aria-hidden"] = "true"
-                    attributes["tabindex"] = "-1"
-                }
+                h1 { +"Present your credential" }
+                p(classes = "intro") { +"Scan the QR code below with your wallet, or open the wallet on this device." }
+
                 div {
-                    id = "passkey-status"
-                    attributes["style"] = "margin-top:8px;font-size:0.9em;opacity:0.8;"
+                    id = "qr"
+                    attributes["data-url"] = qrPayloadUrl
+                    val qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" +
+                        java.net.URLEncoder.encode(qrPayloadUrl, "UTF-8")
+                    img(alt = "QR code", src = qrSrc)
+                }
+
+                div(classes = "divider") { +"or" }
+
+                a(href = deepLink, classes = "btn-device") { +"Open wallet on this device" }
+
+                div {
+                    id = "passkey-login"
+                    button {
+                        id = "passkey-btn"
+                        attributes["type"] = "button"
+                        attributes["style"] = "display:none;"
+                        +"Sign in with passkey"
+                    }
+                    input {
+                        id = "passkey-username"
+                        attributes["autocomplete"] = "username webauthn"
+                        attributes["style"] = "position:absolute;left:-10000px;width:1px;height:1px;"
+                        attributes["aria-hidden"] = "true"
+                        attributes["tabindex"] = "-1"
+                    }
+                    div {
+                        id = "passkey-status"
+                        attributes["style"] = "margin-top:8px;font-size:0.9em;opacity:0.8;"
+                    }
+                }
+
+                div {
+                    id = "vp-error"
                 }
             }
 
@@ -110,10 +121,6 @@ internal suspend fun ApplicationCall.respondVpQrPage(
             // On UNSUCCESSFUL, write an error into #vp-error.
             // `window.location.replace` is correct here — we don't want the
             // QR page in the history stack.
-            div {
-                id = "vp-error"
-                // Empty placeholder; populated by the polling JS on failure.
-            }
             script {
                 unsafe {
                     +"""
