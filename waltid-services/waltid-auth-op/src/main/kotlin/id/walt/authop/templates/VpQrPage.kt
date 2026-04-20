@@ -158,13 +158,49 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                 unsafe {
                     +"""
                     (function() {
-                      if (!window.PublicKeyCredential ||
-                          !PublicKeyCredential.parseRequestOptionsFromJSON) {
-                        return;
-                      }
+                      if (!window.PublicKeyCredential) return;
                       var btn = document.getElementById('passkey-btn');
-                      var input = document.getElementById('passkey-username');
                       if (btn) btn.style.display = 'inline-block';
+
+                      function b64urlToBuf(s) {
+                        s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+                        while (s.length % 4) s += '=';
+                        var bin = atob(s);
+                        var a = new Uint8Array(bin.length);
+                        for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+                        return a.buffer;
+                      }
+                      function bufToB64url(b) {
+                        var bytes = new Uint8Array(b);
+                        var s = '';
+                        for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+                        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+${'$'}/, '');
+                      }
+                      function hydrateRequest(o) {
+                        var p = o.publicKey || o;
+                        p.challenge = b64urlToBuf(p.challenge);
+                        if (Array.isArray(p.allowCredentials)) {
+                          p.allowCredentials = p.allowCredentials.map(function(c) {
+                            return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+                          });
+                        }
+                        return p;
+                      }
+                      function serializeAssertion(cred) {
+                        var r = cred.response;
+                        return {
+                          id: cred.id,
+                          rawId: bufToB64url(cred.rawId),
+                          type: cred.type,
+                          clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+                          response: {
+                            clientDataJSON: bufToB64url(r.clientDataJSON),
+                            authenticatorData: bufToB64url(r.authenticatorData),
+                            signature: bufToB64url(r.signature),
+                            userHandle: r.userHandle ? bufToB64url(r.userHandle) : null
+                          }
+                        };
+                      }
 
                       function runGet(mediation) {
                         return fetch('/webauthn/login/begin', {
@@ -173,21 +209,21 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                           .then(function(r) { return r.ok ? r.json() : null; })
                           .then(function(envelope) {
                             if (!envelope) return null;
-                            var opts = PublicKeyCredential.parseRequestOptionsFromJSON(
-                              envelope.options.publicKey || envelope.options
-                            );
+                            var opts = hydrateRequest(envelope.options);
+                            console.log('[passkey] login options', opts, 'mediation', mediation);
                             return navigator.credentials.get({
                               publicKey: opts,
                               mediation: mediation
                             }).then(function(assertion) {
                               if (!assertion) return null;
+                              console.log('[passkey] assertion received', assertion);
                               return fetch('/webauthn/login/complete', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 credentials: 'same-origin',
                                 body: JSON.stringify({
                                   flow_id: envelope.flow_id,
-                                  assertion: assertion.toJSON()
+                                  assertion: serializeAssertion(assertion)
                                 })
                               }).then(function(r) { return r.ok ? r.json() : null; });
                             });
@@ -200,7 +236,10 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                       if (btn) {
                         btn.addEventListener('click', function() {
                           btn.disabled = true;
-                          runGet('optional').catch(function() { btn.disabled = false; });
+                          runGet('optional').catch(function(err) {
+                            console.error('[passkey] login error', err);
+                            btn.disabled = false;
+                          });
                         });
                       }
 
