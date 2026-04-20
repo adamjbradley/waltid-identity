@@ -100,6 +100,10 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                     attributes["aria-hidden"] = "true"
                     attributes["tabindex"] = "-1"
                 }
+                div {
+                    id = "passkey-status"
+                    attributes["style"] = "margin-top:8px;font-size:0.9em;opacity:0.8;"
+                }
             }
 
             // Poll status every 2s. On SUCCESSFUL, navigate to /complete.
@@ -160,7 +164,17 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                     (function() {
                       if (!window.PublicKeyCredential) return;
                       var btn = document.getElementById('passkey-btn');
+                      var input = document.getElementById('passkey-username');
+                      var status = document.getElementById('passkey-status');
                       if (btn) btn.style.display = 'inline-block';
+
+                      function show(msg, isError) {
+                        console[isError ? 'error' : 'log']('[passkey]', msg);
+                        if (status) {
+                          status.textContent = msg;
+                          status.style.color = isError ? '#b00020' : '';
+                        }
+                      }
 
                       function b64urlToBuf(s) {
                         s = String(s).replace(/-/g, '+').replace(/_/g, '/');
@@ -202,26 +216,29 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                         };
                       }
 
-                      // AbortController lets us cancel the conditional-
-                      // mediation call that runs on page load. WebAuthn only
-                      // permits one navigator.credentials.get() in flight
-                      // at a time — without this abort, clicking the
-                      // "Sign in with passkey" button throws:
-                      //   OperationError: A request is already pending.
-                      var conditionalAbort = new AbortController();
+                      // Serialise navigator.credentials.get() calls ourselves
+                      // so the button click never collides with an in-flight
+                      // conditional mediation call. One AbortController per
+                      // pending call, replaced on each new invocation.
+                      var pendingAbort = null;
 
-                      function runGet(mediation, signal) {
+                      function runGet(mediation) {
+                        if (pendingAbort) { try { pendingAbort.abort(); } catch (_) {} }
+                        var ac = new AbortController();
+                        pendingAbort = ac;
                         return fetch('/webauthn/login/begin', {
                           method: 'POST', credentials: 'same-origin'
                         })
                           .then(function(r) { return r.ok ? r.json() : null; })
                           .then(function(envelope) {
-                            if (!envelope) return null;
+                            if (!envelope) throw new Error('no envelope from /login/begin');
                             var opts = hydrateRequest(envelope.options);
                             console.log('[passkey] login options', opts, 'mediation', mediation);
-                            var getOpts = { publicKey: opts, mediation: mediation };
-                            if (signal) getOpts.signal = signal;
-                            return navigator.credentials.get(getOpts).then(function(assertion) {
+                            return navigator.credentials.get({
+                              publicKey: opts,
+                              mediation: mediation,
+                              signal: ac.signal,
+                            }).then(function(assertion) {
                               if (!assertion) return null;
                               console.log('[passkey] assertion received', assertion);
                               return fetch('/webauthn/login/complete', {
@@ -232,7 +249,10 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                                   flow_id: envelope.flow_id,
                                   assertion: serializeAssertion(assertion)
                                 })
-                              }).then(function(r) { return r.ok ? r.json() : null; });
+                              }).then(function(r) {
+                                if (r.ok) return r.json();
+                                return r.text().then(function(t){ throw new Error('complete HTTP ' + r.status + ': ' + t); });
+                              });
                             });
                           })
                           .then(function(j) {
@@ -243,19 +263,30 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                       if (btn) {
                         btn.addEventListener('click', function() {
                           btn.disabled = true;
-                          // Cancel the conditional-mediation attempt so the
-                          // optional one can run without a concurrency conflict.
-                          try { conditionalAbort.abort(); } catch (_) {}
+                          show('Follow your browser / OS prompt…');
                           runGet('optional').catch(function(err) {
-                            console.error('[passkey] login error', err);
+                            // AbortError from cancelling our own conditional
+                            // call isn't user-visible — only real failures.
+                            if (err && err.name === 'AbortError') return;
+                            show('Passkey sign-in failed: ' + (err && err.message ? err.message : err), true);
                             btn.disabled = false;
                           });
                         });
                       }
 
-                      if (PublicKeyCredential.isConditionalMediationAvailable) {
+                      // W3C conditional-UI pattern: attach on input focus, NOT
+                      // on page load. Firing get({mediation:'conditional'}) at
+                      // load-time holds a WebAuthn "slot" forever and makes
+                      // the button's click collide. Browser surfaces the
+                      // passkey via autofill when the user tabs into the
+                      // input; if they click the button instead, the button
+                      // path aborts any focus-triggered call and wins.
+                      if (input && PublicKeyCredential.isConditionalMediationAvailable) {
                         PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
-                          if (ok) runGet('conditional', conditionalAbort.signal).catch(function() {});
+                          if (!ok) return;
+                          input.addEventListener('focus', function() {
+                            runGet('conditional').catch(function() {});
+                          }, { once: true });
                         });
                       }
                     })();
