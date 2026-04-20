@@ -2782,7 +2782,11 @@
             // Fetch the catalogue from the server before any code consumes
             // PRODUCT_CATALOGUE. renderProductShelf reads the global, so
             // this await must resolve before the first render.
-            await loadCatalogue();
+            try {
+                await loadCatalogue();
+            } catch (err) {
+                console.warn('[catalogue] load failed:', err);
+            }
             // Populate the shelf immediately (unauthenticated view) so the
             // grid isn't empty while /api/me is in flight. renderAuthStatus
             // will re-render it with preferences if the user is signed in.
