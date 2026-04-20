@@ -138,7 +138,31 @@ fun Application.tenantOidcRoutes() {
                     val metadata = provider.getOpenIdProviderMetadataByVersion(
                         standardVersion = call.parameters["standardVersion"]
                     )
-                    call.respond(metadata.toJSON())
+                    // Mirror the scopes_supported patch from /openid-credential-issuer
+                    // (see the non-tenant OidcApi.kt for rationale: EudiWalletKit
+                    // reads scopes_supported here and silently aborts issuance
+                    // when a credential's scope isn't listed).
+                    // The tenant's /openid-credential-issuer endpoint injects
+                    // `scope = configId` when absent; we mirror that logic here
+                    // so the two endpoints stay consistent without depending on
+                    // the other route running first.
+                    val metadataMap = metadata.toJSON().toMutableMap()
+                    val credMetadata = provider.getMetadataByVersion(
+                        standardVersion = call.parameters["standardVersion"]
+                    ).toJSON()
+                    (credMetadata["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                        val configScopes = configs.entries
+                            .map { (configId, configElement) ->
+                                configElement.jsonObject["scope"]?.jsonPrimitive?.contentOrNull
+                                    ?: configId
+                            }
+                            .toSet()
+                        metadataMap["scopes_supported"] = buildJsonArray {
+                            add(JsonPrimitive("openid"))
+                            configScopes.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                    call.respond(JsonObject(metadataMap))
                 }
 
                 get("jwks") {
