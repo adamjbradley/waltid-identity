@@ -81,13 +81,16 @@ class RpCertificateServiceTest {
     fun `generated x5c contains base64 DER matching certificate`() {
         val result = RpCertificateService.generateCertificate("Test RP", "test.example.com")
 
-        assertEquals(1, result.x5c.size, "x5c should contain exactly one certificate")
+        assertEquals(2, result.x5c.size, "x5c should contain leaf + CA cert chain")
 
-        val certBytes = Base64.getDecoder().decode(result.x5c.first())
         val cf = java.security.cert.CertificateFactory.getInstance("X.509")
-        val parsedCert = cf.generateCertificate(certBytes.inputStream()) as X509Certificate
+        val leafBytes = Base64.getDecoder().decode(result.x5c.first())
+        val parsedLeaf = cf.generateCertificate(leafBytes.inputStream()) as X509Certificate
+        assertEquals(result.certificate.serialNumber, parsedLeaf.serialNumber, "x5c[0] should match leaf cert")
 
-        assertEquals(result.certificate.serialNumber, parsedCert.serialNumber, "Parsed cert should match original")
+        val caBytes = Base64.getDecoder().decode(result.x5c[1])
+        val parsedCa = cf.generateCertificate(caBytes.inputStream()) as X509Certificate
+        assertEquals(parsedLeaf.issuerX500Principal, parsedCa.subjectX500Principal, "x5c[1] should be the CA that signed the leaf")
     }
 
     @Test
@@ -96,7 +99,7 @@ class RpCertificateServiceTest {
         val info = result.certInfo
 
         assertTrue(info.subject.contains("Test RP"), "Subject should contain legal name")
-        assertTrue(info.issuer.contains("Test RP"), "Issuer should contain legal name (self-signed)")
+        assertTrue(info.issuer.contains("test.example.com RP CA"), "Issuer should be the domain RP CA")
         assertNotNull(info.notBefore, "Should have notBefore")
         assertNotNull(info.notAfter, "Should have notAfter")
         assertNotNull(info.serialNumber, "Should have serial number")
