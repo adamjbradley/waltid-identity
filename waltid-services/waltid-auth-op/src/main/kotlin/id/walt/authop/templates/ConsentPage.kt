@@ -59,6 +59,16 @@ internal suspend fun ApplicationCall.respondConsentPage(
     client: ClientConfig,
     realm: RealmConfig?,
     csrfToken: String,
+    /**
+     * When non-null the consent form/claim groups are replaced in-place by the
+     * flow-update progress view — same card, same brand, same theme. Caller
+     * supplies the flow session id minted via [id.walt.authop.store.FlowUpdateStore].
+     *
+     * Keeping it on the same template is intentional: the user stays on
+     * `/consent` visually while the workflow runs, then the client-side JS
+     * navigates to `/consent/flow-done` when the aggregate arrives.
+     */
+    progressFlowSessionId: String? = null,
 ) {
     val merchantName = client.clientId
     val scopeCatalog = realm?.oid4vp?.scopes ?: emptyMap()
@@ -69,7 +79,9 @@ internal suspend fun ApplicationCall.respondConsentPage(
         head {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width,initial-scale=1")
-            title { +"Authorize $merchantName" }
+            title {
+                +(if (progressFlowSessionId != null) "Running customer checks…" else "Authorize $merchantName")
+            }
             link(rel = "preconnect", href = "https://fonts.googleapis.com")
             link(rel = "preconnect", href = "https://fonts.gstatic.com") { attributes["crossorigin"] = "" }
             link(
@@ -105,16 +117,31 @@ internal suspend fun ApplicationCall.respondConsentPage(
                         attributes["class"] = "brand-mark"
                         unsafe { +CHECK_SVG }
                     }
-                    h1 { +"You're about to sign in" }
-                    p {
-                        id = "brand-subtitle"
-                        +"Review what "
-                        span { attributes["class"] = "merchant-name"; +merchantName }
-                        +" will see and keep."
+                    if (progressFlowSessionId != null) {
+                        h1 { +"Running customer checks" }
+                        p {
+                            id = "brand-subtitle"
+                            +"This takes a few seconds. You'll be returned to "
+                            span { attributes["class"] = "merchant-name"; +merchantName }
+                            +" automatically."
+                        }
+                    } else {
+                        h1 { +"You're about to sign in" }
+                        p {
+                            id = "brand-subtitle"
+                            +"Review what "
+                            span { attributes["class"] = "merchant-name"; +merchantName }
+                            +" will see and keep."
+                        }
                     }
                 }
 
-                if (sessionClaims.isNotEmpty() || retainedClaims.isNotEmpty()) {
+                if (progressFlowSessionId != null) {
+                    // Progress view: same card, same chrome. When the last
+                    // `aggregate` event arrives the inline script navigates
+                    // to /consent/flow-done.
+                    renderProgressBody(progressFlowSessionId)
+                } else if (sessionClaims.isNotEmpty() || retainedClaims.isNotEmpty()) {
                     div {
                         attributes["class"] = "claim-group"
                         h2 {
@@ -197,31 +224,148 @@ internal suspend fun ApplicationCall.respondConsentPage(
                     }
                 }
 
-                form(action = "/consent", method = FormMethod.post) {
-                    attributes["class"] = "consent-form"
-                    hiddenInput(name = "csrf_token") { value = csrfToken }
-                    button(type = ButtonType.submit, name = "decision") {
-                        attributes["class"] = "primary-btn"
-                        attributes["value"] = "accept"
-                        span { +"Share & continue" }
-                        unsafe { +ARROW_SVG }
-                    }
-                    button(type = ButtonType.submit, name = "decision") {
-                        attributes["class"] = "ghost-btn deny-btn"
-                        attributes["value"] = "deny"
-                        span { +"Cancel" }
+                if (progressFlowSessionId == null) {
+                    form(action = "/consent", method = FormMethod.post) {
+                        attributes["class"] = "consent-form"
+                        hiddenInput(name = "csrf_token") { value = csrfToken }
+                        button(type = ButtonType.submit, name = "decision") {
+                            attributes["class"] = "primary-btn"
+                            attributes["value"] = "accept"
+                            span { +"Share & continue" }
+                            unsafe { +ARROW_SVG }
+                        }
+                        button(type = ButtonType.submit, name = "decision") {
+                            attributes["class"] = "ghost-btn deny-btn"
+                            attributes["value"] = "deny"
+                            span { +"Cancel" }
+                        }
                     }
                 }
 
                 div {
                     id = "footer-fineprint"
-                    +"Secured by auth-op · OpenID4VP / OIDC Core"
+                    if (progressFlowSessionId != null) {
+                        +"Running via n8n · session "
+                        +progressFlowSessionId.take(8)
+                        +"…"
+                    } else {
+                        +"Secured by auth-op · OpenID4VP / OIDC Core"
+                    }
                 }
             }
 
             script { unsafe { +CONSENT_JS } }
+            if (progressFlowSessionId != null) {
+                script {
+                    unsafe {
+                        +progressScript(progressFlowSessionId)
+                    }
+                }
+            }
         }
     }
+}
+
+/**
+ * Four-step progress list rendered inside the consent card when
+ * `/consent` was POSTed with an accept AND the RP had requested the
+ * `preferences` scope. Sits in place of the claim groups + form; the
+ * outer card/brand/theme are unchanged from the consent view.
+ *
+ * The row DOM is built server-side so there's no flash between page
+ * paint and JS hydration. The accompanying [progressScript] updates
+ * each row's state as SSE events arrive.
+ */
+private fun kotlinx.html.FlowContent.renderProgressBody(flowSessionId: String) {
+    div {
+        attributes["class"] = "claim-group progress-group"
+        ul {
+            attributes["class"] = "claim-list progress-steps"
+            progressStep("dark-web", "Fraud check · dark web")
+            progressStep("preferences", "Lifestyle preferences")
+            progressStep("first-party", "Fraud check · first party")
+            progressStep("aggregate", "Finalising")
+        }
+    }
+}
+
+private fun kotlinx.html.UL.progressStep(step: String, label: String) {
+    li {
+        attributes["class"] = "progress-row"
+        attributes["data-step"] = step
+        span { attributes["class"] = "progress-dot" }
+        span { attributes["class"] = "progress-label"; +label }
+        span { attributes["class"] = "progress-status" }
+    }
+}
+
+/**
+ * Page-scoped JS that wires the progress UI. Same flow shape as the
+ * stand-alone /flow-demo page: subscribe → fire via the same-origin
+ * proxy → update rows → navigate to /consent/flow-done when the
+ * `aggregate` event arrives (or if the stream errors out; server-side
+ * failure handling catches that and surfaces `error=server_error` back
+ * to the RP).
+ *
+ * The single heredoc variable is interpolated once via Kotlin's string
+ * templating and is a UUID from our own store; no user-controllable
+ * data reaches the JS, so raw interpolation is safe.
+ */
+private fun progressScript(flowSessionId: String): String {
+    // The JS itself is not a Kotlin string template — we only inject the
+    // sessionId literal, which is a server-minted UUID.
+    return """
+(async () => {
+  const flowSessionId = "${flowSessionId}";
+  const mark = (step, status) => {
+    const row = document.querySelector('li.progress-row[data-step="' + step + '"]');
+    if (!row) return;
+    row.classList.remove('running');
+    row.classList.add(status === 'completed' ? 'done' : status);
+    row.querySelector('.progress-status').textContent = status;
+  };
+  const markRunning = (step) => {
+    const row = document.querySelector('li.progress-row[data-step="' + step + '"]');
+    if (!row) return;
+    row.classList.add('running');
+    row.querySelector('.progress-status').textContent = 'running';
+  };
+
+  const es = new EventSource('/api/flow-stream?sessionId=' + encodeURIComponent(flowSessionId));
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    es.close();
+    window.location.replace('/consent/flow-done');
+  };
+  es.onmessage = (e) => {
+    try {
+      const upd = JSON.parse(e.data);
+      mark(upd.step, upd.status || 'completed');
+      if (upd.step === 'aggregate' && upd.status === 'completed') finish();
+    } catch (err) { console.error(err); }
+  };
+  es.onerror = () => finish();
+
+  markRunning('dark-web');
+
+  try {
+    const r = await fetch('/api/flow-demo-fire', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        sessionId: flowSessionId,
+        customerRef: 'cust_001',
+        channel: 'consent-progress'
+      })
+    });
+    if (!r.ok) finish();
+  } catch (_) {
+    finish();
+  }
+})();
+""".trimIndent()
 }
 
 /** One claim row on the consent screen: human label + rendered value. */
@@ -513,6 +657,56 @@ body { display: grid; place-items: center; padding: 48px 20px; }
   #card { padding: 28px 22px 20px; border-radius: 22px; }
   #brand h1 { font-size: 24px; }
 }
+
+/* -----------------------------------------------------------------
+   Progress view — in-card replacement for the consent form when the
+   post-consent n8n workflow is running. Uses the same design tokens
+   as the rest of the page so theme toggling works for free.
+   ----------------------------------------------------------------- */
+.progress-group { margin-top: 22px; }
+.progress-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.progress-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+.progress-row + .progress-row { margin-top: 8px; }
+.progress-row.running { background: rgba(255, 255, 255, 0.06); border-color: var(--panel-border-hover); }
+.progress-row.done { background: rgba(255, 255, 255, 0.04); border-color: var(--panel-border-hover); }
+.progress-row.failed { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.4); }
+.progress-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--panel-border);
+  flex-shrink: 0;
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+.progress-row.running .progress-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent);
+  animation: progressPulse 1.4s ease-out infinite;
+}
+.progress-row.done .progress-dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px -2px var(--accent);
+}
+.progress-row.failed .progress-dot { background: #ef4444; box-shadow: 0 0 10px -2px #ef4444; }
+@keyframes progressPulse {
+  0% { box-shadow: 0 0 0 0 var(--accent); }
+  70% { box-shadow: 0 0 0 10px rgba(58, 191, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(58, 191, 255, 0); }
+}
+.progress-label { flex: 1; font-size: 14px; font-weight: 500; color: var(--text); }
+.progress-status {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+}
+.progress-row.running .progress-status { color: var(--accent); }
+.progress-row.done .progress-status { color: var(--accent); }
+.progress-row.failed .progress-status { color: #ef4444; }
 """.trimIndent()
 
 private val CONSENT_JS = """

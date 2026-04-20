@@ -29,6 +29,18 @@ data class AuthOpServiceConfig(
     val signingKeyPath: String = "config/signing-key.json",
     val cookieSecure: Boolean = false,
     val passkey: PasskeyConfig? = null,
+    /**
+     * Shared secret required on the `X-Flow-Callback-Secret` header of
+     * `POST /api/flow-updates`. When null the entire flow-update surface
+     * (kickoff, callback, SSE stream, demo page) is disabled and every
+     * route 404s — matches the "feature-off when config absent" convention
+     * of [passkey].
+     *
+     * Expected to be a high-entropy value (e.g. `openssl rand -hex 32`).
+     * Compared constant-time inside the callback route via
+     * [java.security.MessageDigest.isEqual].
+     */
+    val flowCallbackSecret: String? = null,
 ) : WaltConfig() {
     init {
         require(issuer.isNotBlank()) { "auth-op: 'issuer' must not be blank" }

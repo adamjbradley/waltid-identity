@@ -38,4 +38,22 @@ data class AuthRequest(
     val subject: String?,
     val claims: Map<String, JsonElement>,
     val activeVpSessionId: String? = null,
+    /**
+     * Flow-update session id bound to this auth request when the RP asked
+     * for the `preferences` scope and consent POST kicked off the n8n
+     * workflow. Stamped in the consent POST handler, consumed in
+     * `/consent/flow-done` to look up the aggregate from
+     * [id.walt.authop.store.FlowUpdateStore].
+     *
+     * Null for flows that don't request `preferences`.
+     */
+    val flowSessionId: String? = null,
+    /**
+     * The aggregate JSON from the n8n workflow (shape:
+     * `{customerId, alcohol, fraud: {darkWeb, firstParty, combinedRiskScore, approved}}`).
+     * Populated by `/consent/flow-done` once the workflow's final `aggregate`
+     * callback has landed. Surfaces into the id_token and /userinfo under
+     * the `preferences` claim key when the scope was requested.
+     */
+    val preferences: JsonElement? = null,
 )
