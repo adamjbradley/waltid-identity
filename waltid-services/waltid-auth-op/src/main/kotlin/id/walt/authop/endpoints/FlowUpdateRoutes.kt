@@ -370,7 +370,13 @@ private const val DEMO_WEBHOOK_URL = "http://n8n:5678/webhook/customer-aggregate
  * A single JDK HttpClient reused across demo-fire calls. JDK-native so we
  * don't drag in an extra Ktor client (auth-op already composes fine without
  * one here).
+ *
+ * **Pinned to HTTP/1.1.** The JDK's default is to attempt HTTP/2 upgrade via
+ * ALPN; n8n's plain-HTTP listener doesn't negotiate HTTP/2, and the client
+ * hangs until request timeout (~30s) before falling back. Forcing 1.1
+ * sidesteps the whole negotiation and gives us sub-second calls.
  */
 private val DEMO_HTTP_CLIENT: HttpClient = HttpClient.newBuilder()
     .connectTimeout(JDuration.ofSeconds(5))
+    .version(HttpClient.Version.HTTP_1_1)
     .build()
