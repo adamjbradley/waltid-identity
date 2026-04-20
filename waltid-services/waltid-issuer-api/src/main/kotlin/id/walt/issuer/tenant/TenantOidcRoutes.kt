@@ -156,10 +156,13 @@ fun Application.tenantOidcRoutes() {
                         )
                     }
 
-                    // Advertise batch issuance (see OidcApi.BATCH_SIZE_ADVERTISED).
-                    metadataMap["batch_credential_issuance"] = buildJsonObject {
-                        put("batch_size", JsonPrimitive(1000))
-                    }
+                    // NOTE: batch_credential_issuance advertisement removed — the /credential
+                    // endpoint doesn't honour it yet. When a wallet (EUDI Android) sent
+                    // N proofs in one request, it got back 1 credential and threw
+                    // "Issuer provided data size (1) does not match credentials size (N)".
+                    // Re-enable once CIProvider actually loops over proofs.jwt[] and
+                    // signs one credential per proof.
+
                     // Override library-hardcoded scopes_supported with the real
                     // set of configured credential scopes (see OidcApi.kt for
                     // the reasoning — EudiWalletKit silently aborts issuance
