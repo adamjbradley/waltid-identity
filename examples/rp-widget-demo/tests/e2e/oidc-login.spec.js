@@ -148,6 +148,51 @@ test.describe('OIDC RP login — full round trip @integration', () => {
     expect(me.activeProvider).toBe('keycloak');
   });
 
+  test('logout clears the widget session + chains through auth-op + Keycloak', async ({ page }) => {
+    test.skip(!password, 'set TEST_OIDC_PASSWORD');
+
+    // Sign in via auth-op → employees first so there's something to log out of.
+    await page.goto('/login/authop');
+    await page.waitForURL(/auth-op\.theaustraliahack\.com\/login$/);
+    await page.getByRole('link', { name: 'Employees' }).click();
+    await page.waitForURL(/keycloak\.theaustraliahack\.com\/realms\//);
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[type="submit"], button[type="submit"]');
+    await page.waitForURL('**/');
+
+    const me = await (await page.request.get('/api/me')).json();
+    expect(me.user).not.toBeNull();
+
+    // Use the actual logout form in the top bar.
+    const logoutForm = page.locator('#auth-status form[action="/logout"]');
+    await expect(logoutForm).toBeVisible();
+    await logoutForm.locator('button[type="submit"]').click();
+
+    // Chain: widget /logout → auth-op /end_session → Keycloak /end_session
+    // → auth-op /end_session/upstream_return → back to RP root.
+    await page.waitForURL(/rp\.theaustraliahack\.com\/?$/, { timeout: 30000 });
+
+    const after = await (await page.request.get('/api/me')).json();
+    expect(after.user, 'widget session must be cleared').toBeNull();
+    expect(after.activeProvider, 'no active provider after logout').toBeNull();
+  });
+
+  test('citizens realm renders the VP presentation page', async ({ page }) => {
+    // This test doesn't need a password — it walks as far as the QR page,
+    // which is where a real wallet would scan and present a credential.
+    await page.goto('/login/authop');
+    await page.waitForURL(/auth-op\.theaustraliahack\.com\/login$/);
+    await page.getByRole('link', { name: 'Citizens' }).click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page).toHaveURL(/\/login\/realm\/citizens/);
+    await expect(page.getByRole('heading', { name: 'Present your credential' })).toBeVisible();
+    // The body carries polling URLs and the openid4vp:// deep link
+    const html = await page.content();
+    expect(html).toContain('openid4vp://authorize?');
+    expect(html).toContain('/login/realm/citizens/status?');
+  });
+
   test('/login/authop → realm picker → employees realm → Keycloak → callback → /api/me', async ({ page }) => {
     test.skip(!password, 'set TEST_OIDC_PASSWORD');
 

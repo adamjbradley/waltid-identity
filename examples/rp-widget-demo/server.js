@@ -356,7 +356,12 @@ function createApp() {
   app.post('/logout', async (req, res) => {
     const idToken = req.session && req.session.idToken;
     const providerName = req.session && req.session.provider;
-    const returnTo = PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
+    // OPs match post_logout_redirect_uri against registered patterns. auth-op
+    // uses strict prefix matching for `.../*` patterns, so the candidate must
+    // include the trailing slash; Keycloak accepts both. Always emit with a
+    // trailing slash to stay compatible with both.
+    const base = (PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`).replace(/\/$/, '');
+    const returnTo = `${base}/`;
     req.session.destroy(() => {
       res.clearCookie('rp.sid');
       if (!providerName || !providerEnabled(providerName)) return res.redirect('/');
