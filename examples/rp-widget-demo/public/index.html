@@ -2394,6 +2394,9 @@
         webWalletObserver.observe(document.body, { childList: true, subtree: true });
 
         // ---------------- OIDC login state (top bar) ----------------
+        // When multiple OIDC providers are configured, show one link per
+        // provider. On successful login the banner shows which provider
+        // the user came in through.
         async function renderAuthStatus() {
             const el = document.getElementById('auth-status');
             if (!el) return;
@@ -2405,8 +2408,9 @@
                 if (!data.oidcEnabled) return;
                 if (data.user) {
                     const who = data.user.email || data.user.name || data.user.sub || '';
+                    const via = data.activeProvider ? ' via ' + data.activeProvider : '';
                     const label = document.createElement('span');
-                    label.textContent = 'Signed in: ' + who + ' ';
+                    label.textContent = 'Signed in: ' + who + via + ' ';
                     label.style.opacity = '0.8';
                     const form = document.createElement('form');
                     form.method = 'POST';
@@ -2420,10 +2424,19 @@
                     el.appendChild(label);
                     el.appendChild(form);
                 } else {
-                    const link = document.createElement('a');
-                    link.href = '/login';
-                    link.textContent = 'Login with Keycloak';
-                    el.appendChild(link);
+                    const providers = Array.isArray(data.providers) ? data.providers : [];
+                    providers.forEach(function (p, idx) {
+                        if (idx > 0) {
+                            const sep = document.createElement('span');
+                            sep.textContent = ' | ';
+                            sep.style.opacity = '0.5';
+                            el.appendChild(sep);
+                        }
+                        const link = document.createElement('a');
+                        link.href = p.loginPath;
+                        link.textContent = 'Login via ' + p.label;
+                        el.appendChild(link);
+                    });
                 }
             } catch (err) {
                 console.warn('[auth] status fetch failed:', err);

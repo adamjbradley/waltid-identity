@@ -33,14 +33,42 @@ const RP_DOMAIN = process.env.RP_DOMAIN || '';
 // Verifier API2 internal URL (for proxying verification-session responses from wallets)
 const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
 
-// Keycloak OIDC configuration — enabled when all three vars are present
-const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || '';
-const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || '';
-const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || '';
+// OIDC Providers — multiple are supported side-by-side. Each one needs its
+// own ISSUER/CLIENT_ID/CLIENT_SECRET trio; a provider is only enabled when
+// all three are set. Callback paths are /callback (for the default keycloak
+// provider, kept for backwards compat) and /callback/<name> for others.
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-change-me';
 // Public base URL of this app (used as the OIDC redirect_uri base)
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
-const OIDC_ENABLED = Boolean(KEYCLOAK_ISSUER && KEYCLOAK_CLIENT_ID && KEYCLOAK_CLIENT_SECRET);
+
+const OIDC_PROVIDERS = {
+  keycloak: {
+    label: 'Keycloak',
+    issuer: process.env.KEYCLOAK_ISSUER || '',
+    clientId: process.env.KEYCLOAK_CLIENT_ID || '',
+    clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || '',
+    // Legacy callback path (pre-dates the multi-provider support).
+    callbackPath: '/callback',
+  },
+  authop: {
+    label: 'auth-op',
+    issuer: process.env.AUTHOP_ISSUER || '',
+    clientId: process.env.AUTHOP_CLIENT_ID || '',
+    clientSecret: process.env.AUTHOP_CLIENT_SECRET || '',
+    callbackPath: '/callback/authop',
+  },
+};
+
+function providerEnabled(name) {
+  const p = OIDC_PROVIDERS[name];
+  return !!(p && p.issuer && p.clientId && p.clientSecret);
+}
+
+function enabledProviderNames() {
+  return Object.keys(OIDC_PROVIDERS).filter(providerEnabled);
+}
+
+const OIDC_ENABLED = enabledProviderNames().length > 0;
 
 // Export for use in tests
 const config = {
@@ -53,34 +81,36 @@ const config = {
 };
 
 /**
- * Lazily discover the Keycloak issuer and build an openid-client.
- * Returned promise caches the client for the lifetime of the process.
+ * Lazily discover each provider's issuer and build a cached openid-client.
+ * Result is a Promise keyed by provider name.
  */
-let oidcClientPromise = null;
-function getOidcClient() {
-  if (!OIDC_ENABLED) return null;
-  if (!oidcClientPromise) {
-    oidcClientPromise = Issuer.discover(KEYCLOAK_ISSUER).then((issuer) => {
-      console.log(`[OIDC] Discovered issuer: ${issuer.metadata.issuer}`);
+const oidcClientPromises = {};
+function getOidcClient(name) {
+  if (!providerEnabled(name)) return null;
+  if (!oidcClientPromises[name]) {
+    const p = OIDC_PROVIDERS[name];
+    oidcClientPromises[name] = Issuer.discover(p.issuer).then((issuer) => {
+      console.log(`[OIDC:${name}] Discovered issuer: ${issuer.metadata.issuer}`);
       return new issuer.Client({
-        client_id: KEYCLOAK_CLIENT_ID,
-        client_secret: KEYCLOAK_CLIENT_SECRET,
-        redirect_uris: [oidcRedirectUri()],
+        client_id: p.clientId,
+        client_secret: p.clientSecret,
+        redirect_uris: [oidcRedirectUri(name)],
         response_types: ['code'],
         token_endpoint_auth_method: 'client_secret_post',
       });
     }).catch((err) => {
-      console.error('[OIDC] Issuer discovery failed:', err.message);
-      oidcClientPromise = null;
+      console.error(`[OIDC:${name}] Issuer discovery failed:`, err.message);
+      delete oidcClientPromises[name];
       throw err;
     });
   }
-  return oidcClientPromise;
+  return oidcClientPromises[name];
 }
 
-function oidcRedirectUri() {
+function oidcRedirectUri(name) {
   const base = PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
-  return `${base.replace(/\/$/, '')}/callback`;
+  const path = (OIDC_PROVIDERS[name] && OIDC_PROVIDERS[name].callbackPath) || `/callback/${name}`;
+  return `${base.replace(/\/$/, '')}${path}`;
 }
 
 /**
@@ -220,29 +250,45 @@ function createApp() {
     res.json(response);
   });
 
-  // ---------------- OIDC (Keycloak) login routes ----------------
+  // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the
-  // actual login/callback handlers return 503 when OIDC is not configured.
+  // actual login/callback handlers return 503 when the requested provider
+  // is not configured.
 
-  /** GET /api/me — current login state, for the UI top bar. */
+  /** GET /api/me — current login state + list of enabled providers. */
   app.get('/api/me', (req, res) => {
+    const providers = enabledProviderNames().map((name) => ({
+      name,
+      label: OIDC_PROVIDERS[name].label,
+      loginPath: name === 'keycloak' ? '/login' : `/login/${name}`,
+    }));
     res.json({
       oidcEnabled: OIDC_ENABLED,
+      providers,
       user: (req.session && req.session.user) || null,
+      activeProvider: (req.session && req.session.provider) || null,
     });
   });
 
-  /** GET /login — kick off Authorization Code flow with PKCE. */
-  app.get('/login', async (req, res) => {
-    if (!OIDC_ENABLED) return res.status(503).send('OIDC not configured');
+  /**
+   * GET /login          — alias for the first enabled provider (back-compat:
+   *                        keycloak when that is configured).
+   * GET /login/:name    — kick off Authorization Code flow with PKCE against
+   *                        the named provider.
+   */
+  app.get(['/login', '/login/:name'], async (req, res) => {
+    const name = req.params.name || 'keycloak';
+    if (!providerEnabled(name)) {
+      return res.status(503).send(`OIDC provider "${name}" not configured`);
+    }
     try {
-      const client = await getOidcClient();
+      const client = await getOidcClient(name);
       const code_verifier = generators.codeVerifier();
       const code_challenge = generators.codeChallenge(code_verifier);
       const state = generators.state();
       const nonce = generators.nonce();
 
-      req.session.oidc = { code_verifier, state, nonce };
+      req.session.oidc = { name, code_verifier, state, nonce };
 
       const url = client.authorizationUrl({
         scope: 'openid profile email',
@@ -250,6 +296,7 @@ function createApp() {
         code_challenge_method: 'S256',
         state,
         nonce,
+        redirect_uri: oidcRedirectUri(name),
       });
       res.redirect(url);
     } catch (err) {
@@ -258,17 +305,28 @@ function createApp() {
     }
   });
 
-  /** GET /callback — exchange code for tokens, populate session. */
-  app.get('/callback', async (req, res) => {
-    if (!OIDC_ENABLED) return res.status(503).send('OIDC not configured');
+  /**
+   * GET /callback           — keycloak provider's callback (historic path).
+   * GET /callback/:name     — named provider's callback (e.g. /callback/authop).
+   * Both exchange the code for tokens and populate the session.
+   */
+  async function handleCallback(req, res, providerName) {
+    if (!providerEnabled(providerName)) {
+      return res.status(503).send(`OIDC provider "${providerName}" not configured`);
+    }
     try {
-      const client = await getOidcClient();
+      const client = await getOidcClient(providerName);
       const saved = req.session.oidc;
       if (!saved) return res.status(400).send('Missing OIDC session state');
+      if (saved.name && saved.name !== providerName) {
+        return res.status(400).send(
+          `OIDC provider mismatch: session started ${saved.name}, callback is ${providerName}`
+        );
+      }
 
       const params = client.callbackParams(req);
       const tokenSet = await client.callback(
-        oidcRedirectUri(),
+        oidcRedirectUri(providerName),
         params,
         { code_verifier: saved.code_verifier, state: saved.state, nonce: saved.nonce }
       );
@@ -280,23 +338,27 @@ function createApp() {
         name: claims.name || claims.preferred_username,
       };
       req.session.idToken = tokenSet.id_token;
+      req.session.provider = providerName;
       delete req.session.oidc;
 
       res.redirect('/');
     } catch (err) {
-      console.error('[OIDC] /callback error:', err.message);
+      console.error(`[OIDC:${providerName}] /callback error:`, err.message);
       res.status(500).send('Login callback failed');
     }
-  });
+  }
+  app.get('/callback', (req, res) => handleCallback(req, res, 'keycloak'));
+  app.get('/callback/:name', (req, res) => handleCallback(req, res, req.params.name));
 
-  /** POST /logout — clear local session and redirect to Keycloak end_session. */
+  /** POST /logout — clear local session and chain to the OP's end_session. */
   app.post('/logout', async (req, res) => {
     const idToken = req.session && req.session.idToken;
+    const providerName = req.session && req.session.provider;
     const returnTo = PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
     req.session.destroy(() => {
       res.clearCookie('rp.sid');
-      if (!OIDC_ENABLED) return res.redirect('/');
-      getOidcClient()
+      if (!providerName || !providerEnabled(providerName)) return res.redirect('/');
+      getOidcClient(providerName)
         .then((client) => {
           const url = client.endSessionUrl({
             id_token_hint: idToken,
@@ -337,11 +399,16 @@ function startServer() {
       console.log(`  RP Client:   ${config.RP_CLIENT_ID}`);
       console.log(`  RP Domain:   ${config.RP_DOMAIN}`);
     }
-    if (OIDC_ENABLED) {
-      console.log(`  OIDC:        enabled (${KEYCLOAK_ISSUER})`);
-      console.log(`  Redirect:    ${oidcRedirectUri()}`);
+    const enabled = enabledProviderNames();
+    if (enabled.length) {
+      console.log(`  OIDC providers: ${enabled.length}`);
+      enabled.forEach((name) => {
+        const p = OIDC_PROVIDERS[name];
+        console.log(`    - ${name} (${p.label}): ${p.issuer}`);
+        console.log(`      redirect: ${oidcRedirectUri(name)}`);
+      });
     } else {
-      console.log(`  OIDC:        disabled (set KEYCLOAK_ISSUER, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET)`);
+      console.log(`  OIDC providers: none (set {KEYCLOAK,AUTHOP}_ISSUER + _CLIENT_ID + _CLIENT_SECRET)`);
     }
     console.log('');
     console.log('  Make sure the Verify API is running at the configured URL.');

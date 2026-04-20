@@ -456,11 +456,13 @@ services:
       VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
       PORT: 4000
       # OIDC RP login — unset RP_THEAUSTRALIAHACK_SECRET to disable.
-      # Point RP_KEYCLOAK_ISSUER at Keycloak or auth-op; the client secret
-      # (RP_THEAUSTRALIAHACK_SECRET) is the same either way.
+      # Both OPs are configured simultaneously; the UI offers both buttons.
       KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
       KEYCLOAK_CLIENT_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
       KEYCLOAK_CLIENT_SECRET: "${RP_THEAUSTRALIAHACK_SECRET:-}"
+      AUTHOP_ISSUER: "${RP_AUTHOP_ISSUER:-}"
+      AUTHOP_CLIENT_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
+      AUTHOP_CLIENT_SECRET: "${RP_THEAUSTRALIAHACK_SECRET:-}"
       SESSION_SECRET: "${SESSION_SECRET:-}"
       PUBLIC_BASE_URL: "${RP_EXTERNAL_URL:-http://localhost:4000}"
       NODE_ENV: "${NODE_ENV:-production}"
@@ -486,8 +488,9 @@ services:
       VERIFY_API_KEY: "${VERIFY_API_KEY:-vfy_test_sandbox_demo_key_12345678}"
       NEXT_PUBLIC_VERIFY_API_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
       # OIDC RP login (Auth.js v5) — unset RP_THEAUSTRALIAHACK_SECRET to disable.
-      # Point RP_KEYCLOAK_ISSUER at Keycloak or auth-op; the client secret is
-      # the same either way.
+      # Two providers are configured side-by-side:
+      #   - provider id "keycloak" → Keycloak directly
+      #   - provider id "authop"   → auth-op (VC- or password-backed)
       AUTH_URL: "${RP_EXTERNAL_URL:-http://localhost:7020}"
       NEXTAUTH_URL: "${RP_EXTERNAL_URL:-http://localhost:7020}"
       AUTH_TRUST_HOST: "true"
@@ -495,6 +498,9 @@ services:
       AUTH_KEYCLOAK_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
       AUTH_KEYCLOAK_SECRET: "${RP_THEAUSTRALIAHACK_SECRET:-}"
       AUTH_KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
+      AUTH_AUTHOP_ID: "${RP_KEYCLOAK_CLIENT_ID:-}"
+      AUTH_AUTHOP_SECRET: "${RP_THEAUSTRALIAHACK_SECRET:-}"
+      AUTH_AUTHOP_ISSUER: "${RP_AUTHOP_ISSUER:-}"
     ports:
       - "${RP_NEXTJS_PORT:-7020}:3000"
 

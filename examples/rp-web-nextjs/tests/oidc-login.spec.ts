@@ -14,18 +14,24 @@ import { test, expect } from '@playwright/test';
  * skipped unless TEST_OIDC_FLOW=true.
  */
 
-test.describe('Landing page — two entry points', () => {
+test.describe('Landing page — three entry points', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  test('renders both OIDC and wallet verification cards', async ({ page }) => {
+  test('renders Keycloak, auth-op, and wallet cards', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Sign in with Keycloak' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in via auth-op' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Verify with wallet' })).toBeVisible();
   });
 
-  test('OIDC card has a Keycloak sign-in form', async ({ page }) => {
+  test('Keycloak card has a sign-in form', async ({ page }) => {
     const signInForm = page.locator('form').filter({ hasText: 'Sign in with Keycloak' });
+    await expect(signInForm.locator('button[type="submit"]')).toBeVisible();
+  });
+
+  test('auth-op card has a sign-in form', async ({ page }) => {
+    const signInForm = page.locator('form').filter({ hasText: 'Sign in via auth-op' });
     await expect(signInForm.locator('button[type="submit"]')).toBeVisible();
   });
 
@@ -36,7 +42,7 @@ test.describe('Landing page — two entry points', () => {
 
   test('domain + tagline are shown', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'rp.theaustraliahack.com' })).toBeVisible();
-    await expect(page.getByText(/two independent identity paths/i)).toBeVisible();
+    await expect(page.getByText(/three independent identity paths/i)).toBeVisible();
   });
 });
 
@@ -55,13 +61,15 @@ test.describe('Auth.js endpoints respond', () => {
     }
   });
 
-  test('/api/auth/providers is wired and lists keycloak when configured', async ({ request }) => {
+  test('/api/auth/providers is wired and lists both keycloak and authop when configured', async ({ request }) => {
     const res = await request.get('/api/auth/providers');
     expect(res.status(), 'route must exist').not.toBe(404);
     if (res.status() === 200) {
       const body = await res.json();
       expect(body).toHaveProperty('keycloak');
       expect(body.keycloak).toHaveProperty('id', 'keycloak');
+      expect(body).toHaveProperty('authop');
+      expect(body.authop).toHaveProperty('id', 'authop');
     }
   });
 });

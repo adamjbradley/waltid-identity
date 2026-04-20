@@ -28,8 +28,16 @@ test.describe('OIDC RP login — API surface', () => {
     const body = await res.json();
     expect(body).toHaveProperty('oidcEnabled');
     expect(typeof body.oidcEnabled).toBe('boolean');
+    expect(body).toHaveProperty('providers');
+    expect(Array.isArray(body.providers)).toBe(true);
     expect(body).toHaveProperty('user');
-    // user is null when not authenticated; object when logged in
+    expect(body).toHaveProperty('activeProvider');
+    // Each enabled provider must declare name + label + loginPath
+    body.providers.forEach((p) => {
+      expect(p).toHaveProperty('name');
+      expect(p).toHaveProperty('label');
+      expect(p).toHaveProperty('loginPath');
+    });
     if (body.user !== null) {
       expect(body.user).toHaveProperty('sub');
     }
@@ -71,10 +79,12 @@ test.describe('OIDC RP login — top bar UI', () => {
     test.skip(!me.oidcEnabled, 'OIDC not configured on server');
     test.skip(!!me.user, 'user is already signed in — clear session and retry');
 
-    // Login link should appear inside #auth-status
-    const loginLink = page.locator('#auth-status a', { hasText: 'Login with Keycloak' });
-    await expect(loginLink).toBeVisible();
-    await expect(loginLink).toHaveAttribute('href', '/login');
+    // One login link per enabled provider must appear inside #auth-status
+    for (const p of me.providers) {
+      const link = page.locator('#auth-status a', { hasText: 'Login via ' + p.label });
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', p.loginPath);
+    }
   });
 
   test('renders nothing when OIDC disabled', async ({ page, request }) => {
