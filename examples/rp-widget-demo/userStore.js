@@ -4,24 +4,30 @@
 // JSON file on disk. The file lives on a bind-mounted volume so profiles
 // survive container restarts.
 //
-// Shape:
+// Shape (authop provider — after rp-scope-hints design):
 //   {
 //     "users": [
 //       {
 //         "sub": "<claim_hash from auth-op>",
-//         "provider": "authop" | "keycloak",
-//         "email": "...",
-//         "name": "...",
-//         "given_name": "...",
-//         "family_name": "...",
-//         "birth_date": "YYYY-MM-DD",
-//         "nationality": "AU",
+//         "provider": "authop",
+//         "kyc_verified": true,
+//         "age_over_18": true,
+//         "age_over_21": false,
 //         "firstSeenAt": "2026-04-20T11:00:00.000Z",
 //         "lastSeenAt": "2026-04-20T11:00:00.000Z",
 //         "loginCount": 3
 //       }
 //     ]
 //   }
+//
+// Shape (keycloak provider): same plus name/given_name/family_name/email —
+// Keycloak doesn't route through the auth-op scope projector so we still
+// persist the standard OIDC profile claims.
+//
+// For the authop provider the store enforces a strict field allowlist on
+// upsert (sub + kyc_verified + age flags + accounting fields). Any PII that
+// accidentally slips into `profile` never makes it onto disk. See
+// docs/plans/2026-04-20-rp-scope-hints-design.md for the privacy contract.
 //
 // Atomic writes via tmp-file-and-rename. Reads are from an in-memory
 // mirror that gets rebuilt on each load() call, which runs on construction
@@ -30,6 +36,15 @@
 
 const fs = require('fs');
 const path = require('path');
+
+// Fields permitted on authop records. Anything else on the incoming profile
+// is stripped at upsert time — defence in depth if a future refactor
+// regresses and sends PII through.
+const AUTHOP_ALLOWED_FIELDS = new Set([
+  'sub', 'provider',
+  'kyc_verified', 'age_over_18', 'age_over_21',
+  'firstSeenAt', 'lastSeenAt', 'loginCount',
+]);
 
 class UserStore {
   constructor(filePath) {
@@ -64,23 +79,35 @@ class UserStore {
   }
 
   /** Upsert a user by sub. Merges new claims over existing entry, bumps
-   *  login stats, and persists. Returns the saved record. */
+   *  login stats, and persists. For authop records an allowlist strips
+   *  any non-permitted fields before write. Returns the saved record. */
   upsert(profile) {
     if (!profile || !profile.sub) {
       throw new Error('userStore.upsert: profile.sub is required');
     }
     const now = new Date().toISOString();
-    const existing = this.users.find((u) => u.sub === profile.sub);
+    // Allowlist filter for authop. Drops anything that isn't in the
+    // privacy-approved shape — a regression that sends e.g. `email` for an
+    // authop login gets silently truncated instead of landing on disk.
+    const input = (profile.provider === 'authop')
+      ? Object.fromEntries(Object.entries(profile).filter(([k]) => AUTHOP_ALLOWED_FIELDS.has(k)))
+      : profile;
+    const existing = this.users.find((u) => u.sub === input.sub);
     let saved;
     if (existing) {
-      saved = Object.assign({}, existing, profile, {
+      // Prune legacy PII off existing authop records on the next login so
+      // records that pre-date this change converge to the new shape.
+      const base = (input.provider === 'authop')
+        ? Object.fromEntries(Object.entries(existing).filter(([k]) => AUTHOP_ALLOWED_FIELDS.has(k)))
+        : existing;
+      saved = Object.assign({}, base, input, {
         firstSeenAt: existing.firstSeenAt || now,
         lastSeenAt: now,
         loginCount: (existing.loginCount || 0) + 1,
       });
-      this.users = this.users.map((u) => (u.sub === profile.sub ? saved : u));
+      this.users = this.users.map((u) => (u.sub === input.sub ? saved : u));
     } else {
-      saved = Object.assign({}, profile, {
+      saved = Object.assign({}, input, {
         firstSeenAt: now,
         lastSeenAt: now,
         loginCount: 1,

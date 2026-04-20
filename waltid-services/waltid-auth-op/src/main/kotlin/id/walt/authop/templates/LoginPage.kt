@@ -96,22 +96,26 @@ internal suspend fun ApplicationCall.respondLoginPage(
                     id = "segmented"
                     attributes["role"] = "tablist"
 
-                    if (oidcRealm != null) {
-                        div {
-                            attributes["class"] = "seg-tab"
-                            attributes["role"] = "tab"
-                            attributes["data-target"] = "pane-oidc"
-                            attributes["aria-selected"] = "true"
-                            +oidcRealm.name
-                        }
-                    }
+                    // Wallet (OID4VP / Citizens) is the default tab. Rendered
+                    // first so aria-selected=true and the pane.active state both
+                    // point at it on initial paint; the OIDC/employees pane is
+                    // the secondary choice.
                     if (vpRealm != null) {
                         div {
                             attributes["class"] = "seg-tab"
                             attributes["role"] = "tab"
                             attributes["data-target"] = "pane-vp"
-                            attributes["aria-selected"] = "false"
+                            attributes["aria-selected"] = "true"
                             +vpRealm.name
+                        }
+                    }
+                    if (oidcRealm != null) {
+                        div {
+                            attributes["class"] = "seg-tab"
+                            attributes["role"] = "tab"
+                            attributes["data-target"] = "pane-oidc"
+                            attributes["aria-selected"] = "false"
+                            +oidcRealm.name
                         }
                     }
                     div { id = "seg-indicator" }
@@ -120,7 +124,7 @@ internal suspend fun ApplicationCall.respondLoginPage(
                 if (oidcRealm != null) {
                     div {
                         id = "pane-oidc"
-                        attributes["class"] = "pane active"
+                        attributes["class"] = "pane"
                         attributes["role"] = "tabpanel"
                         p {
                             attributes["class"] = "pane-lead"
@@ -147,7 +151,7 @@ internal suspend fun ApplicationCall.respondLoginPage(
                 if (vpRealm != null) {
                     div {
                         id = "pane-vp"
-                        attributes["class"] = "pane"
+                        attributes["class"] = "pane active"
                         attributes["role"] = "tabpanel"
                         attributes["data-realm"] = vpRealm.id
                         p {
@@ -559,6 +563,20 @@ private val PAGE_JS = """
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTab(i); }
     });
   });
+
+  // Kick off the pane that's server-rendered as active. In practice this is
+  // always the wallet/VP pane (citizens is the default realm), so we want
+  // the QR kickoff to fire on page load without the user clicking anything.
+  // If a deployment flips the default back to OIDC the selectTab call
+  // still matches whichever pane has aria-selected=true.
+  (function autoActivate() {
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].getAttribute('aria-selected') === 'true') {
+        selectTab(i);
+        return;
+      }
+    }
+  })();
 
   var oidcBtn = document.getElementById('oidc-continue');
   if (oidcBtn) {

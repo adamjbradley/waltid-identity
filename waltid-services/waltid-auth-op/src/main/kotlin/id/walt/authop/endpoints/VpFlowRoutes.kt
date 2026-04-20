@@ -34,9 +34,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.security.MessageDigest
@@ -121,13 +123,15 @@ internal suspend fun ApplicationCall.vpRealmKickoff(
         }
     }
 
-    // --- Load DCQL ------------------------------------------------------
+    // --- Build DCQL -----------------------------------------------------
+    // Static file (legacy) or dynamic composition from the realm scope
+    // catalog ∩ the RP's requested scopes, whichever the realm declared.
     val dcqlQuery = try {
-        loadDcqlQuery(oid4vpCfg.dcqlQueryFile)
+        buildDcqlQuery(oid4vpCfg, authReq.scope)
     } catch (t: Throwable) {
         respondPlainBadRequest(
             "server_error",
-            "failed to load DCQL query: ${t.message}",
+            "failed to build DCQL query: ${t.message}",
         )
         return
     }
@@ -230,9 +234,9 @@ fun Route.vpKickoffJsonRoutes(deps: AuthOpDeps) {
             ?: return@post call.respondJsonBadRequest("invalid_request", "realm '$realmId' is not an oid4vp realm")
 
         val dcqlQuery = try {
-            loadDcqlQuery(oid4vpCfg.dcqlQueryFile)
+            buildDcqlQuery(oid4vpCfg, authReq.scope)
         } catch (t: Throwable) {
-            return@post call.respondJsonBadRequest("server_error", "DCQL load failed: ${t.message}")
+            return@post call.respondJsonBadRequest("server_error", "DCQL build failed: ${t.message}")
         }
 
         val webhookSecret = randomSecret()
@@ -793,17 +797,74 @@ private suspend fun ApplicationCall.handleVpWebhook(deps: AuthOpDeps) {
 // ---- helpers --------------------------------------------------------------
 
 /**
- * Read and parse the realm's DCQL query JSON file. The content is passed
- * through byte-for-byte to verifier-api2, so the file must be a JSON object
- * (DCQL top-level is `{credentials: [...], credential_sets: [...]}`). An
- * empty file or a non-object top-level is a config bug — caller surfaces it
- * as `server_error`.
+ * Build the DCQL query sent to verifier-api2 for this realm and authorize
+ * request. Supports two modes driven by realm config (RealmRegistry enforces
+ * exactly one is present):
+ *
+ * - **Static file.** [Oid4vpRealmConfig.dcqlQueryFile] path points at a JSON
+ *   file read byte-for-byte — pre-scope-catalog behaviour.
+ * - **Dynamic compose.** [Oid4vpRealmConfig.scopes] is a catalog; for each
+ *   requested scope we union its [id.walt.authop.config.ScopeDefinition.claimPaths]
+ *   into a single credential query wrapped in the realm's [Oid4vpRealmConfig.vctValues].
+ *   One credential query, not N — EUDI wallets prompt per-query so a single union
+ *   means one wallet interaction per session regardless of how many scopes the RP
+ *   requested.
+ *
+ * Composition rules:
+ *  - Requested scopes not in the catalog are silently dropped (OIDC Core §3.1.2.1
+ *    — unknown scopes are not a protocol error).
+ *  - If no requested scopes survive intersection with the catalog we throw
+ *    `IllegalArgumentException` — an empty DCQL query would pass no claims and
+ *    is almost certainly an RP config bug worth surfacing.
+ *  - Claim paths are de-duplicated; two scopes sharing a path don't produce a
+ *    duplicate DCQL claims entry.
  */
-private fun loadDcqlQuery(path: String): JsonObject {
-    val bytes = Files.readAllBytes(Paths.get(path))
-    val parsed = Json.parseToJsonElement(bytes.decodeToString())
-    return parsed as? JsonObject
-        ?: error("DCQL file '$path' top-level is not a JSON object")
+private fun buildDcqlQuery(
+    cfg: id.walt.authop.config.Oid4vpRealmConfig,
+    requestedScopes: List<String>,
+): JsonObject {
+    if (!cfg.dcqlQueryFile.isNullOrBlank()) {
+        val bytes = Files.readAllBytes(Paths.get(cfg.dcqlQueryFile))
+        val parsed = Json.parseToJsonElement(bytes.decodeToString())
+        return parsed as? JsonObject
+            ?: error("DCQL file '${cfg.dcqlQueryFile}' top-level is not a JSON object")
+    }
+
+    val catalog = cfg.scopes
+    val matched = requestedScopes.filter { it in catalog }
+    require(matched.isNotEmpty()) {
+        "none of the requested scopes (${requestedScopes.joinToString(",")}) " +
+            "are in the realm scope catalog (${catalog.keys.joinToString(",")})"
+    }
+
+    // Collect, de-dup, preserve catalog order for deterministic output.
+    val seen = LinkedHashSet<List<String>>()
+    matched.forEach { scope ->
+        catalog[scope]?.claimPaths?.forEach { seen.add(it) }
+    }
+
+    val claimsArray = buildJsonArray {
+        seen.forEach { path ->
+            add(buildJsonObject {
+                put("path", buildJsonArray { path.forEach { add(JsonPrimitive(it)) } })
+            })
+        }
+    }
+    val credentialsArray = buildJsonArray {
+        add(buildJsonObject {
+            put("id", JsonPrimitive("pid"))
+            put("format", JsonPrimitive(cfg.credentialFormat))
+            put("meta", buildJsonObject {
+                put("vct_values", buildJsonArray {
+                    cfg.vctValues.forEach { add(JsonPrimitive(it)) }
+                })
+            })
+            put("claims", claimsArray)
+        })
+    }
+    return buildJsonObject {
+        put("credentials", credentialsArray)
+    }
 }
 
 /**

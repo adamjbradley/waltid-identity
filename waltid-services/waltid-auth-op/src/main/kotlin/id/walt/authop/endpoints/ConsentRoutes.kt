@@ -3,6 +3,7 @@
 package id.walt.authop.endpoints
 
 import id.walt.authop.AuthOpDeps
+import id.walt.authop.claims.ScopeProjector
 import id.walt.authop.domain.AuthCode
 import id.walt.authop.domain.AuthRequest
 import id.walt.authop.errors.OidcError
@@ -68,7 +69,8 @@ fun Route.consentRoutes(deps: AuthOpDeps) {
         }
 
         val csrf = deps.csrfTokenStore.issue(authReq.authRequestId)
-        call.respondConsentPage(authReq, client, csrf)
+        val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+        call.respondConsentPage(authReq, client, realm, csrf)
     }
 
     post("/consent") {
@@ -143,6 +145,27 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
     authReq: AuthRequest,
 ) {
     val code = randomCode()
+
+    // Project wallet-disclosed claims through the realm's scope catalog
+    // before they're baked into the AuthCode. The AuthRequest still carries
+    // the full disclosed claim set (consent screen already rendered them);
+    // the AuthCode / id_token must only carry what the RP's requested scopes
+    // warrant. For OIDC realms (or OID4VP realms still on the static DCQL
+    // file path) the projector returns the input map unchanged.
+    val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+    val realmClaimKey = "${deps.config.canonicalIssuer}/realm"
+    val preservedKeys = setOf("acr", "amr", realmClaimKey)
+    val projectedClaims = if (realm != null) {
+        ScopeProjector.project(
+            realm = realm,
+            requestedScopes = authReq.scope,
+            disclosed = authReq.claims,
+            preservedClaimKeys = preservedKeys,
+        )
+    } else {
+        authReq.claims
+    }
+
     // authReq.subject is guaranteed non-null by the loadConsentContext check
     // above, but the compiler doesn't know — !! is the least-surprise shape.
     // authTime uses Clock.System.now() here — the moment consent completes
@@ -158,7 +181,7 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
             clientId = authReq.clientId,
             redirectUri = authReq.redirectUri,
             subject = authReq.subject!!,
-            claims = authReq.claims,
+            claims = projectedClaims,
             codeChallenge = authReq.codeChallenge,
             codeChallengeMethod = authReq.codeChallengeMethod,
             nonce = authReq.nonce,
