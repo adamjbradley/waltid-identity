@@ -152,6 +152,11 @@ class Verifier2Client(
             put("flow_type", "cross_device")
             putJsonObject("core_flow") {
                 put("dcql_query", dcqlQuery)
+                // EUDI wallet profile requires the Request Object to be served
+                // as a signed JAR (RFC 9101, content-type application/oauth-authz-req+jwt).
+                // Without this, verifier-api2 falls back to plain JSON and the wallet
+                // rejects with `InvalidJarJwt(cause=JAR JWT parse error)`.
+                put("signed_request", true)
                 putJsonObject("notifications") {
                     putJsonObject("webhook") {
                         put("url", webhookUrl)
