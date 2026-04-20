@@ -93,8 +93,16 @@ async function issueAndClaim(page: any, request: any): Promise<{ credId: string;
   await expect(issueButton).toBeEnabled({ timeout: 5_000 });
   await issueButton.click();
 
-  await page.waitForURL(/\/offer/, { timeout: 15_000 });
-  await expect(page.getByRole('heading', { name: 'Claim Your Credential' })).toBeVisible({ timeout: 10_000 });
+  // New modal-based flow: stays on /credentials, opens modal with "Claim Your Credential"
+  // Fall back to legacy /offer navigation if modal doesn't appear
+  const modalHeading = page.getByRole('heading', { name: /Claim Your Credential/i });
+  const modalAppeared = await modalHeading.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+
+  if (!modalAppeared) {
+    // Legacy flow: navigates to /offer page
+    await page.waitForURL(/\/offer/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Claim Your Credential' })).toBeVisible({ timeout: 10_000 });
+  }
 
   const copyLink = page.getByText('Copy offer URL');
   await copyLink.waitFor({ state: 'visible', timeout: 30_000 });

@@ -16,9 +16,11 @@ services:
     extra_hosts:
       - "$SERVICE_HOST:host-gateway"
       - "waltid.enterprise.localhost:host-gateway"
+    entrypoint: ["/bin/sh", "-c", "keytool -import -trustcacerts -cacerts -storepass changeit -noprompt -alias caddy-local -file /etc/ssl/certs/caddy-root-ca.crt 2>/dev/null; exec java -cp @/app/jib-classpath-file id.walt.webwallet.MainKt"]
     volumes:
       - ./wallet-api/config:/waltid-wallet-api/config
       - ./wallet-api/data:/waltid-wallet-api/data
+      - ./caddy-root-ca.crt:/etc/ssl/certs/caddy-root-ca.crt:ro
 
   issuer-api:
     image: ${IMAGE_PREFIX}waltid/issuer-api:${VERSION_TAG:-latest}
