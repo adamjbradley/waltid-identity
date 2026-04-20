@@ -107,3 +107,4 @@ ktor {
         portMappings.set(listOf(DockerPortMapping(7003, 7003, DockerPortMappingProtocol.TCP)))
     }
 }
+

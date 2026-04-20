@@ -28,21 +28,22 @@ fun Application.rpPublicRoutes() {
                 RelyingPartyStore.instanceOrNull()?.list()
                     ?.filter { it.status == RpStatus.ACTIVE && !it.x5c.isNullOrEmpty() }
                     ?.forEach { rp ->
-                        val derBase64 = rp.x5c!!.first()
+                        val derBase64 = rp.x5c!!.last() // last = CA (trust anchor); first = leaf
                         pemCerts.add(derToPem(derBase64))
-                        val certInfo = rp.certificate
-                        if (certInfo != null) {
+                        try {
+                            val caCert = decodeDerCert(derBase64)
+                            val caInfo = RpCertificateService.extractCertInfo(caCert)
                             jsonEntries.add(buildJsonObject {
                                 put("source", "rp")
                                 put("rpId", rp.id)
                                 put("domain", rp.domain)
-                                put("subject", certInfo.subject)
-                                put("issuer", certInfo.issuer)
-                                put("notBefore", certInfo.notBefore)
-                                put("notAfter", certInfo.notAfter)
-                                put("fingerprint", certInfo.fingerprint)
+                                put("subject", caInfo.subject)
+                                put("issuer", caInfo.issuer)
+                                put("notBefore", caInfo.notBefore)
+                                put("notAfter", caInfo.notAfter)
+                                put("fingerprint", caInfo.fingerprint)
                             })
-                        }
+                        } catch (_: Exception) {}
                     }
 
                 // 2. Include verifier's own certificate from config
