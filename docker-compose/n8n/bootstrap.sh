@@ -26,6 +26,13 @@ log() {
     printf '[n8n-bootstrap] %s\n' "$*" >&2
 }
 
+# Ensure htpasswd is available (used for the bcrypt hash below).
+# postgres:16-alpine doesn't ship apache2-utils by default.
+if ! command -v htpasswd >/dev/null 2>&1; then
+    log "installing apache2-utils (for htpasswd)..."
+    apk add --no-cache --quiet apache2-utils >/dev/null
+fi
+
 # ---------------------------------------------------------------------------
 # 1. Wait until n8n's TypeORM migrations have created the "user" table.
 # ---------------------------------------------------------------------------
