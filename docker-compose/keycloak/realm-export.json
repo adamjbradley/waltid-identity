@@ -88,6 +88,35 @@
         "email",
         "web-origins"
       ]
+    },
+    {
+      "clientId": "auth-op",
+      "name": "auth-op (custom OIDC OP)",
+      "description": "Confidential OIDC client used by auth-op's \"employees\" realm to authenticate against Keycloak. Client secret must match EMPLOYEES_OIDC_SECRET in docker-compose/.env.local.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "auth-op-demo-secret",
+      "redirectUris": [
+        "https://auth-op.theaustraliahack.com/callback/oidc",
+        "http://localhost:7005/callback/oidc"
+      ],
+      "webOrigins": [
+        "https://auth-op.theaustraliahack.com",
+        "http://localhost:7005"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "post.logout.redirect.uris": "https://auth-op.theaustraliahack.com/*##http://localhost:7005/*"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
     }
   ],
   "clientScopes": [
