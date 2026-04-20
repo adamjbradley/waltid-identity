@@ -17,6 +17,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -178,11 +179,22 @@ fun Route.tokenRoutes(deps: AuthOpDeps) {
             authTime = authCode.authTime,
             claims = authCode.claims,
         )
+        // Access token normally carries only standard JWT claims (the ID
+        // token holds the claim payload). But /userinfo reads its response
+        // straight out of the access token's claim set, so claims that
+        // need a /userinfo surface must be stamped here too. We narrow to
+        // a small allowlist rather than forwarding the full claim map, so
+        // the access token stays tight.
+        val accessTokenClaims = buildMap<String, JsonElement> {
+            if ("preferences" in authCode.scope) {
+                authCode.claims["preferences"]?.let { put("preferences", it) }
+            }
+        }
         val accessToken = deps.jwtIssuer.mintAccessToken(
             sub = authCode.subject,
             aud = authCode.clientId,
             scope = authCode.scope,
-            claims = emptyMap(),
+            claims = accessTokenClaims,
         )
 
         // --- 10. Response -----------------------------------------------------

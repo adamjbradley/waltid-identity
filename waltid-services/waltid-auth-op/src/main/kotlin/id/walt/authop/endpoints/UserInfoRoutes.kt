@@ -227,6 +227,12 @@ internal fun filterClaimsForScope(
     if ("email" in scopes) emailClaims.forEach { name ->
         allClaims[name]?.let { result[name] = it }
     }
+    // Synthesised composite claim from the post-consent n8n workflow.
+    // Emitted in /userinfo only when the `preferences` scope was granted on
+    // the access token (same gating as the ID-token injection).
+    if ("preferences" in scopes) {
+        allClaims["preferences"]?.let { result["preferences"] = it }
+    }
     return result
 }
 
