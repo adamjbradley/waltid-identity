@@ -51,6 +51,13 @@ dependencies {
      * payloads (OID4VP realm). Same version the rest of the repo pins. */
     implementation("com.eygraber:jsonpathkt-kotlinx:3.0.2")
 
+    /* -- WebAuthn (passkey registration + assertion) --
+     * Yubico's server-side FIDO2 library handles ceremony construction,
+     * attestation parsing, and assertion verification. Used by the
+     * passkey support on the citizens realm.
+     * https://github.com/Yubico/java-webauthn-server */
+    implementation("com.yubico:webauthn-server-core:2.7.0")
+
     /* -- Test -- */
     testImplementation(identityLibs.bundles.waltid.ktortesting)
     testImplementation("io.mockk:mockk:1.14.2")

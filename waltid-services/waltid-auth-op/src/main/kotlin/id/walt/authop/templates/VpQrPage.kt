@@ -5,11 +5,13 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.html.respondHtml
 import kotlinx.html.a
 import kotlinx.html.body
+import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.head
 import kotlinx.html.id
 import kotlinx.html.img
+import kotlinx.html.input
 import kotlinx.html.meta
 import kotlinx.html.p
 import kotlinx.html.script
@@ -75,6 +77,35 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                 a(href = deepLink) { +"Open wallet on this device" }
             }
 
+            // Passkey login surface. Two-layered: (a) an explicit button for
+            // returning users who know they have a passkey — triggered with
+            // `mediation: 'optional'` so the browser prompt appears
+            // immediately on click, and (b) a hidden input with
+            // autocomplete="username webauthn" that lets Chrome/Safari
+            // attach conditional-UI autofill for users who tab into it.
+            // Click on the hidden input does nothing visible; it exists
+            // only as an anchor for the conditional mediation call below.
+            div {
+                id = "passkey-login"
+                button {
+                    id = "passkey-btn"
+                    attributes["type"] = "button"
+                    attributes["style"] = "display:none;"
+                    +"Sign in with passkey"
+                }
+                input {
+                    id = "passkey-username"
+                    attributes["autocomplete"] = "username webauthn"
+                    attributes["style"] = "position:absolute;left:-10000px;width:1px;height:1px;"
+                    attributes["aria-hidden"] = "true"
+                    attributes["tabindex"] = "-1"
+                }
+                div {
+                    id = "passkey-status"
+                    attributes["style"] = "margin-top:8px;font-size:0.9em;opacity:0.8;"
+                }
+            }
+
             // Poll status every 2s. On SUCCESSFUL, navigate to /complete.
             // On UNSUCCESSFUL, write an error into #vp-error.
             // `window.location.replace` is correct here — we don't want the
@@ -107,6 +138,157 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                           .catch(function() { setTimeout(tick, 2000); });
                       }
                       setTimeout(tick, 2000);
+                    })();
+                    """.trimIndent()
+                }
+            }
+
+            // Passkey login. Two paths:
+            //  1. Explicit button ("Sign in with passkey") — uses
+            //     mediation: 'optional' so the platform authenticator
+            //     prompt appears immediately on click. This is what most
+            //     production sites do and works on every WebAuthn browser.
+            //  2. Background conditional mediation attached to the hidden
+            //     <input autocomplete="username webauthn">. If the browser
+            //     supports it, tabbing/clicking into the input surfaces
+            //     the passkey as an autofill suggestion. Zero-cost fallback
+            //     for users who don't see/notice the button.
+            //
+            // Both paths share a single /webauthn/login/complete server
+            // handshake. When the server has no passkeys (or the feature
+            // is disabled), both paths degrade to no-ops and the QR flow
+            // continues unchanged.
+            script {
+                unsafe {
+                    +"""
+                    (function() {
+                      if (!window.PublicKeyCredential) return;
+                      var btn = document.getElementById('passkey-btn');
+                      var input = document.getElementById('passkey-username');
+                      var status = document.getElementById('passkey-status');
+                      if (btn) btn.style.display = 'inline-block';
+
+                      function show(msg, isError) {
+                        console[isError ? 'error' : 'log']('[passkey]', msg);
+                        if (status) {
+                          status.textContent = msg;
+                          status.style.color = isError ? '#b00020' : '';
+                        }
+                      }
+
+                      function b64urlToBuf(s) {
+                        s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+                        while (s.length % 4) s += '=';
+                        var bin = atob(s);
+                        var a = new Uint8Array(bin.length);
+                        for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+                        return a.buffer;
+                      }
+                      function bufToB64url(b) {
+                        var bytes = new Uint8Array(b);
+                        var s = '';
+                        for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+                        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+${'$'}/, '');
+                      }
+                      function hydrateRequest(o) {
+                        var p = o.publicKey || o;
+                        p.challenge = b64urlToBuf(p.challenge);
+                        if (Array.isArray(p.allowCredentials)) {
+                          p.allowCredentials = p.allowCredentials.map(function(c) {
+                            return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+                          });
+                        }
+                        return p;
+                      }
+                      function serializeAssertion(cred) {
+                        var r = cred.response;
+                        return {
+                          id: cred.id,
+                          rawId: bufToB64url(cred.rawId),
+                          type: cred.type,
+                          clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+                          response: {
+                            clientDataJSON: bufToB64url(r.clientDataJSON),
+                            authenticatorData: bufToB64url(r.authenticatorData),
+                            signature: bufToB64url(r.signature),
+                            userHandle: r.userHandle ? bufToB64url(r.userHandle) : null
+                          }
+                        };
+                      }
+
+                      // Serialise navigator.credentials.get() calls ourselves
+                      // so the button click never collides with an in-flight
+                      // conditional mediation call. One AbortController per
+                      // pending call, replaced on each new invocation.
+                      var pendingAbort = null;
+
+                      function runGet(mediation) {
+                        if (pendingAbort) { try { pendingAbort.abort(); } catch (_) {} }
+                        var ac = new AbortController();
+                        pendingAbort = ac;
+                        return fetch('/webauthn/login/begin', {
+                          method: 'POST', credentials: 'same-origin'
+                        })
+                          .then(function(r) { return r.ok ? r.json() : null; })
+                          .then(function(envelope) {
+                            if (!envelope) throw new Error('no envelope from /login/begin');
+                            var opts = hydrateRequest(envelope.options);
+                            console.log('[passkey] login options', opts, 'mediation', mediation);
+                            return navigator.credentials.get({
+                              publicKey: opts,
+                              mediation: mediation,
+                              signal: ac.signal,
+                            }).then(function(assertion) {
+                              if (!assertion) return null;
+                              console.log('[passkey] assertion received', assertion);
+                              return fetch('/webauthn/login/complete', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                  flow_id: envelope.flow_id,
+                                  assertion: serializeAssertion(assertion)
+                                })
+                              }).then(function(r) {
+                                if (r.ok) return r.json();
+                                return r.text().then(function(t){ throw new Error('complete HTTP ' + r.status + ': ' + t); });
+                              });
+                            });
+                          })
+                          .then(function(j) {
+                            if (j && j.redirect) window.location.replace(j.redirect);
+                          });
+                      }
+
+                      if (btn) {
+                        btn.addEventListener('click', function() {
+                          btn.disabled = true;
+                          show('Follow your browser / OS prompt…');
+                          runGet('optional').catch(function(err) {
+                            // AbortError from cancelling our own conditional
+                            // call isn't user-visible — only real failures.
+                            if (err && err.name === 'AbortError') return;
+                            show('Passkey sign-in failed: ' + (err && err.message ? err.message : err), true);
+                            btn.disabled = false;
+                          });
+                        });
+                      }
+
+                      // W3C conditional-UI pattern: attach on input focus, NOT
+                      // on page load. Firing get({mediation:'conditional'}) at
+                      // load-time holds a WebAuthn "slot" forever and makes
+                      // the button's click collide. Browser surfaces the
+                      // passkey via autofill when the user tabs into the
+                      // input; if they click the button instead, the button
+                      // path aborts any focus-triggered call and wins.
+                      if (input && PublicKeyCredential.isConditionalMediationAvailable) {
+                        PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
+                          if (!ok) return;
+                          input.addEventListener('focus', function() {
+                            runGet('conditional').catch(function() {});
+                          }, { once: true });
+                        });
+                      }
                     })();
                     """.trimIndent()
                 }

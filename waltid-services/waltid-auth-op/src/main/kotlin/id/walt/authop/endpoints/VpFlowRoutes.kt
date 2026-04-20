@@ -34,9 +34,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.security.MessageDigest
@@ -121,13 +123,15 @@ internal suspend fun ApplicationCall.vpRealmKickoff(
         }
     }
 
-    // --- Load DCQL ------------------------------------------------------
+    // --- Build DCQL -----------------------------------------------------
+    // Static file (legacy) or dynamic composition from the realm scope
+    // catalog ∩ the RP's requested scopes, whichever the realm declared.
     val dcqlQuery = try {
-        loadDcqlQuery(oid4vpCfg.dcqlQueryFile)
+        buildDcqlQuery(oid4vpCfg, authReq.scope)
     } catch (t: Throwable) {
         respondPlainBadRequest(
             "server_error",
-            "failed to load DCQL query: ${t.message}",
+            "failed to build DCQL query: ${t.message}",
         )
         return
     }
@@ -194,6 +198,104 @@ internal suspend fun ApplicationCall.vpRealmKickoff(
  * polling endpoint used by the QR page JS. Returns `{status: "..."}` only;
  * never returns credential data.
  */
+/**
+ * JSON counterpart of `GET /login/realm/{id}` for OID4VP realms. Creates a
+ * fresh verifier-api2 session and returns the QR payload + polling URLs as
+ * JSON rather than rendering the full VpQrPage. Used by the redesigned
+ * `/login` glass page to render the wallet UX inline without navigating
+ * away to the standalone QR view.
+ *
+ * Scope-matches vpRealmKickoff's preconditions (sid + AuthRequest + realm +
+ * client.allowedRealms) but surfaces failures as JSON 400s so the caller
+ * can render an error in-place.
+ */
+fun Route.vpKickoffJsonRoutes(deps: AuthOpDeps) {
+    post("/login/realm/{realmId}/kickoff") {
+        val realmId = call.parameters.getOrFail("realmId")
+
+        val sid = call.request.cookies["sid"]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "missing sid cookie")
+
+        val authReq = deps.authRequestStore.get(sid)
+            ?: return@post call.respondJsonBadRequest("invalid_request", "auth request not found")
+
+        val client = deps.clientRegistry[authReq.clientId]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "client no longer registered")
+
+        val allowed = client.allowedRealms.takeIf { it.isNotEmpty() }
+        if (allowed != null && realmId !in allowed) {
+            return@post call.respondJsonBadRequest("access_denied", "realm '$realmId' not allowed for this client")
+        }
+
+        val realm = deps.realmRegistry[realmId]
+            ?: return@post call.respondJsonBadRequest("invalid_request", "unknown realm '$realmId'")
+
+        val oid4vpCfg = realm.oid4vp
+            ?: return@post call.respondJsonBadRequest("invalid_request", "realm '$realmId' is not an oid4vp realm")
+
+        val dcqlQuery = try {
+            buildDcqlQuery(oid4vpCfg, authReq.scope)
+        } catch (t: Throwable) {
+            return@post call.respondJsonBadRequest("server_error", "DCQL build failed: ${t.message}")
+        }
+
+        val webhookSecret = randomSecret()
+        val webhookUrl = "${deps.config.canonicalIssuer}${oid4vpCfg.webhookCallbackPath}"
+
+        val response = try {
+            deps.verifier2Client.createSession(
+                verifierBaseUrl = oid4vpCfg.verifierBaseUrl,
+                dcqlQuery = dcqlQuery,
+                webhookUrl = webhookUrl,
+                webhookSecret = webhookSecret,
+                rpId = oid4vpCfg.rpId,
+            )
+        } catch (e: Verifier2ClientException) {
+            return@post call.respondJsonBadRequest("server_error", "verifier-api2 create failed: ${e.code}")
+        }
+
+        deps.vpSessionStore.put(
+            response.sessionId,
+            VpSession(
+                verifierSessionId = response.sessionId,
+                realmId = realm.id,
+                authRequestId = authReq.authRequestId,
+                sessionCookieId = sid,
+                webhookSecret = webhookSecret,
+                status = VpSessionStatus.PENDING,
+                capturedCredential = null,
+            )
+        )
+        deps.authRequestStore.update(sid) { current ->
+            current.copy(
+                chosenRealmId = realm.id,
+                activeVpSessionId = response.sessionId,
+            )
+        }
+
+        val qrPayload = response.bootstrapAuthorizationRequestUrl ?: response.fullAuthorizationRequestUrl
+        call.respond(
+            kotlinx.serialization.json.buildJsonObject {
+                put("qrPayloadUrl", JsonPrimitive(qrPayload))
+                put("deepLink", JsonPrimitive(response.fullAuthorizationRequestUrl))
+                put("verifierSessionId", JsonPrimitive(response.sessionId))
+                put("statusUrl", JsonPrimitive("/login/realm/${realm.id}/status?verifierSessionId=${response.sessionId}"))
+                put("completeUrl", JsonPrimitive("/login/realm/${realm.id}/complete?verifierSessionId=${response.sessionId}"))
+            }
+        )
+    }
+}
+
+private suspend fun ApplicationCall.respondJsonBadRequest(code: String, description: String) {
+    respond(
+        HttpStatusCode.BadRequest,
+        kotlinx.serialization.json.buildJsonObject {
+            put("error", JsonPrimitive(code))
+            put("description", JsonPrimitive(description))
+        }
+    )
+}
+
 fun Route.vpStatusRoutes(deps: AuthOpDeps) {
     get("/login/realm/{realmId}/status") {
         val realmId = call.parameters.getOrFail("realmId")
@@ -441,8 +543,34 @@ private suspend fun ApplicationCall.handleVpComplete(deps: AuthOpDeps) {
     // the point they've been mapped to claims.
     deps.vpSessionStore.update(verifierSessionId) { it.copy(capturedCredential = null) }
 
-    // 17. Redirect to /consent.
-    respondRedirect("/consent")
+    // 17. Hand the user off to the next step. When the glass /login page
+    // polls /complete with Accept: application/json it wants to swap the
+    // panel in-place instead of navigating away — return a small JSON
+    // envelope describing where the SPA should go next. Non-JSON callers
+    // still get the classic 302 redirect so /login/realm/{id}/complete
+    // stays a valid standalone entry point.
+    val next = if (deps.passkeyService != null) "register_passkey" else "consent"
+    val nextUrl = if (next == "register_passkey") "/register-passkey" else "/consent"
+    val wantsJson = request.headers["Accept"]?.contains("application/json") == true
+    if (wantsJson) {
+        respond(
+            kotlinx.serialization.json.buildJsonObject {
+                put("next", JsonPrimitive(next))
+                put("nextUrl", JsonPrimitive(nextUrl))
+                put("sub", JsonPrimitive(sub))
+                // displayName lets the inline register panel greet the user
+                // with their wallet-asserted name without a second fetch.
+                put("displayName", JsonPrimitive(
+                    listOfNotNull(
+                        (mappedClaims["given_name"] as? JsonPrimitive)?.contentOrNull,
+                        (mappedClaims["family_name"] as? JsonPrimitive)?.contentOrNull,
+                    ).joinToString(" ").ifBlank { sub }
+                ))
+            }
+        )
+    } else {
+        respondRedirect(nextUrl)
+    }
 }
 
 /**
@@ -669,17 +797,74 @@ private suspend fun ApplicationCall.handleVpWebhook(deps: AuthOpDeps) {
 // ---- helpers --------------------------------------------------------------
 
 /**
- * Read and parse the realm's DCQL query JSON file. The content is passed
- * through byte-for-byte to verifier-api2, so the file must be a JSON object
- * (DCQL top-level is `{credentials: [...], credential_sets: [...]}`). An
- * empty file or a non-object top-level is a config bug — caller surfaces it
- * as `server_error`.
+ * Build the DCQL query sent to verifier-api2 for this realm and authorize
+ * request. Supports two modes driven by realm config (RealmRegistry enforces
+ * exactly one is present):
+ *
+ * - **Static file.** [Oid4vpRealmConfig.dcqlQueryFile] path points at a JSON
+ *   file read byte-for-byte — pre-scope-catalog behaviour.
+ * - **Dynamic compose.** [Oid4vpRealmConfig.scopes] is a catalog; for each
+ *   requested scope we union its [id.walt.authop.config.ScopeDefinition.claimPaths]
+ *   into a single credential query wrapped in the realm's [Oid4vpRealmConfig.vctValues].
+ *   One credential query, not N — EUDI wallets prompt per-query so a single union
+ *   means one wallet interaction per session regardless of how many scopes the RP
+ *   requested.
+ *
+ * Composition rules:
+ *  - Requested scopes not in the catalog are silently dropped (OIDC Core §3.1.2.1
+ *    — unknown scopes are not a protocol error).
+ *  - If no requested scopes survive intersection with the catalog we throw
+ *    `IllegalArgumentException` — an empty DCQL query would pass no claims and
+ *    is almost certainly an RP config bug worth surfacing.
+ *  - Claim paths are de-duplicated; two scopes sharing a path don't produce a
+ *    duplicate DCQL claims entry.
  */
-private fun loadDcqlQuery(path: String): JsonObject {
-    val bytes = Files.readAllBytes(Paths.get(path))
-    val parsed = Json.parseToJsonElement(bytes.decodeToString())
-    return parsed as? JsonObject
-        ?: error("DCQL file '$path' top-level is not a JSON object")
+private fun buildDcqlQuery(
+    cfg: id.walt.authop.config.Oid4vpRealmConfig,
+    requestedScopes: List<String>,
+): JsonObject {
+    if (!cfg.dcqlQueryFile.isNullOrBlank()) {
+        val bytes = Files.readAllBytes(Paths.get(cfg.dcqlQueryFile))
+        val parsed = Json.parseToJsonElement(bytes.decodeToString())
+        return parsed as? JsonObject
+            ?: error("DCQL file '${cfg.dcqlQueryFile}' top-level is not a JSON object")
+    }
+
+    val catalog = cfg.scopes
+    val matched = requestedScopes.filter { it in catalog }
+    require(matched.isNotEmpty()) {
+        "none of the requested scopes (${requestedScopes.joinToString(",")}) " +
+            "are in the realm scope catalog (${catalog.keys.joinToString(",")})"
+    }
+
+    // Collect, de-dup, preserve catalog order for deterministic output.
+    val seen = LinkedHashSet<List<String>>()
+    matched.forEach { scope ->
+        catalog[scope]?.claimPaths?.forEach { seen.add(it) }
+    }
+
+    val claimsArray = buildJsonArray {
+        seen.forEach { path ->
+            add(buildJsonObject {
+                put("path", buildJsonArray { path.forEach { add(JsonPrimitive(it)) } })
+            })
+        }
+    }
+    val credentialsArray = buildJsonArray {
+        add(buildJsonObject {
+            put("id", JsonPrimitive("pid"))
+            put("format", JsonPrimitive(cfg.credentialFormat))
+            put("meta", buildJsonObject {
+                put("vct_values", buildJsonArray {
+                    cfg.vctValues.forEach { add(JsonPrimitive(it)) }
+                })
+            })
+            put("claims", claimsArray)
+        })
+    }
+    return buildJsonObject {
+        put("credentials", credentialsArray)
+    }
 }
 
 /**

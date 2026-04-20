@@ -557,6 +557,9 @@ services:
       # Jib sets WORKDIR=/waltid-auth-op so hoplite resolves config/auth-op.conf
       # relative to that — NOT /app/ (the design doc assumed /app).
       - ./auth-op/config:/waltid-auth-op/config
+      # Passkey registry lives on disk so credentials survive container
+      # restarts. auth-op.conf points passkey.registryFile at this path.
+      - ./auth-op/data:/waltid-auth-op/data
     ports:
       - "${AUTH_OP_PORT:-7005}:${AUTH_OP_PORT:-7005}"
 
@@ -603,6 +606,17 @@ services:
       N8N_EDITOR_BASE_URL: https://n8n.theaustraliahack.com/
       N8N_PROXY_HOPS: "1"
       GENERIC_TIMEZONE: ${N8N_TIMEZONE:-UTC}
+      # Shared secret used by workflow HTTP Request nodes to authenticate
+      # against auth-op's /api/flow-updates callback surface. Empty when
+      # the flow-update feature is disabled on auth-op (both sides read
+      # the same .env key, so they stay in lockstep).
+      FLOW_CALLBACK_SECRET: ${FLOW_CALLBACK_SECRET:-}
+      # n8n blocks Code-node `$env.*` access by default; workflows that
+      # reference FLOW_CALLBACK_SECRET inside an expression need this
+      # turned off. Scope of exposure is narrow — our internally-accessible
+      # n8n instance and an env containing only the one secret we want to
+      # surface.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     volumes:
       - n8n_data:/home/node/.n8n
     ports:

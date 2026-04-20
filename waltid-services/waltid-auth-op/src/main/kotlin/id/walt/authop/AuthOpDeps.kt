@@ -7,6 +7,9 @@ import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
 import id.walt.authop.store.LogoutFlowStore
+import id.walt.authop.passkey.PasskeyService
+import id.walt.authop.passkey.PasskeyStore
+import id.walt.authop.store.FlowUpdateStore
 import id.walt.authop.store.SessionStore
 import id.walt.authop.store.UpstreamFlowStore
 import id.walt.authop.store.VpSessionStore
@@ -48,4 +51,13 @@ data class AuthOpDeps(
     val jwtIssuer: JwtIssuer,
     val oidcClient: OidcClient,
     val verifier2Client: Verifier2Client,
+    // Null when AuthOpServiceConfig.passkey is absent (passkey support
+    // disabled). Routes that require passkeys must 404 when null so the
+    // absence of the feature is surfaced cleanly rather than via NPE.
+    val passkeyStore: PasskeyStore? = null,
+    val passkeyService: PasskeyService? = null,
+    // Null when AuthOpServiceConfig.flowCallbackSecret is absent (flow-update
+    // feature disabled). Every /api/flow-* route 404s when null, same
+    // convention as passkey.
+    val flowUpdateStore: FlowUpdateStore? = null,
 )

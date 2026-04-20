@@ -7,19 +7,24 @@ import id.walt.authop.endpoints.authorizeRoutes
 import id.walt.authop.endpoints.consentRoutes
 import id.walt.authop.endpoints.discoveryRoutes
 import id.walt.authop.endpoints.endSessionRoutes
+import id.walt.authop.endpoints.flowUpdateRoutes
 import id.walt.authop.endpoints.loginRoutes
 import id.walt.authop.endpoints.oidcCallbackRoutes
 import id.walt.authop.endpoints.tokenRoutes
 import id.walt.authop.endpoints.userInfoRoutes
 import id.walt.authop.endpoints.vpCompleteRoutes
 import id.walt.authop.endpoints.vpStatusRoutes
+import id.walt.authop.endpoints.vpKickoffJsonRoutes
 import id.walt.authop.endpoints.vpWebhookRoutes
+import id.walt.authop.endpoints.webauthnRoutes
 import id.walt.authop.store.AuthCodeStore
 import id.walt.authop.store.AuthRequestStore
 import id.walt.authop.store.CsrfTokenStore
+import id.walt.authop.store.FlowUpdateStore
 import id.walt.authop.store.InMemoryAuthCodeStore
 import id.walt.authop.store.InMemoryAuthRequestStore
 import id.walt.authop.store.InMemoryCsrfTokenStore
+import id.walt.authop.store.InMemoryFlowUpdateStore
 import id.walt.authop.store.InMemoryLogoutFlowStore
 import id.walt.authop.store.InMemorySessionStore
 import id.walt.authop.store.InMemoryUpstreamFlowStore
@@ -43,6 +48,8 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import id.walt.authop.passkey.PasskeyService
+import id.walt.authop.passkey.PasskeyStore
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
 import kotlin.time.Duration.Companion.hours
@@ -170,6 +177,29 @@ suspend fun main(args: Array<String>) {
                     lifetime = 1.hours,
                 )
 
+                // Passkey wiring is config-gated: if cfg.passkey is unset we
+                // leave both fields null and the routes short-circuit with 404.
+                val passkeyStore: PasskeyStore? = cfg.passkey?.let {
+                    PasskeyStore(Paths.get(it.registryFile))
+                }
+                val passkeyService: PasskeyService? = cfg.passkey?.let {
+                    PasskeyService(
+                        store = passkeyStore!!,
+                        rpId = it.rpId,
+                        origin = it.origin,
+                        rpName = it.rpName,
+                    )
+                }
+
+                // Flow-update wiring is config-gated: null when
+                // flowCallbackSecret is absent. TTL 10 min — longer than
+                // any reasonable n8n workflow but short enough that stale
+                // sessions don't accumulate. Keep identical to VpSession's
+                // window so the two "session-like" concepts behave alike.
+                val flowUpdateStore: FlowUpdateStore? = cfg.flowCallbackSecret?.let {
+                    InMemoryFlowUpdateStore(ttl = 10.minutes)
+                }
+
                 AuthOpRuntime.deps = AuthOpDeps(
                     config = cfg,
                     signingKey = key,
@@ -185,6 +215,9 @@ suspend fun main(args: Array<String>) {
                     jwtIssuer = jwtIssuer,
                     oidcClient = oidcClient,
                     verifier2Client = verifier2Client,
+                    passkeyStore = passkeyStore,
+                    passkeyService = passkeyService,
+                    flowUpdateStore = flowUpdateStore,
                 )
             },
             run = WebService(Application::runtimeModule).run(),
@@ -230,9 +263,12 @@ fun Application.module(deps: AuthOpDeps) {
         vpStatusRoutes(deps)
         vpWebhookRoutes(deps)
         vpCompleteRoutes(deps)
+        vpKickoffJsonRoutes(deps)
         consentRoutes(deps)
         tokenRoutes(deps)
         userInfoRoutes(deps)
         endSessionRoutes(deps)
+        webauthnRoutes(deps)
+        flowUpdateRoutes(deps)
     }
 }

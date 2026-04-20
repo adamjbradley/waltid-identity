@@ -3,10 +3,12 @@
 package id.walt.authop.endpoints
 
 import id.walt.authop.config.ClientRegistry
+import id.walt.authop.config.Oid4vpRealmConfig
 import id.walt.authop.config.OidcRealmConfig
 import id.walt.authop.config.RealmConfig
 import id.walt.authop.config.RealmMethod
 import id.walt.authop.config.RealmRegistry
+import id.walt.authop.config.SubStrategy
 import id.walt.authop.domain.AuthRequest
 import id.walt.authop.domain.Session
 import id.walt.authop.module
@@ -88,6 +90,21 @@ class LoginRoutesTest {
         ),
     )
 
+    /** OID4VP realm fixture for the picker-rendering tests — LoginPage
+     *  surfaces at most one OIDC + one OID4VP realm, so multi-realm
+     *  picker tests pass one of each. */
+    private fun vpRealm(id: String, name: String = id): RealmConfig = RealmConfig(
+        id = id,
+        name = name,
+        method = RealmMethod.OID4VP,
+        oid4vp = Oid4vpRealmConfig(
+            verifierBaseUrl = "https://verifier.example",
+            webhookCallbackPath = "/login/realm/$id/webhook",
+            dcqlQueryFile = "config/dcql/stub.json",
+        ),
+        subStrategy = SubStrategy.EPHEMERAL,
+    )
+
     private fun realmRegistry(vararg realms: RealmConfig): RealmRegistry =
         RealmRegistry(realms.associateBy { it.id })
 
@@ -104,7 +121,7 @@ class LoginRoutesTest {
                     authRequestStore = store,
                     realmRegistry = realmRegistry(
                         realm("employees", "Employees"),
-                        realm("citizens", "Citizens"),
+                        vpRealm("citizens", "Citizens"),
                     ),
                 ),
             )
@@ -193,7 +210,7 @@ class LoginRoutesTest {
                     sessionStore = sessions,
                     realmRegistry = realmRegistry(
                         realm("employees", "Employees"),
-                        realm("citizens", "Citizens"),
+                        vpRealm("citizens", "Citizens"),
                     ),
                 ),
             )
@@ -230,7 +247,7 @@ class LoginRoutesTest {
                     clientRegistry = ClientRegistry(mapOf(filteredClient.clientId to filteredClient)),
                     realmRegistry = realmRegistry(
                         realm("employees", "Employees"),
-                        realm("citizens", "Citizens"),
+                        vpRealm("citizens", "Citizens"),
                     ),
                 ),
             )

@@ -79,6 +79,17 @@ class RealmRegistry(private val byId: Map<String, RealmConfig>) {
                     if (realm.subStrategy == SubStrategy.CLAIM_HASH && realm.subSourceClaims.isEmpty()) {
                         fail("$realmRef: sub_strategy=claim_hash requires non-empty 'sub_source_claims'")
                     }
+                    val hasFile = !realm.oid4vp.dcqlQueryFile.isNullOrBlank()
+                    val hasScopes = realm.oid4vp.scopes.isNotEmpty()
+                    if (!hasFile && !hasScopes) {
+                        fail("$realmRef: oid4vp block must declare either 'dcql_query_file' or a 'scopes' catalog")
+                    }
+                    if (hasFile && hasScopes) {
+                        fail("$realmRef: oid4vp block must declare 'dcql_query_file' OR 'scopes', not both")
+                    }
+                    if (hasScopes && realm.oid4vp.vctValues.isEmpty()) {
+                        fail("$realmRef: 'scopes' catalog requires 'vct_values' so the composer can target a credential type")
+                    }
                 }
             }
         }

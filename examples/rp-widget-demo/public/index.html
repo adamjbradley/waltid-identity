@@ -2429,9 +2429,27 @@
             if (!user) { card.hidden = true; return; }
             const nameEl = card.querySelector('#profile-name');
             const metaEl = card.querySelector('#profile-meta');
-            const fullName = [user.given_name, user.family_name].filter(Boolean).join(' ').trim();
-            nameEl.textContent = fullName || user.name || user.email || 'Signed in';
-            metaEl.textContent = user.birth_date ? 'DOB ' + user.birth_date : (user.email || '');
+
+            // authop logins are PII-free by contract — only sub +
+            // {kyc_verified, age_over_18, age_over_21}. Render badges instead
+            // of a name. For other providers (e.g. Keycloak) the shape still
+            // carries given_name / family_name and the old rendering applies.
+            const isAuthop = user.provider === 'authop' || (
+                !user.given_name && !user.family_name && !user.email && !user.name &&
+                ('kyc_verified' in user || 'age_over_18' in user || 'age_over_21' in user)
+            );
+            if (isAuthop) {
+                nameEl.textContent = 'Verified member';
+                const badges = [];
+                if (user.kyc_verified) badges.push('KYC');
+                if (user.age_over_18)  badges.push('18+');
+                if (user.age_over_21)  badges.push('21+');
+                metaEl.textContent = badges.length ? badges.join(' · ') : 'Pseudonymous';
+            } else {
+                const fullName = [user.given_name, user.family_name].filter(Boolean).join(' ').trim();
+                nameEl.textContent = fullName || user.name || user.email || 'Signed in';
+                metaEl.textContent = user.email || '';
+            }
             card.hidden = false;
         }
 
@@ -2447,7 +2465,13 @@
                 renderProfileCard(data.user || null);
                 if (data.user) {
                     const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();
-                    const who = fullName || data.user.name || data.user.email || data.user.sub || '';
+                    const isAuthop = data.user.provider === 'authop' || (
+                        !fullName && !data.user.name && !data.user.email &&
+                        ('kyc_verified' in data.user || 'age_over_18' in data.user || 'age_over_21' in data.user)
+                    );
+                    const who = isAuthop
+                        ? ('member ' + String(data.user.sub || '').slice(0, 8))
+                        : (fullName || data.user.name || data.user.email || data.user.sub || '');
                     const via = data.activeProvider ? ' via ' + data.activeProvider : '';
                     const label = document.createElement('span');
                     label.textContent = 'Signed in: ' + who + via + ' ';

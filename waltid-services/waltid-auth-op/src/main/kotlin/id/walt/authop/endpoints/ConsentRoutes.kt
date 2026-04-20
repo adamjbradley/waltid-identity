@@ -3,6 +3,7 @@
 package id.walt.authop.endpoints
 
 import id.walt.authop.AuthOpDeps
+import id.walt.authop.claims.ScopeProjector
 import id.walt.authop.domain.AuthCode
 import id.walt.authop.domain.AuthRequest
 import id.walt.authop.errors.OidcError
@@ -19,6 +20,8 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.security.SecureRandom
 import java.util.Base64
 import kotlin.time.Clock
@@ -68,7 +71,8 @@ fun Route.consentRoutes(deps: AuthOpDeps) {
         }
 
         val csrf = deps.csrfTokenStore.issue(authReq.authRequestId)
-        call.respondConsentPage(authReq, client, csrf)
+        val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+        call.respondConsentPage(authReq, client, realm, csrf)
     }
 
     post("/consent") {
@@ -88,11 +92,154 @@ fun Route.consentRoutes(deps: AuthOpDeps) {
         }
 
         when (decision) {
-            "accept" -> completeConsent(deps, authReq)
+            "accept" -> acceptConsent(deps, authReq)
             "deny" -> call.respondOidcError(OidcError.AccessDenied("user denied consent"), authReq)
             else -> call.respondPlainForbidden("decision must be 'accept' or 'deny'")
         }
     }
+
+    // ---------------------------------------------------------------------
+    // GET /consent/flow-done
+    //
+    // Landing spot after the `preferences` progress page has seen its final
+    // `aggregate` step update. Pulls the aggregate JSON out of the flow
+    // session's replay buffer, stamps it onto the AuthRequest, then falls
+    // through to the normal code-mint + redirect via [completeConsent].
+    //
+    // Browser navigates here via plain `location.assign("/consent/flow-done")`
+    // — no query params needed because the `sid` cookie + AuthRequest's
+    // `flowSessionId` field give us both the owning auth request AND which
+    // flow session to look up, server-authoritative.
+    //
+    // Error paths (workflow didn't run, timed out, or reported a failure) all
+    // redirect back to the RP with `error=server_error` per OIDC convention —
+    // the RP handles it with its existing error path. No error screen is
+    // rendered in auth-op.
+    // ---------------------------------------------------------------------
+    get("/consent/flow-done") {
+        val (authReq, _) = loadConsentContext(deps) ?: return@get
+        val flowSid = authReq.flowSessionId
+        if (flowSid == null) {
+            // Shouldn't happen in a real flow — user hit /consent/flow-done
+            // without going through the progress page. Treat as a flow-not-
+            // kicked-off failure.
+            call.respondOidcError(
+                OidcError.ServerError("flow session not started for this auth request"),
+                authReq,
+            )
+            return@get
+        }
+        val flowSession = deps.flowUpdateStore?.get(flowSid)
+        if (flowSession == null) {
+            call.respondOidcError(
+                OidcError.ServerError("flow session expired before completion"),
+                authReq,
+            )
+            return@get
+        }
+        val events = flowSession.updates.replayCache
+        val failure = events.firstOrNull { it.status == "failed" }
+        if (failure != null) {
+            call.respondOidcError(
+                OidcError.ServerError("workflow step '${failure.step}' reported failure"),
+                authReq,
+            )
+            return@get
+        }
+        val aggregate = events.firstOrNull { it.step == "aggregate" && it.status == "completed" }
+        val result = aggregate?.result
+        if (result == null) {
+            call.respondOidcError(
+                OidcError.ServerError("workflow did not emit aggregate step"),
+                authReq,
+            )
+            return@get
+        }
+
+        val updated = deps.authRequestStore.update(authReq.authRequestId) {
+            it.copy(preferences = result)
+        }
+        if (updated == null) {
+            call.respondOidcError(
+                OidcError.ServerError("auth request disappeared between consent and flow-done"),
+                authReq,
+            )
+            return@get
+        }
+        completeConsent(deps, updated)
+    }
+}
+
+/**
+ * Accept-path dispatcher. Branches on whether the RP asked for the
+ * `preferences` scope:
+ *
+ *  - Scope present AND flow-update feature on → kickoff an n8n flow session,
+ *    bind its id to the AuthRequest, render the progress page. The
+ *    AuthRequest is NOT deleted here; that happens in [completeConsent]
+ *    after `/consent/flow-done` finishes.
+ *  - Scope absent (or feature disabled) → legacy path: straight to
+ *    [completeConsent].
+ *
+ * Keeping this as a dispatcher rather than inlining the branch in the POST
+ * handler means the existing test against the accept path ("trusted-client
+ * skip = redirect, user-accept = redirect") stays structurally similar.
+ */
+private suspend fun io.ktor.server.routing.RoutingContext.acceptConsent(
+    deps: AuthOpDeps,
+    authReq: AuthRequest,
+) {
+    val wantsPreferences = "preferences" in authReq.scope
+    val store = deps.flowUpdateStore
+    if (!wantsPreferences || store == null) {
+        completeConsent(deps, authReq)
+        return
+    }
+
+    // Mint a fresh flow session and bind it to this auth request so
+    // /consent/flow-done can pull the aggregate server-side without
+    // trusting URL-passed session ids. Context carries the authRequestId
+    // for future debugging (e.g. associating an n8n execution with the
+    // originating RP flow).
+    val flowSession = store.create(
+        context = JsonObject(
+            mapOf("authRequestId" to JsonPrimitive(authReq.authRequestId)),
+        ),
+    )
+    val updated = deps.authRequestStore.update(authReq.authRequestId) {
+        it.copy(flowSessionId = flowSession.sessionId)
+    } ?: run {
+        // Race: someone evicted the auth request while we were kicking off.
+        // Fall through to the access_denied path so the user isn't left on
+        // a dead progress page.
+        call.respondOidcError(
+            OidcError.ServerError("auth request expired"),
+            authReq,
+        )
+        return
+    }
+
+    // Same /consent visual shell — claim-groups + form are swapped out
+    // for the progress view inline. Keeps branding identical, no flash
+    // between two templates, and the user never leaves /consent until
+    // the JS navigates to /consent/flow-done.
+    val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+    val client = deps.clientRegistry[authReq.clientId]
+    if (client == null) {
+        call.respondOidcError(
+            OidcError.ServerError("client no longer registered when rendering progress"),
+            authReq,
+        )
+        return
+    }
+    val csrf = deps.csrfTokenStore.issue(updated.authRequestId)
+    call.respondConsentPage(
+        authReq = updated,
+        client = client,
+        realm = realm,
+        csrfToken = csrf,
+        progressFlowSessionId = flowSession.sessionId,
+    )
 }
 
 /**
@@ -143,6 +290,41 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
     authReq: AuthRequest,
 ) {
     val code = randomCode()
+
+    // Project wallet-disclosed claims through the realm's scope catalog
+    // before they're baked into the AuthCode. The AuthRequest still carries
+    // the full disclosed claim set (consent screen already rendered them);
+    // the AuthCode / id_token must only carry what the RP's requested scopes
+    // warrant. For OIDC realms (or OID4VP realms still on the static DCQL
+    // file path) the projector returns the input map unchanged.
+    val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
+    val realmClaimKey = "${deps.config.canonicalIssuer}/realm"
+    val preservedKeys = setOf("acr", "amr", realmClaimKey)
+    val projectedBase = if (realm != null) {
+        ScopeProjector.project(
+            realm = realm,
+            requestedScopes = authReq.scope,
+            disclosed = authReq.claims,
+            preservedClaimKeys = preservedKeys,
+        )
+    } else {
+        authReq.claims
+    }
+
+    // Merge the post-consent workflow aggregate into the `preferences`
+    // claim when the RP asked for it AND the workflow ran to completion.
+    // `preferences` lives outside the scope catalog (it's synthesised by
+    // auth-op, not disclosed by the wallet), so ScopeProjector neither
+    // preserves nor emits it — we stamp it on here directly. RP-side scope
+    // validation already ensured `preferences` was allowed for this client.
+    val projectedClaims = if (
+        "preferences" in authReq.scope && authReq.preferences != null
+    ) {
+        projectedBase + ("preferences" to authReq.preferences)
+    } else {
+        projectedBase
+    }
+
     // authReq.subject is guaranteed non-null by the loadConsentContext check
     // above, but the compiler doesn't know — !! is the least-surprise shape.
     // authTime uses Clock.System.now() here — the moment consent completes
@@ -158,7 +340,7 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
             clientId = authReq.clientId,
             redirectUri = authReq.redirectUri,
             subject = authReq.subject!!,
-            claims = authReq.claims,
+            claims = projectedClaims,
             codeChallenge = authReq.codeChallenge,
             codeChallengeMethod = authReq.codeChallengeMethod,
             nonce = authReq.nonce,

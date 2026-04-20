@@ -63,6 +63,16 @@ sealed class OidcError(
     data class AccessDenied(val reason: String? = null) :
         OidcError("access_denied", reason, HttpStatusCode.Found, RedirectBehavior.REDIRECT_TO_RP)
 
+    /**
+     * OIDC Core §3.1.2.6 — the authorization server encountered an unexpected
+     * condition that prevented it from fulfilling the request. Currently emitted
+     * by the post-consent flow-update path when the n8n workflow fails, times
+     * out, or its session expires before the browser returns to /consent/flow-done.
+     * RP receives a clean `error=server_error` on its redirect_uri.
+     */
+    data class ServerError(val reason: String? = null) :
+        OidcError("server_error", reason, HttpStatusCode.Found, RedirectBehavior.REDIRECT_TO_RP)
+
     // -- Plain error page (400) — redirect_uri not trusted ---------------
     data class UnknownClient(val clientId: String) :
         OidcError(

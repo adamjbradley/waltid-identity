@@ -28,6 +28,19 @@ data class AuthOpServiceConfig(
     val issuer: String,
     val signingKeyPath: String = "config/signing-key.json",
     val cookieSecure: Boolean = false,
+    val passkey: PasskeyConfig? = null,
+    /**
+     * Shared secret required on the `X-Flow-Callback-Secret` header of
+     * `POST /api/flow-updates`. When null the entire flow-update surface
+     * (kickoff, callback, SSE stream, demo page) is disabled and every
+     * route 404s — matches the "feature-off when config absent" convention
+     * of [passkey].
+     *
+     * Expected to be a high-entropy value (e.g. `openssl rand -hex 32`).
+     * Compared constant-time inside the callback route via
+     * [java.security.MessageDigest.isEqual].
+     */
+    val flowCallbackSecret: String? = null,
 ) : WaltConfig() {
     init {
         require(issuer.isNotBlank()) { "auth-op: 'issuer' must not be blank" }
@@ -39,4 +52,37 @@ data class AuthOpServiceConfig(
      */
     val canonicalIssuer: String =
         if (issuer.endsWith('/')) issuer.dropLast(1) else issuer
+}
+
+/**
+ * WebAuthn / passkey configuration. When absent (null), passkey support is
+ * disabled across auth-op — the citizens realm only accepts wallet VP.
+ *
+ * @property rpId WebAuthn Relying Party Identifier. Strictly matches the host
+ *   the browser is on when the user authenticates with a passkey. MUST be
+ *   the auth-op host (or an ancestor eTLD+1 — but ancestor is discouraged:
+ *   OIDC is the right federation layer, so passkeys shouldn't leak to other
+ *   subdomains).
+ * @property origin HTTPS origin the browser uses to reach auth-op. MUST
+ *   match the `navigator.credentials.*` caller origin. Example:
+ *   `https://auth-op.theaustraliahack.com`.
+ * @property rpName Human-readable name that the platform authenticator
+ *   shows to the user during ceremonies ("Sign in with passkey to
+ *   \<rpName\>"). Keep short.
+ * @property registryFile Filesystem path (absolute or relative to the
+ *   service working directory) where [id.walt.authop.passkey.PasskeyStore]
+ *   persists the JSON credential registry. Must be on a volume that
+ *   survives container restarts.
+ */
+data class PasskeyConfig(
+    val rpId: String,
+    val origin: String,
+    val rpName: String,
+    val registryFile: String = "data/passkeys.json",
+) {
+    init {
+        require(rpId.isNotBlank()) { "auth-op: passkey.rpId must not be blank" }
+        require(origin.startsWith("https://")) { "auth-op: passkey.origin must be an https URL" }
+        require(rpName.isNotBlank()) { "auth-op: passkey.rpName must not be blank" }
+    }
 }
