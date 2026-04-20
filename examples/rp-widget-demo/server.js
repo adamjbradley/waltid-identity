@@ -338,6 +338,10 @@ function createApp() {
         sub: claims.sub,
         email: claims.email,
         name: claims.name || claims.preferred_username,
+        given_name: claims.given_name,
+        family_name: claims.family_name,
+        birth_date: claims.birth_date || claims.birthdate,
+        nationality: claims.nationality,
       };
       req.session.idToken = tokenSet.id_token;
       req.session.provider = providerName;
