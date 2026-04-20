@@ -5,11 +5,13 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.html.respondHtml
 import kotlinx.html.a
 import kotlinx.html.body
+import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.h1
 import kotlinx.html.head
 import kotlinx.html.id
 import kotlinx.html.img
+import kotlinx.html.input
 import kotlinx.html.meta
 import kotlinx.html.p
 import kotlinx.html.script
@@ -75,6 +77,31 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                 a(href = deepLink) { +"Open wallet on this device" }
             }
 
+            // Passkey login surface. Two-layered: (a) an explicit button for
+            // returning users who know they have a passkey — triggered with
+            // `mediation: 'optional'` so the browser prompt appears
+            // immediately on click, and (b) a hidden input with
+            // autocomplete="username webauthn" that lets Chrome/Safari
+            // attach conditional-UI autofill for users who tab into it.
+            // Click on the hidden input does nothing visible; it exists
+            // only as an anchor for the conditional mediation call below.
+            div {
+                id = "passkey-login"
+                button {
+                    id = "passkey-btn"
+                    attributes["type"] = "button"
+                    attributes["style"] = "display:none;"
+                    +"Sign in with passkey"
+                }
+                input {
+                    id = "passkey-username"
+                    attributes["autocomplete"] = "username webauthn"
+                    attributes["style"] = "position:absolute;left:-10000px;width:1px;height:1px;"
+                    attributes["aria-hidden"] = "true"
+                    attributes["tabindex"] = "-1"
+                }
+            }
+
             // Poll status every 2s. On SUCCESSFUL, navigate to /complete.
             // On UNSUCCESSFUL, write an error into #vp-error.
             // `window.location.replace` is correct here — we don't want the
@@ -112,35 +139,48 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                 }
             }
 
-            // Conditional-UI passkey login. Runs independently of the wallet
-            // QR polling above: if the browser has a discoverable passkey
-            // for this origin, the platform authenticator surfaces a silent
-            // prompt; otherwise nothing happens and the user scans the QR
-            // as today. When passkey support is disabled at the server,
-            // /webauthn/login/begin returns 404 and we no-op.
+            // Passkey login. Two paths:
+            //  1. Explicit button ("Sign in with passkey") — uses
+            //     mediation: 'optional' so the platform authenticator
+            //     prompt appears immediately on click. This is what most
+            //     production sites do and works on every WebAuthn browser.
+            //  2. Background conditional mediation attached to the hidden
+            //     <input autocomplete="username webauthn">. If the browser
+            //     supports it, tabbing/clicking into the input surfaces
+            //     the passkey as an autofill suggestion. Zero-cost fallback
+            //     for users who don't see/notice the button.
+            //
+            // Both paths share a single /webauthn/login/complete server
+            // handshake. When the server has no passkeys (or the feature
+            // is disabled), both paths degrade to no-ops and the QR flow
+            // continues unchanged.
             script {
                 unsafe {
                     +"""
                     (function() {
                       if (!window.PublicKeyCredential ||
-                          !PublicKeyCredential.parseRequestOptionsFromJSON ||
-                          !PublicKeyCredential.isConditionalMediationAvailable) {
+                          !PublicKeyCredential.parseRequestOptionsFromJSON) {
                         return;
                       }
-                      PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
-                        if (!ok) return;
-                        fetch('/webauthn/login/begin', { method: 'POST', credentials: 'same-origin' })
+                      var btn = document.getElementById('passkey-btn');
+                      var input = document.getElementById('passkey-username');
+                      if (btn) btn.style.display = 'inline-block';
+
+                      function runGet(mediation) {
+                        return fetch('/webauthn/login/begin', {
+                          method: 'POST', credentials: 'same-origin'
+                        })
                           .then(function(r) { return r.ok ? r.json() : null; })
                           .then(function(envelope) {
-                            if (!envelope) return;
+                            if (!envelope) return null;
                             var opts = PublicKeyCredential.parseRequestOptionsFromJSON(
                               envelope.options.publicKey || envelope.options
                             );
                             return navigator.credentials.get({
                               publicKey: opts,
-                              mediation: 'conditional'
+                              mediation: mediation
                             }).then(function(assertion) {
-                              if (!assertion) return;
+                              if (!assertion) return null;
                               return fetch('/webauthn/login/complete', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
@@ -149,14 +189,26 @@ internal suspend fun ApplicationCall.respondVpQrPage(
                                   flow_id: envelope.flow_id,
                                   assertion: assertion.toJSON()
                                 })
-                              }).then(function(r) { return r.ok ? r.json() : null; })
-                                .then(function(j) {
-                                  if (j && j.redirect) window.location.replace(j.redirect);
-                                });
+                              }).then(function(r) { return r.ok ? r.json() : null; });
                             });
                           })
-                          .catch(function() { /* silent — QR path still works */ });
-                      });
+                          .then(function(j) {
+                            if (j && j.redirect) window.location.replace(j.redirect);
+                          });
+                      }
+
+                      if (btn) {
+                        btn.addEventListener('click', function() {
+                          btn.disabled = true;
+                          runGet('optional').catch(function() { btn.disabled = false; });
+                        });
+                      }
+
+                      if (PublicKeyCredential.isConditionalMediationAvailable) {
+                        PublicKeyCredential.isConditionalMediationAvailable().then(function(ok) {
+                          if (ok) runGet('conditional').catch(function() {});
+                        });
+                      }
                     })();
                     """.trimIndent()
                 }
