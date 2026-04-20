@@ -93,6 +93,57 @@ fun Application.tenantOidcRoutes() {
                                         }
                                     }
                                 }
+                                // EudiWalletKit parses Offer.credentialConfigurationsSupported
+                                // and bails silently when credentialSigningAlgorithmsSupported
+                                // is empty (it can't pick an alg for the credential request).
+                                // Inject a sensible default when the registrar doesn't supply
+                                // one — ES256 is what every in-tree tenant signs with.
+                                if (config["credential_signing_alg_values_supported"] == null) {
+                                    patched["credential_signing_alg_values_supported"] = buildJsonArray {
+                                        add(JsonPrimitive("ES256"))
+                                    }
+                                }
+                                // EudiWalletKit Android's DocumentOfferScreen keeps the "Add"
+                                // button disabled when a credential config has no `claims`
+                                // list — the UX is "consent to the claims you're about to
+                                // receive", so no claims = nothing to consent to = button
+                                // stays inactive and the user is stuck on the confirmation
+                                // screen. iOS is lenient and proceeds anyway.
+                                // The tenant registrar doesn't record claim templates, so
+                                // inject a minimal generic KYC claim set (given_name,
+                                // family_name, birth_date) for every SD-JWT-VC config that
+                                // lacks one. Operators can override by supplying `claims`
+                                // explicitly in the tenant config.
+                                val format = config["format"]?.jsonPrimitive?.contentOrNull
+                                val isSdJwtLike = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                if (isSdJwtLike && config["claims"] == null) {
+                                    patched["claims"] = buildJsonObject {
+                                        putJsonObject("given_name") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Given Name"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                        putJsonObject("family_name") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Family Name"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                        putJsonObject("birth_date") {
+                                            putJsonArray("display") {
+                                                add(buildJsonObject {
+                                                    put("name", JsonPrimitive("Date of Birth"))
+                                                    put("locale", JsonPrimitive("en"))
+                                                })
+                                            }
+                                        }
+                                    }
+                                }
                                 if (config["scope"] == null) {
                                     patched["scope"] = JsonPrimitive(configId)
                                 }
@@ -108,6 +159,19 @@ fun Application.tenantOidcRoutes() {
                     // Advertise batch issuance (see OidcApi.BATCH_SIZE_ADVERTISED).
                     metadataMap["batch_credential_issuance"] = buildJsonObject {
                         put("batch_size", JsonPrimitive(1000))
+                    }
+                    // Override library-hardcoded scopes_supported with the real
+                    // set of configured credential scopes (see OidcApi.kt for
+                    // the reasoning — EudiWalletKit silently aborts issuance
+                    // when a credential's scope isn't in scopes_supported).
+                    (metadataMap["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                        val configScopes = configs.values
+                            .mapNotNull { it.jsonObject["scope"]?.jsonPrimitive?.contentOrNull }
+                            .toSet()
+                        metadataMap["scopes_supported"] = buildJsonArray {
+                            add(JsonPrimitive("openid"))
+                            configScopes.forEach { add(JsonPrimitive(it)) }
+                        }
                     }
                     call.respond(JsonObject(metadataMap))
                 }
@@ -125,7 +189,31 @@ fun Application.tenantOidcRoutes() {
                     val metadata = provider.getOpenIdProviderMetadataByVersion(
                         standardVersion = call.parameters["standardVersion"]
                     )
-                    call.respond(metadata.toJSON())
+                    // Mirror the scopes_supported patch from /openid-credential-issuer
+                    // (see the non-tenant OidcApi.kt for rationale: EudiWalletKit
+                    // reads scopes_supported here and silently aborts issuance
+                    // when a credential's scope isn't listed).
+                    // The tenant's /openid-credential-issuer endpoint injects
+                    // `scope = configId` when absent; we mirror that logic here
+                    // so the two endpoints stay consistent without depending on
+                    // the other route running first.
+                    val metadataMap = metadata.toJSON().toMutableMap()
+                    val credMetadata = provider.getMetadataByVersion(
+                        standardVersion = call.parameters["standardVersion"]
+                    ).toJSON()
+                    (credMetadata["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                        val configScopes = configs.entries
+                            .map { (configId, configElement) ->
+                                configElement.jsonObject["scope"]?.jsonPrimitive?.contentOrNull
+                                    ?: configId
+                            }
+                            .toSet()
+                        metadataMap["scopes_supported"] = buildJsonArray {
+                            add(JsonPrimitive("openid"))
+                            configScopes.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                    call.respond(JsonObject(metadataMap))
                 }
 
                 get("jwks") {

@@ -111,16 +111,46 @@ object OidcApi : CIProvider(), Klogging {
                 metadataMap["batch_credential_issuance"] = buildJsonObject {
                     put("batch_size", JsonPrimitive(BATCH_SIZE_ADVERTISED))
                 }
+                // Replace the library's hardcoded scopes_supported (which only
+                // listed "openid" + "org.iso.23220.photoid.1") with the scopes
+                // of every credential we actually offer. EudiWalletKit checks
+                // the requested credential's scope against this list before
+                // dispatching a token request; a missing scope makes issuance
+                // silently abort (post-offer, pre-/token).
+                (metadataMap["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                    val configScopes = configs.values
+                        .mapNotNull { it.jsonObject["scope"]?.jsonPrimitive?.contentOrNull }
+                        .toSet()
+                    metadataMap["scopes_supported"] = buildJsonArray {
+                        add(JsonPrimitive("openid"))
+                        configScopes.forEach { add(JsonPrimitive(it)) }
+                    }
+                }
                 call.respond(JsonObject(metadataMap))
             }
 
             get("{standardVersion}/.well-known/oauth-authorization-server", getStandardVersionDocs()) {
-                val metadata = getOpenIdProviderMetadataByVersion(
-                    standardVersion = call.parameters["standardVersion"]
-                        ?: throw IllegalArgumentException("standardVersion parameter is required"),
-                )
-
-                call.respond(metadata.toJSON())
+                val version = call.parameters["standardVersion"]
+                    ?: throw IllegalArgumentException("standardVersion parameter is required")
+                val metadata = getOpenIdProviderMetadataByVersion(standardVersion = version)
+                // The authorization-server metadata is the canonical source
+                // wallets check `scopes_supported` against. The credential-
+                // issuer metadata is also patched at the /openid-credential-
+                // issuer route above; we must patch BOTH, otherwise the wallet
+                // resolves an offer successfully, embeds the stale
+                // authorizationServerMetadata, then silently aborts issuance.
+                val metadataMap = metadata.toJSON().toMutableMap()
+                val credMetadata = getMetadataByVersion(standardVersion = version).toJSON()
+                (credMetadata["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                    val configScopes = configs.values
+                        .mapNotNull { it.jsonObject["scope"]?.jsonPrimitive?.contentOrNull }
+                        .toSet()
+                    metadataMap["scopes_supported"] = buildJsonArray {
+                        add(JsonPrimitive("openid"))
+                        configScopes.forEach { add(JsonPrimitive(it)) }
+                    }
+                }
+                call.respond(JsonObject(metadataMap))
             }
 
             get("/.well-known/jwt-vc-issuer/{standardVersion}", getStandardVersionDocs()) {
