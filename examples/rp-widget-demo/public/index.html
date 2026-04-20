@@ -506,6 +506,33 @@
             border-radius: 2px;
         }
 
+        /* Preference-match decorations for logged-in curated shelf. */
+        .pref-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-radius: 2px;
+            color: var(--white);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+        .pref-badge.pref-match { background: var(--primary); }
+        .pref-badge.pref-alt   { background: #8a6f2b; }
+        .product-card.verdict-match {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(61, 139, 55, 0.18);
+        }
+        .product-card.verdict-match .product-image {
+            background: linear-gradient(145deg, rgba(61, 139, 55, 0.10), var(--off-white));
+        }
+        .product-card.verdict-alt .product-image {
+            background: linear-gradient(145deg, rgba(138, 111, 43, 0.10), var(--off-white));
+        }
+
         .product-info {
             padding: 20px;
         }
@@ -1687,125 +1714,9 @@
     <!-- Product Demo Section -->
     <section id="products" class="demo-section section-bg-gray">
         <div class="container">
-            <h2>Featured Selection</h2>
-            <p class="subtitle">Click "Add" to see the age verification modal in action</p>
-
-            <div class="product-grid">
-                <!-- Product 1 -->
-                <div class="product-card">
-                    <div class="product-image">
-                        <span class="wine-icon">&#127863;</span>
-                        <span class="save-badge">Save 25%</span>
-                    </div>
-                    <div class="product-info">
-                        <h3>Ch&acirc;teau Margaux 2015</h3>
-                        <p class="product-meta">Bordeaux, France &middot; Red &middot; 75cl</p>
-                        <div class="product-rating">
-                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-                            <span class="rating-count">(142)</span>
-                        </div>
-                        <div class="pricing">
-                            <div class="price-mix-six">
-                                <span class="label">Mix Six</span>
-                                <span class="amount">&pound;224.25</span>
-                            </div>
-                            <div class="price-single">
-                                <span class="label">Per bottle</span>
-                                <span class="amount">&pound;249.00</span>
-                                <span class="was">&pound;299.00</span>
-                            </div>
-                        </div>
-                        <div class="add-row">
-                            <select class="qty-select" aria-label="Quantity">
-                                <option>1</option>
-                                <option>2</option>
-                                <option>3</option>
-                                <option>6</option>
-                                <option>12</option>
-                            </select>
-                            <button class="btn-add" onclick="showAgeVerification(18, 'modal')">
-                                ADD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Product 2 -->
-                <div class="product-card">
-                    <div class="product-image">
-                        <span class="wine-icon">&#127867;</span>
-                        <span class="save-badge">Save 15%</span>
-                    </div>
-                    <div class="product-info">
-                        <h3>Redbreast 18 Year Old Single Pot Still</h3>
-                        <p class="product-meta">Irish Whiskey &middot; 70cl &middot; 46% ABV</p>
-                        <div class="product-rating">
-                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
-                            <span class="rating-count">(87)</span>
-                        </div>
-                        <div class="pricing">
-                            <div class="price-mix-six">
-                                <span class="label">Mix Six</span>
-                                <span class="amount">&pound;160.65</span>
-                            </div>
-                            <div class="price-single">
-                                <span class="label">Per bottle</span>
-                                <span class="amount">&pound;169.00</span>
-                                <span class="was">&pound;189.00</span>
-                            </div>
-                        </div>
-                        <div class="add-row">
-                            <select class="qty-select" aria-label="Quantity">
-                                <option>1</option>
-                                <option>2</option>
-                                <option>3</option>
-                                <option>6</option>
-                                <option>12</option>
-                            </select>
-                            <button class="btn-add" onclick="showAgeVerification(21, 'modal')">
-                                ADD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Product 3 -->
-                <div class="product-card">
-                    <div class="product-image">
-                        <span class="wine-icon">&#127870;</span>
-                    </div>
-                    <div class="product-info">
-                        <h3>Louis Roederer Collection Brut NV</h3>
-                        <p class="product-meta">Champagne, France &middot; Sparkling &middot; 75cl</p>
-                        <div class="product-rating">
-                            <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-                            <span class="rating-count">(203)</span>
-                        </div>
-                        <div class="pricing">
-                            <div class="price-mix-six">
-                                <span class="label">Mix Six</span>
-                                <span class="amount">&pound;38.25</span>
-                            </div>
-                            <div class="price-single">
-                                <span class="label">Per bottle</span>
-                                <span class="amount">&pound;42.99</span>
-                            </div>
-                        </div>
-                        <div class="add-row">
-                            <select class="qty-select" aria-label="Quantity">
-                                <option>1</option>
-                                <option>2</option>
-                                <option>3</option>
-                                <option>6</option>
-                                <option>12</option>
-                            </select>
-                            <button class="btn-add" onclick="showAgeVerification(18, 'modal')">
-                                ADD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h2 id="shelf-heading">Featured Selection</h2>
+            <p class="subtitle" id="shelf-subtitle">Click "Add" to see the age verification modal in action</p>
+            <div class="product-grid" id="product-grid" role="list"></div>
 
             <!-- Status Display -->
             <div id="modal-result" class="result-display hidden">
@@ -2645,16 +2556,180 @@
             }
         }
 
+        // ----------------------------------------------------------------
+        // Product shelf + preferences-driven curation
+        // ----------------------------------------------------------------
+        //
+        // Each catalogue entry carries `tags` that line up with the values
+        // the `preferences` claim uses (`alcohol`, `style`, `alternatives`,
+        // `avoid`). The OP projects a structured preferences object into the
+        // id_token; we consume it here to rank/exclude products for the
+        // logged-in shopper. Shoppers without a login (or without the
+        // `preferences` scope) see the full catalogue in original order.
+        //
+        // `icon` is a single unicode char (emoji) stored as a string —
+        // we set it via textContent, not innerHTML, so every DOM write in
+        // renderProductCard is XSS-safe even if the catalogue ever grew
+        // user-sourced fields.
+        const PRODUCT_CATALOGUE = [
+            { id: 'hibiki-harmony',  name: 'Hibiki Japanese Harmony',                     meta: 'Japan · Blended Japanese Whisky · 70cl · 43% ABV', icon: '\uD83E\uDD43', priceMix: 79.05,  priceSingle: 89.00,  was: 99.00,  ratingStars: 5, ratingCount: 412, minAge: 21, savePct: 10, tags: ['japanese', 'japanese whisky', 'whisky', 'blended'] },
+            { id: 'yamazaki-12',     name: 'Yamazaki 12 Year Old Single Malt',            meta: 'Japan · Single Malt · 70cl · 43% ABV',              icon: '\uD83E\uDD43', priceMix: 175.50, priceSingle: 195.00, was: 219.00, ratingStars: 5, ratingCount: 288, minAge: 21, savePct: 11, tags: ['japanese', 'japanese whisky', 'single malt', 'whisky'] },
+            { id: 'laphroaig-10',    name: 'Laphroaig 10 Year Old',                       meta: 'Islay, Scotland · Peated Single Malt · 70cl · 40% ABV', icon: '\uD83E\uDD43', priceMix: 44.55, priceSingle: 49.50, ratingStars: 5, ratingCount: 624, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
+            { id: 'ardbeg-10',       name: 'Ardbeg 10 Year Old',                          meta: 'Islay, Scotland · Peated Single Malt · 70cl · 46% ABV', icon: '\uD83E\uDD43', priceMix: 48.00, priceSingle: 53.00, ratingStars: 5, ratingCount: 504, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
+            { id: 'bookers-bourbon', name: "Booker's Bourbon Small Batch",                meta: 'Kentucky, USA · Bourbon · 75cl · 62.6% ABV',         icon: '\uD83E\uDD43', priceMix: 80.10, priceSingle: 89.00, was: 99.00, ratingStars: 5, ratingCount: 196, minAge: 21, savePct: 10, tags: ['bourbon', 'american whiskey', 'whisky'] },
+            { id: 'maker-46',        name: "Maker's Mark 46",                             meta: 'Kentucky, USA · Bourbon · 70cl · 47% ABV',            icon: '\uD83E\uDD43', priceMix: 40.05, priceSingle: 44.50, ratingStars: 4, ratingCount: 332, minAge: 21, tags: ['bourbon', 'american whiskey', 'whisky'] },
+            { id: 'redbreast-18',    name: 'Redbreast 18 Year Old Single Pot Still',      meta: 'Ireland · Single Pot Still Irish Whiskey · 70cl · 46% ABV', icon: '\uD83E\uDD47', priceMix: 160.65, priceSingle: 169.00, was: 189.00, ratingStars: 4, ratingCount: 87, minAge: 21, savePct: 15, tags: ['irish', 'irish whiskey', 'single pot still', 'whisky'] },
+            { id: 'famous-grouse',   name: 'The Famous Grouse',                           meta: 'Scotland · Blended Scotch Whisky · 70cl · 40% ABV',   icon: '\uD83E\uDD43', priceMix: 18.00, priceSingle: 20.00, ratingStars: 3, ratingCount: 812, minAge: 21, tags: ['scotch', 'blended', 'blended whisky', 'whisky'] },
+            { id: 'haigs-gold',      name: 'Haig Club Clubman',                           meta: 'Scotland · Single Grain Scotch · 70cl · 40% ABV',    icon: '\uD83E\uDD43', priceMix: 25.20, priceSingle: 28.00, ratingStars: 3, ratingCount: 241, minAge: 21, tags: ['scotch', 'grain whisky', 'single grain', 'whisky'] },
+            { id: 'chateau-margaux', name: 'Château Margaux 2015',                        meta: 'Bordeaux, France · Red · 75cl',                       icon: '\uD83C\uDF77', priceMix: 224.25, priceSingle: 249.00, was: 299.00, ratingStars: 5, ratingCount: 142, minAge: 18, savePct: 25, tags: ['wine', 'red', 'bordeaux'] },
+            { id: 'louis-roederer',  name: 'Louis Roederer Collection Brut NV',           meta: 'Champagne, France · Sparkling · 75cl',                icon: '\uD83C\uDF7E', priceMix: 38.25, priceSingle: 42.99, ratingStars: 5, ratingCount: 203, minAge: 18, tags: ['wine', 'champagne', 'sparkling'] },
+            { id: 'tanqueray-ten',   name: 'Tanqueray No. Ten',                           meta: 'England · London Dry Gin · 70cl · 47.3% ABV',         icon: '\uD83C\uDF77', priceMix: 31.50, priceSingle: 35.00, ratingStars: 4, ratingCount: 278, minAge: 18, tags: ['gin'] },
+        ];
+
+        /** Normalise free-form preference text to a set of comparable tokens. */
+        function prefTokens(raw) {
+            if (raw == null) return [];
+            if (Array.isArray(raw)) return raw.flatMap(prefTokens);
+            return String(raw)
+                .toLowerCase()
+                .split(/[,/]|\s(?:and|&)\s/g)
+                .map(s => s.trim())
+                .filter(Boolean);
+        }
+
+        /**
+         * Score a product against the user's alcohol preferences.
+         * Returns `{score, verdict}` where verdict ∈ {match, alt, neutral, avoid}.
+         *
+         *   +10 per tag in `alcohol`/`style`    → 'match'
+         *    +4 per tag in `alternatives`       → 'alt'
+         *   -20 per tag in `avoid`              → 'avoid' (filtered out)
+         */
+        function scoreProduct(product, prefs) {
+            if (!prefs || typeof prefs !== 'object') return { score: 0, verdict: 'neutral' };
+            const tags = (product.tags || []).map(t => String(t).toLowerCase());
+            const primary    = [...prefTokens(prefs.alcohol), ...prefTokens(prefs.style)];
+            const alternates = prefTokens(prefs.alternatives);
+            const avoided    = prefTokens(prefs.avoid);
+            const hit = (bucket) => bucket.some(pref => tags.some(tag => tag === pref || tag.includes(pref) || pref.includes(tag)));
+            let score = 0;
+            if (hit(primary))    score += 10;
+            if (hit(alternates)) score += 4;
+            if (hit(avoided))    score -= 20;
+            let verdict = 'neutral';
+            if (score < 0) verdict = 'avoid';
+            else if (hit(primary)) verdict = 'match';
+            else if (hit(alternates)) verdict = 'alt';
+            return { score, verdict };
+        }
+
+        /** Build a product card using only DOM methods — no innerHTML, so
+         *  even if the catalogue ever gets user-sourced fields, no XSS. */
+        function renderProductCard(p, scoreInfo) {
+            const badgeLabel = scoreInfo && scoreInfo.verdict === 'match' ? 'Matches your preferences'
+                             : scoreInfo && scoreInfo.verdict === 'alt'   ? 'Alternative you like'
+                             : scoreInfo && scoreInfo.verdict === 'avoid' ? 'Flagged by preferences' : null;
+
+            const card = document.createElement('div');
+            card.className = 'product-card' + (scoreInfo ? ' verdict-' + scoreInfo.verdict : '');
+            card.setAttribute('role', 'listitem');
+
+            const img = document.createElement('div'); img.className = 'product-image';
+            const icon = document.createElement('span'); icon.className = 'wine-icon'; icon.textContent = p.icon;
+            img.appendChild(icon);
+            if (p.savePct) {
+                const save = document.createElement('span'); save.className = 'save-badge';
+                save.textContent = 'Save ' + p.savePct + '%';
+                img.appendChild(save);
+            }
+            if (badgeLabel) {
+                const badge = document.createElement('span');
+                badge.className = 'pref-badge pref-' + scoreInfo.verdict;
+                badge.textContent = badgeLabel;
+                img.appendChild(badge);
+            }
+            card.appendChild(img);
+
+            const info = document.createElement('div'); info.className = 'product-info';
+            const h3 = document.createElement('h3'); h3.textContent = p.name; info.appendChild(h3);
+            const meta = document.createElement('p'); meta.className = 'product-meta'; meta.textContent = p.meta; info.appendChild(meta);
+
+            const rating = document.createElement('div'); rating.className = 'product-rating';
+            const stars = document.createElement('span'); stars.className = 'stars';
+            stars.textContent = '\u2605'.repeat(p.ratingStars) + '\u2606'.repeat(5 - p.ratingStars);
+            const count = document.createElement('span'); count.className = 'rating-count'; count.textContent = '(' + p.ratingCount + ')';
+            rating.appendChild(stars); rating.appendChild(count); info.appendChild(rating);
+
+            const pricing = document.createElement('div'); pricing.className = 'pricing';
+            const mix = document.createElement('div'); mix.className = 'price-mix-six';
+            const mixL = document.createElement('span'); mixL.className = 'label'; mixL.textContent = 'Mix Six';
+            const mixA = document.createElement('span'); mixA.className = 'amount'; mixA.textContent = '\u00A3' + p.priceMix.toFixed(2);
+            mix.appendChild(mixL); mix.appendChild(mixA); pricing.appendChild(mix);
+            const single = document.createElement('div'); single.className = 'price-single';
+            const sL = document.createElement('span'); sL.className = 'label'; sL.textContent = 'Per bottle';
+            const sA = document.createElement('span'); sA.className = 'amount'; sA.textContent = '\u00A3' + p.priceSingle.toFixed(2);
+            single.appendChild(sL); single.appendChild(sA);
+            if (p.was) {
+                const was = document.createElement('span'); was.className = 'was'; was.textContent = '\u00A3' + p.was.toFixed(2);
+                single.appendChild(was);
+            }
+            pricing.appendChild(single);
+            info.appendChild(pricing);
+
+            const addRow = document.createElement('div'); addRow.className = 'add-row';
+            const qty = document.createElement('select'); qty.className = 'qty-select'; qty.setAttribute('aria-label', 'Quantity');
+            [1, 2, 3, 6, 12].forEach(n => { const o = document.createElement('option'); o.textContent = String(n); qty.appendChild(o); });
+            const btn = document.createElement('button'); btn.className = 'btn-add'; btn.textContent = 'ADD';
+            btn.addEventListener('click', () => showAgeVerification(p.minAge, 'modal'));
+            addRow.appendChild(qty); addRow.appendChild(btn);
+            info.appendChild(addRow);
+
+            card.appendChild(info);
+            return card;
+        }
+
+        function renderProductShelf(user) {
+            const grid = document.getElementById('product-grid');
+            const heading = document.getElementById('shelf-heading');
+            const subtitle = document.getElementById('shelf-subtitle');
+            if (!grid) return;
+
+            const prefs = user && user.claims && user.claims.preferences && user.claims.preferences.alcohol;
+            const decorated = PRODUCT_CATALOGUE.map(p => ({ product: p, score: scoreProduct(p, prefs) }));
+
+            // Remove avoid-verdict items from the shelf entirely; rank the rest
+            // with matches on top, neutral next. Stable sort → equal-scored items
+            // keep catalogue order.
+            let list = decorated.filter(d => d.score.verdict !== 'avoid');
+            if (prefs) list.sort((a, b) => b.score.score - a.score.score);
+
+            while (grid.firstChild) grid.removeChild(grid.firstChild);
+            list.forEach(d => grid.appendChild(renderProductCard(d.product, prefs ? d.score : null)));
+
+            if (heading && subtitle) {
+                if (prefs) {
+                    heading.textContent = 'Curated for you';
+                    const hidden = decorated.length - list.length;
+                    const primary = prefs.alcohol ? (' \u00B7 ' + prefs.alcohol) : '';
+                    subtitle.textContent = 'Ranked by your walt.id preferences' + primary + (hidden ? (' \u00B7 ' + hidden + " hidden by 'avoid' list") : '');
+                } else {
+                    heading.textContent = 'Featured Selection';
+                    subtitle.textContent = 'Click "Add" to see the age verification modal in action';
+                }
+            }
+        }
+
         async function renderAuthStatus() {
             const el = document.getElementById('auth-status');
             if (!el) return;
             try {
                 const res = await fetch('/api/me', { credentials: 'same-origin' });
-                if (!res.ok) { el.textContent = ''; renderProfileCard(null); return; }
+                if (!res.ok) { el.textContent = ''; renderProfileCard(null); renderProductShelf(null); return; }
                 const data = await res.json();
                 while (el.firstChild) el.removeChild(el.firstChild);
-                if (!data.oidcEnabled) { renderProfileCard(null); return; }
+                if (!data.oidcEnabled) { renderProfileCard(null); renderProductShelf(null); return; }
                 renderProfileCard(data.user || null);
+                renderProductShelf(data.user || null);
                 if (data.user) {
                     const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();
                     const isAuthop = data.user.provider === 'authop' || (
@@ -2703,6 +2778,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             handleResize();
             initializeSDK();
+            // Populate the shelf immediately (unauthenticated view) so the
+            // grid isn't empty while /api/me is in flight. renderAuthStatus
+            // will re-render it with preferences if the user is signed in.
+            renderProductShelf(null);
             renderAuthStatus();
         });
     </script>
