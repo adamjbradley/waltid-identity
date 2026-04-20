@@ -109,6 +109,19 @@ fun Application.tenantOidcRoutes() {
                     metadataMap["batch_credential_issuance"] = buildJsonObject {
                         put("batch_size", JsonPrimitive(1000))
                     }
+                    // Override library-hardcoded scopes_supported with the real
+                    // set of configured credential scopes (see OidcApi.kt for
+                    // the reasoning — EudiWalletKit silently aborts issuance
+                    // when a credential's scope isn't in scopes_supported).
+                    (metadataMap["credential_configurations_supported"]?.jsonObject)?.let { configs ->
+                        val configScopes = configs.values
+                            .mapNotNull { it.jsonObject["scope"]?.jsonPrimitive?.contentOrNull }
+                            .toSet()
+                        metadataMap["scopes_supported"] = buildJsonArray {
+                            add(JsonPrimitive("openid"))
+                            configScopes.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
                     call.respond(JsonObject(metadataMap))
                 }
 
