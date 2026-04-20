@@ -192,6 +192,49 @@ internal suspend fun ApplicationCall.respondLoginPage(
                             id = "vp-error"
                             attributes["class"] = "pane-state hidden"
                         }
+
+                        // Inline passkey-register step. Appears after a
+                        // successful wallet VP when the passkey feature
+                        // is enabled, replacing the QR pane. Click
+                        // "Register passkey" → navigator.credentials.create
+                        // → on success / skip navigate to /consent.
+                        div {
+                            id = "vp-register"
+                            attributes["class"] = "pane-state hidden"
+                            div {
+                                attributes["class"] = "register-hero"
+                                unsafe { +KEY_SVG_LARGE }
+                                h1 {
+                                    attributes["class"] = "register-title"
+                                    +"You're in"
+                                }
+                                p {
+                                    id = "register-greet"
+                                    attributes["class"] = "register-subtitle"
+                                }
+                                p {
+                                    attributes["class"] = "register-body"
+                                    +"Register a passkey on this device so next time you can sign in with just your biometric or PIN — no wallet scan needed."
+                                }
+                            }
+                            div {
+                                attributes["class"] = "vp-actions"
+                                button {
+                                    id = "register-passkey-btn"
+                                    attributes["class"] = "primary-btn"
+                                    attributes["type"] = "button"
+                                    unsafe { +KEY_SVG }
+                                    span { +"Register passkey" }
+                                }
+                                button {
+                                    id = "register-skip-btn"
+                                    attributes["class"] = "ghost-btn"
+                                    attributes["type"] = "button"
+                                    span { +"Skip for now" }
+                                }
+                            }
+                            div { id = "register-status"; attributes["class"] = "status-text" }
+                        }
                     }
                 }
 
@@ -235,6 +278,19 @@ private val KEY_SVG = """
 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
   <circle cx="8" cy="15" r="4" stroke="currentColor" stroke-width="2"/>
   <path d="M10.5 12.5 20 3m-3 4 2.5 2.5M14 10l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>
+""".trimIndent()
+
+private val KEY_SVG_LARGE = """
+<svg viewBox="0 0 64 64" width="56" height="56" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="keygrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="var(--accent)"/>
+      <stop offset="1" stop-color="var(--accent-2)"/>
+    </linearGradient>
+  </defs>
+  <circle cx="22" cy="42" r="12" stroke="url(#keygrad)" stroke-width="3"/>
+  <path d="M29 35 L56 8 M44 17 L50 23 M38 23 L44 29" stroke="url(#keygrad)" stroke-width="3" stroke-linecap="round"/>
 </svg>
 """.trimIndent()
 
@@ -434,6 +490,12 @@ body { display: grid; place-items: center; padding: 48px 20px; }
 
 #footer-fineprint { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 24px; letter-spacing: 0.05em; text-transform: uppercase; }
 
+.register-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 8px; }
+.register-hero svg { margin-bottom: 4px; filter: drop-shadow(0 10px 24px rgba(0,0,0,0.4)); }
+.register-title { margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 700; font-size: 24px; letter-spacing: -0.02em; }
+.register-subtitle { margin: 0; color: var(--accent); font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+.register-body { margin: 4px 0 8px; color: var(--text-dim); font-size: 14px; line-height: 1.55; text-align: center; }
+
 body.leaving #card { opacity: 0; transform: translateY(-8px) scale(0.98); transition: all 320ms ease; }
 body.leaving #mesh { opacity: 0.25; }
 
@@ -541,13 +603,16 @@ private val PAGE_JS = """
 
         deepBtn.onclick = function() { window.location.href = data.deepLink; };
 
+        var succeeded = false;
         function tick() {
+          if (succeeded) return;
           fetch(data.statusUrl, { credentials: 'same-origin' })
             .then(function(r) { return r.ok ? r.json() : null; })
             .then(function(j) {
               if (!j) return;
               if (j.status === 'SUCCESSFUL') {
-                window.location.replace(data.completeUrl);
+                succeeded = true;
+                finalizeVp(data.completeUrl);
               } else if (j.status === 'UNSUCCESSFUL') {
                 errBox.textContent = 'Presentation failed. Please try again.';
                 errBox.classList.remove('hidden');
@@ -565,6 +630,132 @@ private val PAGE_JS = """
         errBox.textContent = 'Could not start the wallet session: ' + (err.message || err);
         errBox.classList.remove('hidden');
       });
+  }
+
+  // Called when wallet VP is SUCCESSFUL. Calls /complete with JSON accept so
+  // the server does its side effects (Session + AuthRequest hydrate) and
+  // tells us where to go next. If the next step is passkey registration,
+  // swap the pane to the inline register UI instead of navigating.
+  function finalizeVp(completeUrl) {
+    fetch(completeUrl, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(j) {
+        if (!j) { window.location.replace(completeUrl); return; }
+        if (j.next === 'register_passkey') {
+          showRegisterPane(j);
+        } else {
+          window.location.replace(j.nextUrl || '/consent');
+        }
+      })
+      .catch(function() { window.location.replace(completeUrl); });
+  }
+
+  function showRegisterPane(ctx) {
+    var ready = document.getElementById('vp-ready');
+    var reg = document.getElementById('vp-register');
+    var greet = document.getElementById('register-greet');
+    if (ready) ready.classList.add('hidden');
+    if (reg) reg.classList.remove('hidden');
+    if (greet) greet.textContent = ctx.displayName ? ('Welcome, ' + ctx.displayName) : 'Welcome back';
+    wireRegister(ctx);
+  }
+
+  function wireRegister(ctx) {
+    var regBtn = document.getElementById('register-passkey-btn');
+    var skipBtn = document.getElementById('register-skip-btn');
+    var status = document.getElementById('register-status');
+    var regWired = false;
+
+    function show(msg, err) {
+      if (console) console[err ? 'error' : 'log']('[passkey:register]', msg);
+      if (status) { status.textContent = msg; status.style.color = err ? '#ff8a8a' : ''; }
+    }
+    function done() { window.location.replace('/consent'); }
+    function b64urlToBuf(s) {
+      s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      var bin = atob(s); var a = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      return a.buffer;
+    }
+    function bufToB64url(b) {
+      var bytes = new Uint8Array(b); var s = '';
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+${'$'}/, '');
+    }
+    function hydrateCreation(o) {
+      var p = o.publicKey || o;
+      p.challenge = b64urlToBuf(p.challenge);
+      if (p.user && p.user.id) p.user.id = b64urlToBuf(p.user.id);
+      if (Array.isArray(p.excludeCredentials)) {
+        p.excludeCredentials = p.excludeCredentials.map(function(c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      return p;
+    }
+    function serializeAttestation(cred) {
+      var r = cred.response;
+      return {
+        id: cred.id, rawId: bufToB64url(cred.rawId), type: cred.type,
+        clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+        response: {
+          clientDataJSON: bufToB64url(r.clientDataJSON),
+          attestationObject: bufToB64url(r.attestationObject),
+          transports: r.getTransports ? r.getTransports() : []
+        }
+      };
+    }
+
+    if (!window.PublicKeyCredential) {
+      show('Your browser does not support passkeys. Continuing without one.');
+      setTimeout(done, 1200);
+      return;
+    }
+
+    if (regBtn && !regWired) {
+      regWired = true;
+      regBtn.addEventListener('click', function() {
+        regBtn.disabled = true;
+        show('Follow your browser / OS prompt…');
+        fetch('/webauthn/register/begin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ sub: ctx.sub, displayName: ctx.displayName })
+        })
+          .then(function(r) { if (!r.ok) throw new Error('begin HTTP ' + r.status); return r.json(); })
+          .then(function(env) {
+            var opts = hydrateCreation(env.options);
+            return navigator.credentials.create({ publicKey: opts }).then(function(cred) {
+              return fetch('/webauthn/register/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ flow_id: env.flow_id, attestation: serializeAttestation(cred) })
+              });
+            });
+          })
+          .then(function(r) { if (!r.ok) return r.text().then(function(t){ throw new Error('complete HTTP ' + r.status + ': ' + t); }); })
+          .then(function() {
+            show('Passkey registered! Continuing…');
+            setTimeout(done, 700);
+          })
+          .catch(function(err) {
+            show('Passkey registration failed (' + (err.message || err) + '). Continuing without one.', true);
+            setTimeout(done, 1800);
+          });
+      });
+    }
+    if (skipBtn) {
+      skipBtn.addEventListener('click', function() {
+        skipBtn.disabled = true;
+        done();
+      });
+    }
   }
 
   function wirePasskey() {

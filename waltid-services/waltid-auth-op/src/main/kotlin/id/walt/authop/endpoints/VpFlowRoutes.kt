@@ -539,15 +539,33 @@ private suspend fun ApplicationCall.handleVpComplete(deps: AuthOpDeps) {
     // the point they've been mapped to claims.
     deps.vpSessionStore.update(verifierSessionId) { it.copy(capturedCredential = null) }
 
-    // 17. Redirect to /register-passkey (if the passkey feature is
-    // configured) so the user can enrol a convenience credential before
-    // landing on /consent. The register page navigates to /consent itself
-    // on success or skip. When passkey support is off we preserve the
-    // pre-feature behaviour of going straight to /consent.
-    if (deps.passkeyService != null) {
-        respondRedirect("/register-passkey")
+    // 17. Hand the user off to the next step. When the glass /login page
+    // polls /complete with Accept: application/json it wants to swap the
+    // panel in-place instead of navigating away — return a small JSON
+    // envelope describing where the SPA should go next. Non-JSON callers
+    // still get the classic 302 redirect so /login/realm/{id}/complete
+    // stays a valid standalone entry point.
+    val next = if (deps.passkeyService != null) "register_passkey" else "consent"
+    val nextUrl = if (next == "register_passkey") "/register-passkey" else "/consent"
+    val wantsJson = request.headers["Accept"]?.contains("application/json") == true
+    if (wantsJson) {
+        respond(
+            kotlinx.serialization.json.buildJsonObject {
+                put("next", JsonPrimitive(next))
+                put("nextUrl", JsonPrimitive(nextUrl))
+                put("sub", JsonPrimitive(sub))
+                // displayName lets the inline register panel greet the user
+                // with their wallet-asserted name without a second fetch.
+                put("displayName", JsonPrimitive(
+                    listOfNotNull(
+                        (mappedClaims["given_name"] as? JsonPrimitive)?.contentOrNull,
+                        (mappedClaims["family_name"] as? JsonPrimitive)?.contentOrNull,
+                    ).joinToString(" ").ifBlank { sub }
+                ))
+            }
+        )
     } else {
-        respondRedirect("/consent")
+        respondRedirect(nextUrl)
     }
 }
 
