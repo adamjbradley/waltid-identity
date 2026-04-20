@@ -201,3 +201,6 @@ waltid-applications/waltid-web-portal/test-results/
 
 # Docker Compose local overrides
 docker-compose/.env.local
+
+# AI tool scratch files (design-review notes, not tracked)
+*.feedback
