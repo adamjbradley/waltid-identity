@@ -437,6 +437,29 @@ describe('POST /api/age-check/webhook/:token + GET /api/age-check/status', () =>
     const status = await fresh.get('/api/age-check/status').expect(200);
     expect(status.body).toEqual({ verified: null });
   });
+
+  it('deletes the ageCheckByToken entry after successful status mirror', async () => {
+    await agent.post('/_test/session').send({ ageCheck: { sessionId: 's4', token: 'tok-evict', webhookSecret: 'secret-evict' } });
+    await agent.post('/_test/age-check/register').send({ token: 'tok-evict', webhookSecret: 'secret-evict' });
+
+    // Drive the webhook to SUCCESSFUL
+    await request(app).post('/api/age-check/webhook/tok-evict')
+      .set('Authorization', 'Bearer secret-evict')
+      .send({ event: 'policy_results_available', session: { id: 's4', status: 'SUCCESSFUL', presentedCredentials: { pid_0: [{ credentialData: { age_over_21: true } }] } } })
+      .expect(200);
+
+    // First poll mirrors + evicts
+    const first = await agent.get('/api/age-check/status').expect(200);
+    expect(first.body).toEqual({ verified: true });
+
+    // Second poll returns null (entry gone), but session flag remains sticky
+    const second = await agent.get('/api/age-check/status').expect(200);
+    expect(second.body).toEqual({ verified: null });
+
+    // Session still ageVerified for cart adds
+    const add = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    expect(add.body.count).toBe(1);
+  });
 });
 
 describe('Integration Tests with Sandbox API', () => {

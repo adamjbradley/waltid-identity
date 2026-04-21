@@ -50,6 +50,26 @@ function buildAgeOnlyDcql() {
 }
 
 /**
+ * In-memory ageCheckByToken entries leak if nothing ever evicts them. The
+ * status-poll handler deletes once a terminal verdict has been mirrored into
+ * the session cookie, but a user who closes the tab before polling would
+ * leave the entry stranded. This TTL is the fallback for that case: after
+ * AGE_CHECK_TTL_MS the entry is unconditionally removed. `unref()` on the
+ * timeout handle keeps an idle event loop from being held open purely by
+ * pending evictions (otherwise a freshly-started server with outstanding
+ * tokens couldn't exit cleanly).
+ */
+const AGE_CHECK_TTL_MS = 10 * 60 * 1000;
+function registerAgeCheck(map, token, entry) {
+  map.set(token, entry);
+  setTimeout(() => {
+    const current = map.get(token);
+    // Only delete if still the same entry (not replaced mid-flight)
+    if (current === entry) map.delete(token);
+  }, AGE_CHECK_TTL_MS).unref();
+}
+
+/**
  * Does this session satisfy the `minAge` requirement? The demo treats a
  * verified OIDC claim (`age_over_18` / `age_over_21`) as equivalent to a
  * direct age-check flow that set `session.ageVerified = true`. Anything
@@ -463,7 +483,7 @@ function createApp() {
       // `fullAuthorizationRequestUrl`. Degrade to full URL if bootstrap
       // is absent so the caller always gets something scannable.
       const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
-      ageCheckByToken.set(token, { webhookSecret, verified: null });
+      registerAgeCheck(ageCheckByToken, token, { webhookSecret, verified: null });
       req.session.ageCheck = { sessionId: session.sessionId, token, webhookSecret };
       res.json({ sessionId: session.sessionId, qrCode });
     } catch (err) {
@@ -554,8 +574,10 @@ function createApp() {
     if (!tok) return res.json({ verified: null });
     const entry = ageCheckByToken.get(tok);
     if (!entry) return res.json({ verified: null });
-    if (entry.verified === true) req.session.ageVerified = true;
-    else if (entry.verified === false) req.session.ageVerified = false;
+    if (entry.verified === true || entry.verified === false) {
+      req.session.ageVerified = entry.verified;
+      ageCheckByToken.delete(tok); // eviction: verdict is now on the session cookie
+    }
     res.json({ verified: entry.verified });
   });
 
@@ -576,7 +598,7 @@ function createApp() {
       if (!token || !webhookSecret) {
         return res.status(400).json({ error: 'missing_fields' });
       }
-      ageCheckByToken.set(token, { webhookSecret, verified: null });
+      registerAgeCheck(ageCheckByToken, token, { webhookSecret, verified: null });
       res.json({ ok: true });
     });
   }
