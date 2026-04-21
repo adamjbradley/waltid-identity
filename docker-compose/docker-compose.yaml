@@ -466,6 +466,11 @@ services:
       # namespace (the Cloudflare-tunnelled origin, not localhost).
       PUBLIC_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
       PORT: 4000
+      # Persistent profile registry. Defaults to /app/data/users.json
+      # which the Dockerfile prepares. The rp-widget-data named volume
+      # below keeps it across container recreates — without this the
+      # admin console would only ever show the last session's logins.
+      USER_STORE_FILE: "/app/data/users.json"
       # OIDC RP login — unset RP_THEAUSTRALIAHACK_SECRET to disable.
       # Both OPs are configured simultaneously; the UI offers both buttons.
       KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
@@ -479,6 +484,12 @@ services:
       NODE_ENV: "${NODE_ENV:-production}"
     ports:
       - "${RP_WIDGET_PORT:-4000}:4000"
+    volumes:
+      # Persistent user registry — without this every container recreate
+      # wipes /app/data/users.json and the admin console only sees the
+      # most recent login. Named volume keeps the data stack-scoped and
+      # out of git (bind mounts would land in the repo).
+      - rp-widget-data:/app/data
 
   # Mock PSP (Bank of Demo) — Payment Wallet Attestation issuer for the
   # rp-widget-demo. Production-shaped: own process, own domain
@@ -698,3 +709,6 @@ volumes:
   valkey_data:
   verifier-api2-data:
   n8n_data:
+  # Persistent profile registry for rp-widget-demo (users + per-user
+  # orders). See examples/rp-widget-demo/userStore.js for the shape.
+  rp-widget-data:
