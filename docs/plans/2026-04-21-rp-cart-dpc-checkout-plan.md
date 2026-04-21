@@ -502,6 +502,28 @@ git commit -m "feat(rp): age-verify modal + retry-on-verify flow"
 
 ---
 
+## Task 11 — resolved (2026-04-21)
+
+**Verdict: reuse existing tenant.**
+
+The existing `docker-compose/issuer-api/config/issuer-tenants/a84e7c3a-b399-48e9-9345-2d8f062c614f.json` (State Bank of India) already has a `PaymentWalletAttestation` credential configuration. Generating a fresh Bank-of-Demo tenant adds ~1 hour of key-generation + x5c chain plumbing for zero demo benefit — so we instead override `PSP_TENANT_ID` in `docker-compose.yaml` to point at the SBI tenant UUID by default.
+
+The enrolled PWA will be signed by the SBI signing key and the wallet will show "State Bank of India" as the issuer. The RP widget's enrollment copy still labels the surface as "Bank of Demo" since that's the conceptual role. Production would split per-bank tenants with their own keys + x5c chains.
+
+Operators wanting a separate tenant override `PSP_TENANT_ID` in `.env.local`.
+
+---
+
+## Task 12 — resolved (2026-04-21)
+
+**Verdict: deferred.**
+
+`psp.theaustraliahack.com` vhost was planned as visual separation. With Task 11 reusing the existing SBI tenant, enrollment redirects flow through `issuer.theaustraliahack.com` directly. The demo is complete; the dedicated PSP vhost is a cosmetic improvement tracked separately.
+
+If the vhost is wanted later: Caddyfile block + Cloudflare DNS CNAME + tunnel ingress rule. Process documented in `infrastructure.md` under "Managing routes via the Cloudflare API".
+
+---
+
 ## Task 11: Mock PSP tenant JSON
 
 **Files:**
