@@ -456,13 +456,14 @@ services:
       RP_DOMAIN: "rp.theaustraliahack.com"
       # Verifier API2 internal URL (for proxying wallet VP token responses)
       VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
-      # Mock PSP for "Add payment method" flow — reuses the existing
-      # PaymentWalletAttestation-issuing tenant. In a real deployment each
-      # bank would have its own tenant; see
-      # docs/plans/2026-04-21-rp-cart-dpc-checkout-design.md.
-      ISSUER_API_URL: "http://issuer-api:${ISSUER_API_PORT:-7002}"
-      PUBLIC_ISSUER_URL: "${ISSUER_EXTERNAL_HTTPS_URL:-https://issuer.theaustraliahack.com}"
-      PSP_TENANT_ID: "${PSP_TENANT_ID:-a84e7c3a-b399-48e9-9345-2d8f062c614f}"
+      # External PSP origin for the "Add payment method" / "Replace"
+      # buttons. The RP now redirects shoppers to the standalone mock-psp
+      # service (psp.theaustraliahack.com) for enrolment; see
+      # examples/mock-psp-demo.
+      PUBLIC_PSP_URL: "${PSP_EXTERNAL_URL:-https://psp.theaustraliahack.com}"
+      # Public base for the PWA capture + checkout webhooks that verifier-
+      # api2 calls back to. Must resolve from verifier-api2's network
+      # namespace (the Cloudflare-tunnelled origin, not localhost).
       PUBLIC_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
       PORT: 4000
       # OIDC RP login — unset RP_THEAUSTRALIAHACK_SECRET to disable.
