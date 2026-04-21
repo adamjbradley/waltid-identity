@@ -557,6 +557,29 @@
             background: var(--primary-hover);
         }
 
+        .cart-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            max-width: 320px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: #111;
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+            font-size: 13px;
+            z-index: 600;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 160ms ease, transform 160ms ease;
+            pointer-events: none;
+        }
+        .cart-toast.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .store-btn {
             display: inline-flex;
             align-items: center;
@@ -2979,7 +3002,9 @@
             const qty = document.createElement('select'); qty.className = 'qty-select'; qty.setAttribute('aria-label', 'Quantity');
             [1, 2, 3, 6, 12].forEach(n => { const o = document.createElement('option'); o.textContent = String(n); qty.appendChild(o); });
             const btn = document.createElement('button'); btn.className = 'btn-add'; btn.textContent = 'ADD';
-            btn.addEventListener('click', () => showAgeVerification(p.minAge, 'modal'));
+            btn.type = 'button';
+            btn.setAttribute('data-add', p.id);
+            btn.addEventListener('click', () => addToCart(p.id));
             addRow.appendChild(qty); addRow.appendChild(btn);
             info.appendChild(addRow);
 
@@ -3124,6 +3149,226 @@
             });
         }
 
+        /* ============================================================
+         *  Cart rendering + CRUD wiring
+         *
+         *  `refreshCart()` pulls the authoritative summary from the server
+         *  and rewrites the drawer. We never trust client totals — every
+         *  mutation round-trips through /api/cart/* and we re-render from
+         *  the response. Optimistic badge updates happen before the fetch
+         *  so the click feels instant; the server response is authoritative
+         *  (so a server-side qty clamp wouldn't get lost).
+         *
+         *  DOM is built with document.createElement / textContent only so
+         *  every field in the catalogue stays XSS-safe, matching the
+         *  pattern in renderProductCard.
+         * ============================================================ */
+        function setBadge(count) {
+            const badge = document.getElementById('cart-badge');
+            if (!badge) return;
+            badge.textContent = String(count);
+            badge.style.display = count > 0 ? '' : 'none';
+        }
+        function formatPrice(n) {
+            return '\u00A3' + Number(n || 0).toFixed(2);
+        }
+        function renderCartSummary(summary) {
+            const empty = document.getElementById('cart-empty');
+            const list = document.getElementById('cart-items');
+            const footer = document.getElementById('cart-footer');
+            const subtotalEl = document.getElementById('cart-subtotal-amount');
+            if (!empty || !list || !footer) return;
+
+            const items = summary.items || [];
+            setBadge(summary.count || 0);
+
+            if (items.length === 0) {
+                empty.hidden = false;
+                list.hidden = true;
+                footer.hidden = true;
+                while (list.firstChild) list.removeChild(list.firstChild);
+                return;
+            }
+
+            empty.hidden = true;
+            list.hidden = false;
+            footer.hidden = false;
+            if (subtotalEl) subtotalEl.textContent = formatPrice(summary.subtotal);
+
+            while (list.firstChild) list.removeChild(list.firstChild);
+            items.forEach(item => list.appendChild(renderCartItem(item)));
+        }
+        function renderCartItem(item) {
+            const li = document.createElement('li');
+            li.className = 'cart-item';
+            li.dataset.productId = item.productId;
+
+            const img = document.createElement('div');
+            img.className = 'cart-item-img';
+            img.textContent = item.imageUrl || '\uD83C\uDF77'; // fallback glass emoji
+            li.appendChild(img);
+
+            const info = document.createElement('div');
+            info.className = 'cart-item-info';
+            const title = document.createElement('span');
+            title.className = 'cart-item-title';
+            title.textContent = item.title || item.productId;
+            info.appendChild(title);
+            const price = document.createElement('span');
+            price.className = 'cart-item-price';
+            price.textContent = formatPrice(item.priceAud) + ' each';
+            info.appendChild(price);
+
+            const qtyRow = document.createElement('div');
+            qtyRow.className = 'cart-item-qty';
+            const minus = document.createElement('button');
+            minus.type = 'button';
+            minus.className = 'cart-qty-btn';
+            minus.setAttribute('aria-label', 'Decrease quantity');
+            minus.textContent = '\u2212'; // minus sign
+            minus.disabled = item.qty <= 1;
+            minus.addEventListener('click', () => patchCartQty(item.productId, item.qty - 1));
+            const val = document.createElement('span');
+            val.className = 'cart-qty-value';
+            val.textContent = String(item.qty);
+            const plus = document.createElement('button');
+            plus.type = 'button';
+            plus.className = 'cart-qty-btn';
+            plus.setAttribute('aria-label', 'Increase quantity');
+            plus.textContent = '+';
+            plus.addEventListener('click', () => patchCartQty(item.productId, item.qty + 1));
+            qtyRow.appendChild(minus);
+            qtyRow.appendChild(val);
+            qtyRow.appendChild(plus);
+            info.appendChild(qtyRow);
+
+            li.appendChild(info);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'cart-item-remove';
+            remove.setAttribute('aria-label', 'Remove ' + (item.title || 'item'));
+            remove.textContent = '\u00D7';
+            remove.addEventListener('click', () => removeCartItem(item.productId));
+            li.appendChild(remove);
+
+            return li;
+        }
+
+        async function refreshCart() {
+            try {
+                const r = await fetch('/api/cart', { credentials: 'same-origin' });
+                if (!r.ok) return;
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] refresh failed:', err);
+            }
+        }
+        async function addToCart(productId) {
+            try {
+                const r = await fetch('/api/cart/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ productId, qty: 1 }),
+                });
+                if (r.status === 403) {
+                    const body = await r.json().catch(() => ({}));
+                    if (body && body.error === 'age_verification_required') {
+                        // startAgeVerify lands in Task 10; guard so this commit
+                        // is standalone-buildable (just logs + toast if missing).
+                        if (typeof startAgeVerify === 'function') {
+                            startAgeVerify(productId, body.minAge);
+                        } else {
+                            console.warn('[cart] age gate triggered; modal not wired yet');
+                            showCartToast('Age verification required (21+).');
+                        }
+                        return;
+                    }
+                }
+                if (!r.ok) {
+                    const body = await r.json().catch(() => ({}));
+                    console.warn('[cart] add failed:', r.status, body);
+                    showCartToast((body && body.error) ? ('Could not add: ' + body.error) : 'Could not add to cart');
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+                // Opening the drawer on add gives a visible confirmation of the
+                // server-accepted state, mirroring shopify-style "side-cart" UX.
+                openCartDrawer();
+            } catch (err) {
+                console.warn('[cart] add error:', err);
+                showCartToast('Network error adding to cart');
+            }
+        }
+        async function patchCartQty(productId, qty) {
+            // Optimistic badge tweak so the click feels immediate; the fetch
+            // response overwrites with server truth.
+            const current = Number(document.getElementById('cart-badge').textContent || '0');
+            const existingLi = document.querySelector('.cart-item[data-product-id="' + CSS.escape(productId) + '"]');
+            const prevQty = existingLi ? Number(existingLi.querySelector('.cart-qty-value').textContent) || 0 : 0;
+            const delta = Math.max(qty, 0) - prevQty;
+            setBadge(Math.max(0, current + delta));
+            try {
+                const r = await fetch('/api/cart/items/' + encodeURIComponent(productId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ qty }),
+                });
+                if (r.status === 403) {
+                    const body = await r.json().catch(() => ({}));
+                    await refreshCart();
+                    if (body && body.error === 'age_verification_required' && typeof startAgeVerify === 'function') {
+                        startAgeVerify(productId, body.minAge);
+                    }
+                    return;
+                }
+                if (!r.ok) {
+                    await refreshCart();
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] patch error:', err);
+                refreshCart();
+            }
+        }
+        async function removeCartItem(productId) {
+            try {
+                const r = await fetch('/api/cart/items/' + encodeURIComponent(productId), {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                });
+                if (!r.ok) {
+                    await refreshCart();
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] delete error:', err);
+                refreshCart();
+            }
+        }
+        let cartToastTimer = null;
+        function showCartToast(msg) {
+            let toast = document.getElementById('cart-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'cart-toast';
+                toast.className = 'cart-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            requestAnimationFrame(() => toast.classList.add('is-visible'));
+            if (cartToastTimer) clearTimeout(cartToastTimer);
+            cartToastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2400);
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
             handleResize();
@@ -3142,6 +3387,9 @@
             // will re-render it with preferences if the user is signed in.
             renderProductShelf(null);
             renderAuthStatus();
+            // Reflect the session's existing cart state (a revisit within the
+            // session TTL should see its items already populated).
+            refreshCart();
         });
     </script>
 </body>
