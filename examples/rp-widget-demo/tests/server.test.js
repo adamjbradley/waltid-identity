@@ -612,6 +612,88 @@ describe('POST /api/checkout', () => {
     const res = await agent.post('/api/checkout').expect(502);
     expect(res.body).toMatchObject({ error: 'verifier_unavailable' });
   });
+
+  it('403 age_verification_required when cart has 21+ items and session is not verified', async () => {
+    // Seed a cart directly on the session — bypass the cart POST gate so we
+    // exercise the checkout gate in isolation. Real users would have been
+    // caught at cart-add, but a session-replay / pre-hydrated cart case
+    // could slip through that and should be stopped here.
+    await agent.post('/_test/session').send({
+      user: { sub: 'sub-no-age' },   // sub present, no age claims
+      cart: {
+        items: [{
+          productId: 'hibiki-harmony', qty: 1, priceAud: 89.00,
+          title: 'Hibiki', imageUrl: '🥃', ageRestricted: true, minAge: 21,
+        }],
+        updatedAt: Date.now(),
+      },
+    }).expect(200);
+    const res = await agent.post('/api/checkout').expect(403);
+    expect(res.body).toEqual({ error: 'age_verification_required', minAge: 21 });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('200 when cart age-restricted and session.user.age_over_21', async () => {
+    await agent.post('/_test/session').send({
+      user: { sub: 'sub-age21', age_over_21: true },
+      cart: {
+        items: [{
+          productId: 'hibiki-harmony', qty: 1, priceAud: 89.00,
+          title: 'Hibiki', imageUrl: '🥃', ageRestricted: true, minAge: 21,
+        }],
+        updatedAt: Date.now(),
+      },
+    }).expect(200);
+    const res = await agent.post('/api/checkout').expect(200);
+    expect(res.body.orderId).toMatch(/^ORDER-/);
+  });
+});
+
+describe('isAgeVerified + cartMinAge unit', () => {
+  const { isAgeVerified, cartMinAge } = require('../server');
+
+  it('returns true when session.user.age_over_21 satisfies minAge=21', () => {
+    expect(isAgeVerified({ user: { age_over_21: true } }, 21)).toBe(true);
+  });
+
+  it('returns true when session.user.age_over_18 satisfies minAge=18', () => {
+    expect(isAgeVerified({ user: { age_over_18: true } }, 18)).toBe(true);
+  });
+
+  it('falls back to userStore when session.user has sub but no age claim', () => {
+    const fakeStore = { get: (s) => (s === 'returning' ? { sub: 'returning', age_over_21: true } : null) };
+    expect(isAgeVerified({ user: { sub: 'returning' } }, 21, fakeStore)).toBe(true);
+    expect(isAgeVerified({ user: { sub: 'newcomer' } }, 21, fakeStore)).toBe(false);
+  });
+
+  it('returns false when no sub and no session flag (anonymous, unverified)', () => {
+    expect(isAgeVerified({}, 21, { get: () => null })).toBe(false);
+  });
+
+  it('returns true when session.ageVerified (anonymous verified path)', () => {
+    expect(isAgeVerified({ ageVerified: true }, 21, { get: () => null })).toBe(true);
+  });
+
+  it('returns true when minAge is falsy regardless of session state', () => {
+    expect(isAgeVerified({}, 0)).toBe(true);
+    expect(isAgeVerified({}, null)).toBe(true);
+  });
+
+  it('cartMinAge takes the max across age-restricted items', () => {
+    expect(cartMinAge({ items: [
+      { ageRestricted: true, minAge: 18 },
+      { ageRestricted: true, minAge: 21 },
+    ] })).toBe(21);
+  });
+
+  it('cartMinAge returns 0 for an empty or unrestricted cart', () => {
+    expect(cartMinAge({ items: [] })).toBe(0);
+    expect(cartMinAge({ items: [{ ageRestricted: false }] })).toBe(0);
+  });
+
+  it('cartMinAge defaults to 21 when an item is ageRestricted but minAge is missing', () => {
+    expect(cartMinAge({ items: [{ ageRestricted: true }] })).toBe(21);
+  });
 });
 
 describe('POST /api/checkout/webhook/:token + GET /api/checkout/status', () => {

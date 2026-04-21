@@ -37,7 +37,8 @@ function addItem(cart, product, qty = 1) {
         priceAud: product.priceSingle,
         title: product.name,
         imageUrl: product.icon,
-        ageRestricted: product.ageRestricted
+        ageRestricted: product.ageRestricted,
+        minAge: product.minAge
     });
     cart.updatedAt = Date.now();
     return cart;

@@ -122,11 +122,40 @@ const registerAgeCheck = registerSessionToken;
  * else — including a missing `minAge` being falsy — returns true so
  * unrestricted products skip the gate entirely.
  */
-function isAgeVerified(session, minAge) {
+function isAgeVerified(session, minAge, userStore) {
   if (!minAge) return true;
-  if (session.user && session.user.age_over_21 === true && minAge <= 21) return true;
-  if (session.user && session.user.age_over_18 === true && minAge <= 18) return true;
+  const u = session.user || {};
+  // Session claims come from the most recent OIDC callback — first-class
+  // and the fastest path.
+  if (u.age_over_21 === true && minAge <= 21) return true;
+  if (u.age_over_18 === true && minAge <= 18) return true;
+  // Persisted profile fallback for returning logged-in users whose session
+  // lost the age claim (cookie rotation, partial rehydrate) but whose sub
+  // is still present. Skips when no userStore is threaded (unit tests on
+  // isolated sessions, or anonymous sessions without a sub).
+  if (u.sub && userStore && typeof userStore.get === 'function') {
+    const stored = userStore.get(u.sub);
+    if (stored) {
+      if (stored.age_over_21 === true && minAge <= 21) return true;
+      if (stored.age_over_18 === true && minAge <= 18) return true;
+    }
+  }
+  // Anonymous age-check flow set the ephemeral per-session flag.
   return session.ageVerified === true;
+}
+
+/**
+ * Summarise a cart's age-gate requirement: returns the max `minAge` across
+ * age-restricted items, or 0 if nothing is age-restricted. Called at
+ * checkout so the gate enforcement picks the tightest constraint.
+ */
+function cartMinAge(cart) {
+  if (!cart || !Array.isArray(cart.items)) return 0;
+  let max = 0;
+  for (const it of cart.items) {
+    if (it.ageRestricted) max = Math.max(max, Number(it.minAge) || 21);
+  }
+  return max;
 }
 
 // Configuration from environment
@@ -459,7 +488,7 @@ function createApp() {
     if (!product) return res.status(404).json({ error: 'unknown_product' });
     const qty = Number(req.body.qty ?? 1);
     if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'invalid_qty' });
-    if (product.ageRestricted && !isAgeVerified(req.session, product.minAge)) {
+    if (product.ageRestricted && !isAgeVerified(req.session, product.minAge, userStore)) {
       return res.status(403).json({ error: 'age_verification_required', minAge: product.minAge });
     }
     addItem(req.session.cart, product, qty);
@@ -481,7 +510,7 @@ function createApp() {
     if (!Number.isFinite(newQty) || newQty < 0) return res.status(400).json({ error: 'invalid_qty' });
     if (newQty > existing.qty && existing.ageRestricted) {
       const product = getProduct(req.params.productId);
-      if (!isAgeVerified(req.session, product && product.minAge)) {
+      if (!isAgeVerified(req.session, product && product.minAge, userStore)) {
         return res.status(403).json({ error: 'age_verification_required', minAge: (product && product.minAge) || 21 });
       }
     }
@@ -749,6 +778,15 @@ function createApp() {
   app.post('/api/checkout', async (req, res) => {
     const items = (req.session.cart && req.session.cart.items) || [];
     if (!items.length) return res.status(400).json({ error: 'empty_cart' });
+    // Age-gate the order as a whole: the cart-add gate is the first line of
+    // defence, but a session that's been through a partial rehydrate (e.g.
+    // session.user.sub present but age claim missing) could slip through
+    // there too — so enforce again at the order boundary using the same
+    // store-aware isAgeVerified check.
+    const requiredMinAge = cartMinAge(req.session.cart);
+    if (requiredMinAge && !isAgeVerified(req.session, requiredMinAge, userStore)) {
+      return res.status(403).json({ error: 'age_verification_required', minAge: requiredMinAge });
+    }
     const orderId = 'ORDER-' + crypto.randomUUID();
     const cartSummary = summary(req.session.cart);
     const total = cartSummary.subtotal;
@@ -1259,4 +1297,4 @@ if (require.main === module) {
 }
 
 // Export for testing
-module.exports = { createApp, config };
+module.exports = { createApp, config, isAgeVerified, cartMinAge };
