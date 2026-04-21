@@ -341,12 +341,7 @@ private suspend fun io.ktor.server.routing.RoutingContext.completeConsent(
     // file path) the projector returns the input map unchanged.
     val realm = authReq.chosenRealmId?.let { deps.realmRegistry[it] }
     val realmClaimKey = "${deps.config.canonicalIssuer}/realm"
-    // cnf_jkt is the wallet-key binding thumbprint (RFC 7638) stamped by
-    // VpFlowRoutes on OID4VP-realm completion. Like acr/amr/realm it's a
-    // meta claim — not scope-filterable, not wallet-disclosed. Preserve it
-    // unconditionally so downstream RPs can bind their session to the
-    // wallet without the RP having to request a bespoke scope for it.
-    val preservedKeys = setOf("acr", "amr", realmClaimKey, "cnf_jkt")
+    val preservedKeys = setOf("acr", "amr", realmClaimKey)
     val projectedBase = if (realm != null) {
         ScopeProjector.project(
             realm = realm,

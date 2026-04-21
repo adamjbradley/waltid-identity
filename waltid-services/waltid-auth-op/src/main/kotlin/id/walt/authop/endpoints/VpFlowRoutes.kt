@@ -4,7 +4,6 @@ package id.walt.authop.endpoints
 
 import id.walt.authop.AuthOpDeps
 import id.walt.authop.claims.ClaimMapper
-import id.walt.authop.claims.JwkThumbprint
 import id.walt.authop.claims.SubDerivation
 import id.walt.authop.config.RealmConfig
 import id.walt.authop.domain.AuthRequest
@@ -512,40 +511,11 @@ private suspend fun ApplicationCall.handleVpComplete(deps: AuthOpDeps) {
     // then operator-immutable meta claims on top so a realm's claim_mapping
     // cannot override acr/amr/realm.
     val realmClaimName = "${deps.config.canonicalIssuer}/realm"
-    val baseMeta: Map<String, JsonElement> = mapOf(
+    val finalClaims: Map<String, JsonElement> = mappedClaims + mapOf(
         realmClaimName to JsonPrimitive(realmId),
         "acr" to JsonPrimitive("urn:walt:vp"),
         "amr" to buildJsonArray { add("swk") },
     )
-    // 13a. Cnf-key binding (RFC 7638 thumbprint).
-    //
-    // When the presented SD-JWT carries a `cnf.jwk` holder-binding key, we
-    // project its thumbprint into the id-token as `cnf_jkt`. This gives the
-    // RP a session-binding anchor that is STABLE within the wallet's
-    // lifetime but DIFFERENT per-wallet-instance and DIFFERENT from the
-    // human-readable `sub` — preserving cross-verifier unlinkability while
-    // letting the RP detect "wrong wallet on the second presentation"
-    // attacks on age-check / checkout flows.
-    //
-    // Employees-realm logins (method=OIDC, Keycloak upstream) never reach
-    // this code path — they use OidcCallbackRoutes which has no credential.
-    // For OID4VP realms whose wallet does NOT disclose cnf (e.g. mdoc-only,
-    // or a DCQL query that didn't request holder-binding), we emit no
-    // cnf_jkt — the downstream RP treats the session as unbindable and
-    // falls back to anonymous-session semantics.
-    //
-    // We do NOT include cnf_jkt in the ClaimMapper output or realm
-    // claim_mapping — it's not a wallet-disclosed claim, it's a derived
-    // binding value operator-stamped after the fact. And we add it to the
-    // preservedKeys set (see ConsentRoutes.completeConsent) so scope
-    // filtering can't strip it.
-    val cnfJwk = (firstCredential["cnf"] as? JsonObject)?.get("jwk") as? JsonObject
-    val cnfJkt = cnfJwk?.let { JwkThumbprint.compute(it) }
-    val finalClaims: Map<String, JsonElement> = if (cnfJkt != null) {
-        mappedClaims + baseMeta + ("cnf_jkt" to JsonPrimitive(cnfJkt))
-    } else {
-        mappedClaims + baseMeta
-    }
 
     // 14. Session creation. Keyed by sid; upstreamIdToken=null (no OIDC
     // chain on VP realms).
