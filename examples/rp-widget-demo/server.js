@@ -93,6 +93,20 @@ function buildPwaCaptureDcql() {
 }
 
 /**
+ * PaymentWalletAttestation DCQL used at /checkout pay time — narrower than
+ * the capture variant (no payeeName) because checkout only needs
+ * panLastFour + scheme to echo on the receipt. Single VCT, single cred.
+ */
+function buildPwaCheckoutDcql() {
+  return buildSingletonDcql(
+    ['PaymentWalletAttestation'],
+    [['panLastFour'], ['scheme']],
+    'dc+sd-jwt',
+    'pwa',
+  );
+}
+
+/**
  * In-memory token maps leak if nothing ever evicts them. The status-poll
  * handler deletes once a terminal verdict has been mirrored into the
  * session cookie, but a user who closes the tab before polling would leave
@@ -281,6 +295,13 @@ function createApp() {
   // disambiguate "which flow owns this token".
   const pspEnrollByToken = new Map();
   const pwaCaptureByToken = new Map();
+  // Task 17/18: /api/checkout → verifier-api2 PWA presentation session.
+  // Entry shape: {orderId, total, currency, items, txData, webhookSecret,
+  //               completed: boolean, order?: {...}}. The webhook writes
+  //               {completed, order} on SUCCESSFUL; /api/checkout/status
+  //               mirrors the order into req.session.orders + userStore
+  //               and evicts the entry.
+  const checkoutByToken = new Map();
 
   // Per-app userStore. See resolveUserStoreFile() — the file path is
   // evaluated here so each call to createApp() can pick up a fresh
@@ -999,6 +1020,87 @@ function createApp() {
       return res.json({ verified: false, paymentMethod: null });
     }
     res.json({ verified: null });
+  });
+
+  // ============================================================
+  // Checkout kickoff (Task 17)
+  // ============================================================
+  //
+  // POST /api/checkout bundles the current cart into an order and opens a
+  // verifier-api2 session asking the wallet to present a PWA (claims
+  // panLastFour + scheme). Task 0 Plan B fallback: verifier-api2's
+  // GeneralFlowConfig has no `nonce` field — the library generates a
+  // random nonce internally on every session-create. We therefore bind
+  // the VP to the order via our own `checkoutByToken` map (keyed by the
+  // unguessable token embedded in the webhook URL), not via a wallet-side
+  // transaction_data commitment. The checkoutByToken entry holds the
+  // txData so the receipt page can render the transaction summary that
+  // would have lived in the wallet's kb-JWT transaction_data_hashes had
+  // the library supported RFC008.
+  //
+  // Error semantics:
+  //  - empty cart → 400 empty_cart
+  //  - no user.paymentMethod on session → 400 payment_method_required
+  //  - verifier-api2 unreachable / rejects → 502 verifier_unavailable
+  app.post('/api/checkout', async (req, res) => {
+    const items = (req.session.cart && req.session.cart.items) || [];
+    if (!items.length) return res.status(400).json({ error: 'empty_cart' });
+    if (!req.session.user || !req.session.user.paymentMethod) {
+      return res.status(400).json({ error: 'payment_method_required' });
+    }
+    const orderId = 'ORDER-' + crypto.randomUUID();
+    const cartSummary = summary(req.session.cart);
+    const total = cartSummary.subtotal;
+    // Server-only transaction data. Mirrors the shape that would be fed
+    // into RFC008 `transaction_data` if the stack supported it — keeping
+    // the field names aligned makes a future upgrade a one-line swap.
+    const txData = {
+      type: 'payment_data',
+      credential_ids: ['pwa'],
+      payee: 'Oz Bottleshop Pty Ltd',
+      amount: String(total),
+      currency: 'AUD',
+      transaction_ref: orderId,
+    };
+    const token = crypto.randomBytes(16).toString('hex');
+    const webhookSecret = crypto.randomBytes(32).toString('base64url');
+    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, '')}/api/checkout/webhook/${token}`;
+    const body = {
+      flow_type: 'cross_device',
+      core_flow: {
+        dcql_query: buildPwaCheckoutDcql(),
+        signed_request: true,
+        notifications: {
+          webhook: { url: webhookUrl, bearer_token: webhookSecret },
+        },
+      },
+    };
+    try {
+      const r = await fetch(
+        `${VERIFIER_API2_URL}/verification-session/create?rpId=${encodeURIComponent(RP_ID)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
+      if (!r.ok) {
+        console.warn('[checkout] verifier-api2 session-create failed', r.status);
+        return res.status(502).json({ error: 'verifier_unavailable' });
+      }
+      const session = await r.json();
+      const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
+      registerSessionToken(checkoutByToken, token, {
+        orderId,
+        total,
+        currency: 'AUD',
+        txData,
+        items: items.slice(),
+        webhookSecret,
+        completed: false,
+      });
+      req.session.pendingOrder = { orderId, total, items: items.slice(), token };
+      res.json({ orderId, sessionId: session.sessionId, qrCode });
+    } catch (err) {
+      console.warn('[checkout] session-create error', err.message || err);
+      res.status(502).json({ error: 'verifier_unavailable' });
+    }
   });
 
   // ============================================================

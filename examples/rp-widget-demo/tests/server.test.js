@@ -789,6 +789,95 @@ describe('GET /checkout + GET /api/me', () => {
   });
 });
 
+describe('POST /api/checkout', () => {
+  // Task 17 — kicks a PWA presentation session on verifier-api2 with the
+  // orderId bound as `core_flow.state` (see Task 0 Plan B fallback; a true
+  // RFC008 transaction_data_hashes kb-JWT binding is pending verifier-api2
+  // support). Tests assert:
+  //  - 400 payment_method_required when no user.paymentMethod on session.
+  //  - 400 empty_cart when the session has no cart items.
+  //  - Happy path returns {orderId, sessionId, qrCode} and the upstream
+  //    DCQL asks for PaymentWalletAttestation with panLastFour + scheme.
+  //  - The webhookUrl embeds a per-order token and the bearer is minted.
+  let app;
+  let agent;
+  let originalFetch;
+  beforeAll(() => { originalFetch = global.fetch; });
+  afterAll(() => { global.fetch = originalFetch; });
+  beforeEach(() => {
+    app = createApp();
+    agent = request.agent(app);
+    global.fetch = jest.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/verification-session/create')) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            sessionId: 'ck-sess-1',
+            bootstrapAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=ck',
+            fullAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=ck_full',
+          }),
+        };
+      }
+      throw new Error('unexpected fetch ' + url);
+    });
+  });
+
+  async function seedCartAndPayment() {
+    await agent.post('/_test/session').send({
+      user: { sub: 'sub-ck-1', provider: 'authop', age_over_21: true, paymentMethod: { scheme: 'Visa', panLastFour: '4242', payeeName: 'Bank of Demo' } },
+      ageVerified: true,
+    }).expect(200);
+    await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+  }
+
+  it('400 payment_method_required when session has no paymentMethod', async () => {
+    await agent.post('/_test/session').send({ ageVerified: true }).expect(200);
+    await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    const res = await agent.post('/api/checkout').expect(400);
+    expect(res.body).toEqual({ error: 'payment_method_required' });
+    // No upstream call should have been made.
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('400 empty_cart when session cart is empty', async () => {
+    await agent.post('/_test/session').send({
+      user: { sub: 'u-empty', paymentMethod: { scheme: 'Visa', panLastFour: '4242' } },
+    }).expect(200);
+    const res = await agent.post('/api/checkout').expect(400);
+    expect(res.body).toEqual({ error: 'empty_cart' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('happy path returns {orderId, sessionId, qrCode} and forwards PWA DCQL', async () => {
+    await seedCartAndPayment();
+    const res = await agent.post('/api/checkout').expect(200);
+    expect(res.body.orderId).toMatch(/^ORDER-/);
+    expect(res.body.sessionId).toBe('ck-sess-1');
+    expect(res.body.qrCode).toMatch(/^openid4vp:/);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = global.fetch.mock.calls[0];
+    expect(url).toMatch(/\/verification-session\/create\?rpId=/);
+    const body = JSON.parse(opts.body);
+    expect(body.flow_type).toBe('cross_device');
+    const serialized = JSON.stringify(body.core_flow.dcql_query);
+    expect(serialized).toContain('PaymentWalletAttestation');
+    expect(serialized).toContain('panLastFour');
+    expect(serialized).toContain('scheme');
+    expect(body.core_flow.dcql_query.credentials).toHaveLength(1);
+    // Webhook binds back into the per-order token map.
+    expect(body.core_flow.notifications.webhook.url).toMatch(/\/api\/checkout\/webhook\//);
+    expect(body.core_flow.notifications.webhook.bearer_token).toBeTruthy();
+  });
+
+  it('502 when verifier-api2 rejects session-create', async () => {
+    await seedCartAndPayment();
+    global.fetch = jest.fn(async () => ({ ok: false, status: 500, text: async () => 'boom' }));
+    const res = await agent.post('/api/checkout').expect(502);
+    expect(res.body).toMatchObject({ error: 'verifier_unavailable' });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;
