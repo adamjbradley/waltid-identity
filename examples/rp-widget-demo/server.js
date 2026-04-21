@@ -472,12 +472,111 @@ function createApp() {
     }
   });
 
+  /**
+   * POST /api/age-check/webhook/:token
+   *
+   * verifier-api2 → us server-to-server callback. Bearer-auth with the
+   * shared secret minted at /api/age-check/start (constant-time compare),
+   * then on the terminal `policy_results_available` event read the boolean
+   * `age_over_21` out of the first credential's `credentialData` and
+   * memoize it.
+   *
+   * Body shape is `{target, event, session: {...}}` where session mirrors
+   * a serialized Verification2Session (verified against
+   * `waltid-libraries/protocols/waltid-openid4vp-verifier/.../Verification2Session.kt`,
+   * fields `id`, `status`, `presentedCredentials`, and
+   * `waltid-services/waltid-auth-op/.../VpFlowRoutes.kt:handleVpWebhook`
+   * which implements the same contract).
+   *
+   * Auth header is `Authorization: Bearer <secret>` (KtorSessionNotifications
+   * WebhookNotifier) — NOT `X-Webhook-Secret` as the plan sketched.
+   */
+  app.post('/api/age-check/webhook/:token', (req, res) => {
+    const entry = ageCheckByToken.get(req.params.token);
+    // Unknown token vs bad-secret are observably different anyway (verifier
+    // would POST to a nonexistent path if the token were truly wrong), so
+    // 404 is both informative and honest. 401 is reserved for a known token
+    // with a bad / missing bearer.
+    if (!entry) return res.status(404).json({ error: 'unknown_token' });
+    const authHeader = req.header('authorization') || '';
+    if (!/^Bearer\s+/i.test(authHeader)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
+    const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
+    if (
+      provided.length !== expected.length ||
+      !crypto.timingSafeEqual(provided, expected)
+    ) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    // Gate on terminal event — earlier events (presentation_received,
+    // validating_received_request, ...) we ACK without touching `verified`.
+    // This mirrors the auth-op handler's contract and keeps us from
+    // prematurely toggling state based on a non-final signal.
+    if (req.body.event !== 'policy_results_available') {
+      return res.json({ ok: true });
+    }
+    const session = req.body.session || {};
+    if (session.status !== 'SUCCESSFUL') {
+      entry.verified = false;
+      return res.json({ ok: true });
+    }
+    // Walk `presentedCredentials: Map<String, List<DigitalCredential>>`,
+    // take the age_over_21 claim from the first credential of the first
+    // matched bucket. DCQL credential_sets means only one bucket will
+    // actually populate, so order doesn't matter in practice.
+    const creds = session.presentedCredentials || {};
+    let claim;
+    for (const arr of Object.values(creds)) {
+      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+        if (arr[0].credentialData.age_over_21 !== undefined) {
+          claim = arr[0].credentialData.age_over_21;
+          break;
+        }
+      }
+    }
+    entry.verified = claim === true;
+    res.json({ ok: true });
+  });
+
+  /**
+   * GET /api/age-check/status
+   *
+   * Browser-facing poll. Mirrors `verified` out of the in-memory map into
+   * `req.session.ageVerified` so subsequent cart POSTs pick it up via the
+   * existing `isAgeVerified(session, minAge)` gate. `{verified: null}`
+   * means "no terminal webhook yet" (still waiting on the wallet) OR
+   * "no age-check session ever started on this cookie".
+   */
+  app.get('/api/age-check/status', (req, res) => {
+    const tok = req.session.ageCheck && req.session.ageCheck.token;
+    if (!tok) return res.json({ verified: null });
+    const entry = ageCheckByToken.get(tok);
+    if (!entry) return res.json({ verified: null });
+    if (entry.verified === true) req.session.ageVerified = true;
+    else if (entry.verified === false) req.session.ageVerified = false;
+    res.json({ verified: entry.verified });
+  });
+
   // Dev-only session hydration helper for tests. Lets supertest seed
   // `ageVerified` / `user` without round-tripping a real OIDC login.
   // Guarded on NODE_ENV to keep it out of production builds.
   if (process.env.NODE_ENV !== 'production') {
     app.post('/_test/session', (req, res) => {
       Object.assign(req.session, req.body);
+      res.json({ ok: true });
+    });
+    // Companion helper for the age-check webhook suite: lets supertest
+    // hydrate `ageCheckByToken` without having to stand up a real
+    // /api/age-check/start call (which would need a verifier-api2 mock
+    // for every webhook test). Same NODE_ENV guard.
+    app.post('/_test/age-check/register', (req, res) => {
+      const { token, webhookSecret } = req.body || {};
+      if (!token || !webhookSecret) {
+        return res.status(400).json({ error: 'missing_fields' });
+      }
+      ageCheckByToken.set(token, { webhookSecret, verified: null });
       res.json({ ok: true });
     });
   }

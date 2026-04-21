@@ -319,6 +319,126 @@ describe('POST /api/age-check/start', () => {
   });
 });
 
+describe('POST /api/age-check/webhook/:token + GET /api/age-check/status', () => {
+  // Cross-process webhook: verifier-api2 calls back with no browser cookie,
+  // so we can't write to the user's req.session directly. Instead:
+  //  1. /api/age-check/start seeds an entry in an in-memory ageCheckByToken
+  //     map keyed by a random URL token, and also saves the same triple
+  //     {sessionId, token, webhookSecret} into req.session.ageCheck so the
+  //     user's browser can later look the status up via /api/age-check/status.
+  //  2. The webhook hits /api/age-check/webhook/<token>, bearing an
+  //     `Authorization: Bearer <secret>` header (the shape verifier-api2
+  //     actually sends, per KtorSessionNotifications.kt — not the
+  //     X-Webhook-Secret header sketched in the plan).
+  //  3. Status poll reads the map, mirrors verified into req.session.
+  let app;
+  let agent;
+  beforeEach(() => {
+    app = createApp();
+    agent = request.agent(app);
+  });
+
+  async function seedSession(token, secret) {
+    await agent.post('/_test/session').send({
+      ageCheck: { sessionId: 's-' + token, token, webhookSecret: secret },
+    }).expect(200);
+    await agent.post('/_test/age-check/register').send({
+      token, webhookSecret: secret,
+    }).expect(200);
+  }
+
+  it('sets ageVerified=true on SUCCESSFUL webhook with age_over_21=true', async () => {
+    await seedSession('tok1', 'secret-tok1');
+    const web = request(app);
+    const res = await web.post('/api/age-check/webhook/tok1')
+      .set('Authorization', 'Bearer secret-tok1')
+      .send({
+        target: 'any',
+        event: 'policy_results_available',
+        session: {
+          id: 's-tok1',
+          status: 'SUCCESSFUL',
+          presentedCredentials: {
+            pid_1: [{ credentialData: { age_over_21: true } }],
+          },
+        },
+      })
+      .expect(200);
+    expect(res.body).toEqual({ ok: true });
+
+    const status = await agent.get('/api/age-check/status').expect(200);
+    expect(status.body).toEqual({ verified: true });
+
+    // Downstream: cart POST now succeeds for an age-restricted product
+    // without any other session hydration.
+    const add = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    expect(add.body.count).toBe(1);
+  });
+
+  it('rejects unknown token with 404', async () => {
+    const web = request(app);
+    await web.post('/api/age-check/webhook/unknown')
+      .set('Authorization', 'Bearer whatever')
+      .send({ event: 'policy_results_available', session: { status: 'SUCCESSFUL' } })
+      .expect(404);
+  });
+
+  it('rejects wrong bearer secret with 401', async () => {
+    await seedSession('tok2', 'correct');
+    const web = request(app);
+    await web.post('/api/age-check/webhook/tok2')
+      .set('Authorization', 'Bearer wrong')
+      .send({ event: 'policy_results_available', session: { status: 'SUCCESSFUL' } })
+      .expect(401);
+  });
+
+  it('rejects missing Authorization header with 401', async () => {
+    await seedSession('tok2b', 'correct');
+    const web = request(app);
+    await web.post('/api/age-check/webhook/tok2b')
+      .send({ event: 'policy_results_available', session: { status: 'SUCCESSFUL' } })
+      .expect(401);
+  });
+
+  it('sets ageVerified=false when age_over_21 is false', async () => {
+    await seedSession('tok3', 'secret-tok3');
+    const web = request(app);
+    await web.post('/api/age-check/webhook/tok3')
+      .set('Authorization', 'Bearer secret-tok3')
+      .send({
+        event: 'policy_results_available',
+        session: {
+          id: 's-tok3',
+          status: 'SUCCESSFUL',
+          presentedCredentials: { pid_0: [{ credentialData: { age_over_21: false } }] },
+        },
+      })
+      .expect(200);
+    const status = await agent.get('/api/age-check/status').expect(200);
+    expect(status.body).toEqual({ verified: false });
+  });
+
+  it('ignores non-final events (acks 200, verified stays null)', async () => {
+    await seedSession('tok4', 'secret-tok4');
+    const web = request(app);
+    await web.post('/api/age-check/webhook/tok4')
+      .set('Authorization', 'Bearer secret-tok4')
+      .send({
+        event: 'presentation_received',
+        session: { id: 's-tok4', status: 'ACTIVE' },
+      })
+      .expect(200);
+    const status = await agent.get('/api/age-check/status').expect(200);
+    expect(status.body).toEqual({ verified: null });
+  });
+
+  it('returns {verified: null} when no age-check session has been started', async () => {
+    const fresh = request.agent(app);
+    const status = await fresh.get('/api/age-check/status').expect(200);
+    expect(status.body).toEqual({ verified: null });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;
