@@ -158,6 +158,15 @@ keycloak.theaustraliahack.com:443 {
     reverse_proxy http://keycloak:{$KEYCLOAK_PORT}
 }
 
+# Mock PSP ("Bank of Demo") - standalone service serving the Payment Wallet
+# Attestation enrollment flow at https://psp.theaustraliahack.com. Separate
+# container from the RP so the production deployment shape (RP and PSP on
+# different domains / lifecycles) is reflected in the demo.
+psp.theaustraliahack.com:443 {
+    tls internal
+    reverse_proxy http://mock-psp:7006
+}
+
 # RP Widget Demo (port 4000)
 :{$RP_WIDGET_PORT:-4000} {
     reverse_proxy http://rp-widget-example-1:{$RP_WIDGET_PORT:-4000}
