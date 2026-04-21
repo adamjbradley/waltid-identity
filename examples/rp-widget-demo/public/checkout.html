@@ -325,6 +325,28 @@
     <script>
         const AUD = (n) => 'AUD ' + (Number(n) || 0).toFixed(2);
 
+        // External PSP origin; populated from /api/config on load. See
+        // index.html's renderPaymentMethodSection() for the same pattern.
+        // The `/checkout` return target is used for the in-flow Replace /
+        // Add-payment-method affordances so the shopper lands back here
+        // after enrolment (via /cart?pwa=1 first for the capture).
+        let publicPspUrl = 'https://psp.theaustraliahack.com';
+        async function loadConfig() {
+            try {
+                const r = await fetch('/api/config');
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data && data.publicPspUrl) publicPspUrl = data.publicPspUrl;
+            } catch (_) { /* fall back to default */ }
+        }
+        function pspEnrollUrl() {
+            const base = (publicPspUrl || '').replace(/\/$/, '') || '/';
+            // Route the shopper back via /cart?pwa=1 so the PWA capture
+            // flow runs before they re-enter /checkout.
+            const ret = encodeURIComponent(location.origin + '/cart');
+            return `${base}/enroll?return=${ret}`;
+        }
+
         // Remove every child from a node without touching innerHTML. Safer than
         // `el.innerHTML = ''` per the security review hook and lets us stay
         // strict about XSS-safe DOM construction throughout the page.
@@ -390,7 +412,7 @@
                 left.appendChild(meta);
                 const replace = document.createElement('a');
                 replace.className = 'pm-cta';
-                replace.href = '/psp/enroll?return=/checkout';
+                replace.href = pspEnrollUrl();
                 replace.textContent = 'Replace';
                 box.appendChild(left);
                 box.appendChild(replace);
@@ -401,7 +423,7 @@
                 missing.textContent = 'No payment method on file.';
                 const cta = document.createElement('a');
                 cta.className = 'pm-cta';
-                cta.href = '/psp/enroll?return=/checkout';
+                cta.href = pspEnrollUrl();
                 cta.textContent = 'Add a payment method';
                 box.appendChild(missing);
                 box.appendChild(cta);
@@ -475,7 +497,10 @@
 
         (async () => {
             try {
-                const me = await loadMe();
+                // Fire config + me in parallel. We need publicPspUrl before
+                // renderPaymentMethod runs (it composes the Replace / Add
+                // CTA href), and /api/me for the cart + user data.
+                const [, me] = await Promise.all([loadConfig(), loadMe()]);
                 if (!me.cart || !me.cart.items || !me.cart.items.length) {
                     location.href = '/';
                     return;

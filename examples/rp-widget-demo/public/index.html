@@ -2643,7 +2643,12 @@
         // Configuration
         let config = {
             apiBaseUrl: 'http://localhost:7010',
-            rp: null
+            rp: null,
+            // External PSP origin. Populated from /api/config on load;
+            // consumed by the profile-hover "Add payment method" /
+            // "Replace" buttons to redirect to the standalone Bank of
+            // Demo service (see examples/mock-psp-demo).
+            publicPspUrl: 'https://psp.theaustraliahack.com'
         };
         let clientToken = null;
         let sdkReady = false;
@@ -2664,7 +2669,11 @@
                     config.rp = data.rp;
                     console.log('[Config] RP:', config.rp.clientId);
                 }
+                if (data.publicPspUrl) {
+                    config.publicPspUrl = data.publicPspUrl;
+                }
                 console.log('[Config] API URL:', config.apiBaseUrl);
+                console.log('[Config] PSP URL:', config.publicPspUrl);
             } catch (error) {
                 console.warn('[Config] Using default:', config.apiBaseUrl);
             }
@@ -3098,8 +3107,16 @@
         /** Append the payment-method row to the profile hover. If the user
          *  has a `paymentMethod` on their session profile we render the
          *  "Card ending …" summary plus a small [Replace] link; otherwise
-         *  we render a primary [Add payment method] CTA. Both point at
-         *  /psp/enroll (the Bank-of-Demo mini-page from Task 13). */
+         *  we render a primary [Add payment method] CTA. Both redirect to
+         *  the external PSP at `${publicPspUrl}/enroll?return=<cart>` —
+         *  the standalone Bank of Demo service that issues the PWA and
+         *  then bounces the shopper back to /cart?pwa=1 where the capture
+         *  flow takes over. */
+        function pspEnrollUrl() {
+            const base = (config.publicPspUrl || '').replace(/\/$/, '') || '/';
+            const ret = encodeURIComponent(location.origin + '/cart');
+            return `${base}/enroll?return=${ret}`;
+        }
         function renderPaymentMethodSection(parent, user) {
             const block = document.createElement('div');
             block.className = 'payment-method';
@@ -3113,6 +3130,8 @@
             const info = document.createElement('div');
             info.className = 'payment-method-info';
 
+            const enrollUrl = pspEnrollUrl();
+
             if (user && user.paymentMethod) {
                 const { scheme, panLastFour } = user.paymentMethod;
                 info.appendChild(document.createTextNode(`${scheme || 'Card'} ending `));
@@ -3124,7 +3143,7 @@
 
                 const replace = document.createElement('a');
                 replace.className = 'payment-method-replace';
-                replace.href = '/psp/enroll';
+                replace.href = enrollUrl;
                 replace.textContent = 'Replace';
                 block.appendChild(replace);
             } else {
@@ -3134,7 +3153,7 @@
 
                 const add = document.createElement('a');
                 add.className = 'payment-method-cta';
-                add.href = '/psp/enroll';
+                add.href = enrollUrl;
                 add.textContent = 'Add payment method';
                 block.appendChild(add);
             }

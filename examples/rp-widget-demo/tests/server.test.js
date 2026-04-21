@@ -47,6 +47,12 @@ describe('Widget Demo Server', () => {
       // Default should be localhost:7010
       expect(response.body.apiBaseUrl).toMatch(/localhost:7010|7010/);
     });
+
+    it('exposes publicPspUrl so the client can redirect to the external PSP', async () => {
+      const response = await request(app).get('/api/config').expect(200);
+      expect(typeof response.body.publicPspUrl).toBe('string');
+      expect(response.body.publicPspUrl.length).toBeGreaterThan(0);
+    });
   });
 
   describe('Configuration', () => {
@@ -462,147 +468,10 @@ describe('POST /api/age-check/webhook/:token + GET /api/age-check/status', () =>
   });
 });
 
-describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api/psp/issue', () => {
-  // PSP-enrollment mirrors the age-check wire shape: verifier-api2
-  // session-create with DCQL over the same four PID VCTs, webhook nested
-  // under core_flow.notifications.webhook, Bearer auth on callback. The
-  // DCQL claims are different (given_name, family_name, birth_date instead
-  // of age_over_21), and the status-poll mirrors into `pspPidVerified`
-  // rather than `ageVerified`. /api/psp/issue then hits issuer-api for a
-  // pre-authorized credential offer once PID is on the session.
-  let app;
-  let agent;
-  let originalFetch;
-  beforeAll(() => { originalFetch = global.fetch; });
-  afterAll(() => { global.fetch = originalFetch; });
-  beforeEach(() => {
-    app = createApp();
-    agent = request.agent(app);
-    global.fetch = jest.fn(async (url) => {
-      if (typeof url === 'string' && url.includes('/verification-session/create')) {
-        return {
-          ok: true, status: 200,
-          json: async () => ({
-            sessionId: 'psp-sess-1',
-            bootstrapAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=psp',
-            fullAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=psp_full',
-          }),
-        };
-      }
-      throw new Error('unexpected fetch ' + url);
-    });
-  });
-
-  it('returns sessionId+qrCode and forwards a PID-identity DCQL query', async () => {
-    const res = await agent.post('/api/psp/start').expect(200);
-    expect(res.body).toHaveProperty('sessionId', 'psp-sess-1');
-    expect(res.body.qrCode).toMatch(/^openid4vp:/);
-    const [url, opts] = global.fetch.mock.calls[0];
-    expect(url).toMatch(/\/verification-session\/create\?rpId=/);
-    const body = JSON.parse(opts.body);
-    expect(body.flow_type).toBe('cross_device');
-    const serialized = JSON.stringify(body.core_flow.dcql_query);
-    // PID identity claims — not age_over_21.
-    expect(serialized).toContain('given_name');
-    expect(serialized).toContain('family_name');
-    expect(serialized).toContain('birth_date');
-    expect(serialized).not.toContain('age_over_21');
-    // Four PID VCTs, one credential each (PR #88 workaround).
-    expect(body.core_flow.dcql_query.credentials).toHaveLength(4);
-    expect(body.core_flow.dcql_query.credential_sets).toBeDefined();
-    expect(body.core_flow.notifications.webhook.url).toMatch(/\/api\/psp\/webhook\//);
-    expect(body.core_flow.notifications.webhook.bearer_token).toBeTruthy();
-  });
-
-  it('webhook writes claims to pspEnroll map entry on SUCCESSFUL', async () => {
-    await agent.post('/_test/session').send({
-      pspEnroll: { sessionId: 'psp-x', token: 'psp-tok', webhookSecret: 'psp-secret' },
-    }).expect(200);
-    await agent.post('/_test/psp/register').send({ token: 'psp-tok', webhookSecret: 'psp-secret' }).expect(200);
-
-    await request(app).post('/api/psp/webhook/psp-tok')
-      .set('Authorization', 'Bearer psp-secret')
-      .send({
-        event: 'policy_results_available',
-        session: {
-          status: 'SUCCESSFUL',
-          presentedCredentials: {
-            pid_0: [{ credentialData: {
-              sub: 'user-abc',
-              given_name: 'Alice',
-              family_name: 'Example',
-              birth_date: '1990-01-01',
-            } }],
-          },
-        },
-      })
-      .expect(200);
-
-    const statusRes = await agent.get('/api/psp/status').expect(200);
-    expect(statusRes.body.verified).toBe(true);
-    expect(statusRes.body.claims).toMatchObject({
-      sub: 'user-abc',
-      given_name: 'Alice',
-      family_name: 'Example',
-      birth_date: '1990-01-01',
-    });
-  });
-
-  it('status mirrors claims into req.session.pspPidVerified', async () => {
-    await agent.post('/_test/session').send({
-      pspEnroll: { sessionId: 'psp-y', token: 'psp-tok2', webhookSecret: 'sec2' },
-    }).expect(200);
-    await agent.post('/_test/psp/register').send({ token: 'psp-tok2', webhookSecret: 'sec2' }).expect(200);
-
-    await request(app).post('/api/psp/webhook/psp-tok2')
-      .set('Authorization', 'Bearer sec2')
-      .send({
-        event: 'policy_results_available',
-        session: {
-          status: 'SUCCESSFUL',
-          presentedCredentials: { pid_0: [{ credentialData: { sub: 's1', given_name: 'B' } }] },
-        },
-      })
-      .expect(200);
-
-    await agent.get('/api/psp/status').expect(200);
-    // Now /api/psp/issue should work because pspPidVerified is on session.
-    global.fetch = jest.fn(async (url) => {
-      if (typeof url === 'string' && url.includes('/openid4vc/sdjwt/issue')) {
-        return {
-          ok: true, status: 200,
-          text: async () => 'openid-credential-offer://?credential_offer_uri=http://issuer/abc',
-        };
-      }
-      throw new Error('unexpected fetch ' + url);
-    });
-    const res = await agent.post('/api/psp/issue').expect(200);
-    expect(res.body.offerUri).toMatch(/^openid-credential-offer:/);
-    expect(res.body.scheme).toBe('Visa');
-    expect(res.body.panLastFour).toMatch(/^[0-9a-f]{4}$/);
-  });
-
-  it('/api/psp/issue 403s when PID not yet verified', async () => {
-    // No pspPidVerified on the session.
-    const res = await agent.post('/api/psp/issue').expect(403);
-    expect(res.body).toEqual({ error: 'pid_required' });
-  });
-
-  it('/api/psp/issue 502s when issuer-api rejects the offer', async () => {
-    await agent.post('/_test/session').send({
-      pspPidVerified: { sub: 's-err', given_name: 'X', family_name: 'Y', birth_date: '2000-01-01' },
-    }).expect(200);
-    global.fetch = jest.fn(async () => ({ ok: false, status: 500, text: async () => 'boom' }));
-    const res = await agent.post('/api/psp/issue').expect(502);
-    expect(res.body).toMatchObject({ error: 'issuer_unavailable' });
-  });
-
-  it('GET /psp/enroll serves the static page', async () => {
-    const res = await request(app).get('/psp/enroll').expect(200);
-    expect(res.text).toContain('Add payment method');
-    expect(res.text).toContain('Bank of Demo');
-  });
-});
+// The PSP-enrollment test block (POST /api/psp/start + /api/psp/webhook
+// + /api/psp/status + /api/psp/issue, plus GET /psp/enroll) used to live
+// here. Those routes moved to examples/mock-psp-demo; their tests moved
+// with them (see examples/mock-psp-demo/tests/server.test.js).
 
 describe('POST /api/pwa/capture + /api/pwa/capture/webhook + /api/pwa/capture-status', () => {
   // PWA capture (/cart?pwa=1 return flow): single-VCT DCQL for

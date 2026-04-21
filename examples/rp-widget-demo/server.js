@@ -59,24 +59,11 @@ function buildAgeOnlyDcql() {
   return buildSingletonDcql(vcts, [['age_over_21']], 'dc+sd-jwt', 'pid');
 }
 
-/**
- * PID identity DCQL — asks for given_name, family_name, birth_date across
- * the four PID VCTs. Used by the /psp/enroll Step 1 (PID presentation).
- */
-function buildPidIdentityDcql() {
-  const vcts = [
-    'urn:eudi:pid:1',
-    'urn:au:gov:mygovid:pid:1',
-    'urn:in:gov:aadhaar:pid:1',
-    'urn:uk:gov:govuk-one-login:pid:1',
-  ];
-  return buildSingletonDcql(
-    vcts,
-    [['given_name'], ['family_name'], ['birth_date']],
-    'dc+sd-jwt',
-    'pid',
-  );
-}
+// NOTE: the PID-identity DCQL helper used to live here, powering the
+// /psp/enroll PID presentation. That flow moved to
+// examples/mock-psp-demo/ when the PSP became a standalone service
+// (psp.theaustraliahack.com). The RP only drives age-check + PWA capture
+// + checkout now.
 
 /**
  * PaymentWalletAttestation DCQL — single-VCT, single-credential. Claims
@@ -116,9 +103,9 @@ function buildPwaCheckoutDcql() {
  * by pending evictions (otherwise a freshly-started server with outstanding
  * tokens couldn't exit cleanly).
  *
- * Shared by all three OID4VP-webhook flows (age-check, psp-enroll PID,
- * pwa-capture) — they each have their own Map instance but register via
- * this helper so TTL semantics stay uniform.
+ * Shared by the OID4VP-webhook flows (age-check, pwa-capture, checkout)
+ * — they each have their own Map instance but register via this helper
+ * so TTL semantics stay uniform.
  */
 const SESSION_TOKEN_TTL_MS = 10 * 60 * 1000;
 function registerSessionToken(map, token, entry) {
@@ -166,13 +153,11 @@ const RP_DOMAIN = process.env.RP_DOMAIN || '';
 // Verifier API2 internal URL (for proxying verification-session responses from wallets)
 const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
 
-// Issuer API internal URL (for PSP-enrollment credential-offer minting).
-// The PSP tenant id maps to a multi-tenant issuer record set up on the
-// remote stack (Task 11 in the rp-cart-dpc plan). `PSP_TENANT_ID` selects
-// the tenant; `PSP_VCT` is the credential type the /psp/enroll flow issues.
-const ISSUER_API_URL = process.env.ISSUER_API_URL || 'http://issuer-api:7002';
-const PSP_TENANT_ID = process.env.PSP_TENANT_ID || 'psp.bankofdemo';
-const PSP_VCT = process.env.PSP_VCT || 'PaymentWalletAttestation';
+// PSP-enrollment credential-offer minting moved to the standalone
+// mock-psp-demo service (see examples/mock-psp-demo). The RP no longer
+// speaks to issuer-api directly — the profile hover links to
+// ${PUBLIC_PSP_URL}/enroll?return=... instead.
+const PUBLIC_PSP_URL = process.env.PUBLIC_PSP_URL || 'https://psp.theaustraliahack.com';
 
 // Public base for webhook callbacks verifier-api2 can reach. The verifier-api2
 // server must be able to HTTP POST here when a wallet completes a presentation,
@@ -235,7 +220,8 @@ const config = {
   PUBLIC_VERIFY_API_URL,
   RP_ID,
   RP_CLIENT_ID,
-  RP_DOMAIN
+  RP_DOMAIN,
+  PUBLIC_PSP_URL
 };
 
 /**
@@ -289,11 +275,12 @@ function createApp() {
   // test suites that build a fresh app don't inherit state from earlier ones.
   const ageCheckByToken = new Map();
 
-  // Parallel maps for the PSP-enrollment PID presentation and the
-  // post-return PWA metadata capture. Same keying + TTL discipline as
-  // ageCheckByToken — kept separate so the status poll doesn't need to
-  // disambiguate "which flow owns this token".
-  const pspEnrollByToken = new Map();
+  // Map for the post-return PWA metadata capture. Same keying + TTL
+  // discipline as ageCheckByToken — kept separate so the status poll
+  // doesn't need to disambiguate "which flow owns this token". The PSP-
+  // enrollment PID-presentation map used to be alongside this one;
+  // that flow moved to examples/mock-psp-demo when the PSP became its
+  // own service.
   const pwaCaptureByToken = new Map();
   // Task 17/18: /api/checkout → verifier-api2 PWA presentation session.
   // Entry shape: {orderId, total, currency, items, txData, webhookSecret,
@@ -429,7 +416,12 @@ function createApp() {
    */
   app.get('/api/config', (req, res) => {
     const response = {
-      apiBaseUrl: config.PUBLIC_VERIFY_API_URL
+      apiBaseUrl: config.PUBLIC_VERIFY_API_URL,
+      // External PSP origin the profile-hover "Add payment method" button
+      // redirects to. The client composes
+      //   `${publicPspUrl}/enroll?return=${origin}/cart`
+      // so the PSP (mock-psp-demo) knows where to send the shopper back.
+      publicPspUrl: config.PUBLIC_PSP_URL,
     };
     // Include RP config if configured
     if (config.RP_ID) {
@@ -700,13 +692,9 @@ function createApp() {
       registerAgeCheck(ageCheckByToken, token, { webhookSecret, verified: null });
       res.json({ ok: true });
     });
-    // Same pattern for the PSP-enrollment PID and PWA capture flows.
-    app.post('/_test/psp/register', (req, res) => {
-      const { token, webhookSecret } = req.body || {};
-      if (!token || !webhookSecret) return res.status(400).json({ error: 'missing_fields' });
-      registerSessionToken(pspEnrollByToken, token, { webhookSecret, verified: null, claims: null });
-      res.json({ ok: true });
-    });
+    // Same pattern for the PWA capture flow. (The PSP PID-presentation
+    // equivalent moved to examples/mock-psp-demo/tests alongside the
+    // routes it covers.)
     app.post('/_test/pwa-capture/register', (req, res) => {
       const { token, webhookSecret } = req.body || {};
       if (!token || !webhookSecret) return res.status(400).json({ error: 'missing_fields' });
@@ -716,198 +704,15 @@ function createApp() {
   }
 
   // ============================================================
-  // PSP enrollment (PID presentation → PaymentWalletAttestation)
+  // PSP enrolment moved to examples/mock-psp-demo
   // ============================================================
   //
-  // Two-step ceremony served at /psp/enroll:
-  //   1. User presents PID via OID4VP. We pull {given_name, family_name,
-  //      birth_date} + `sub` into `req.session.pspPidVerified`.
-  //   2. RP calls issuer-api's credential-offer endpoint to mint a
-  //      PaymentWalletAttestation, hands the resulting offerUri back as a
-  //      QR/deep link the wallet consumes.
-  //
-  // Step 2 has no polling on the RP side — the user clicks "I've added it"
-  // and is routed to /cart?pwa=1 where the Task 15 capture flow picks up
-  // the newly-issued credential via a fresh OID4VP presentation request.
-
-  /** GET /psp/enroll — serves the static mini-page. */
-  app.get('/psp/enroll', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'psp-enroll.html'));
-  });
-
-  /**
-   * POST /api/psp/start — kick an OID4VP session asking for PID identity
-   * claims (given_name, family_name, birth_date). Wire shape mirrors
-   * /api/age-check/start, differing only in the DCQL.
-   */
-  app.post('/api/psp/start', async (req, res) => {
-    const token = crypto.randomBytes(16).toString('hex');
-    const webhookSecret = crypto.randomBytes(32).toString('base64url');
-    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, '')}/api/psp/webhook/${token}`;
-    const body = {
-      flow_type: 'cross_device',
-      core_flow: {
-        dcql_query: buildPidIdentityDcql(),
-        signed_request: true,
-        notifications: {
-          webhook: {
-            url: webhookUrl,
-            bearer_token: webhookSecret,
-          },
-        },
-      },
-    };
-    try {
-      const r = await fetch(
-        `${VERIFIER_API2_URL}/verification-session/create?rpId=${encodeURIComponent(RP_ID)}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-      if (!r.ok) {
-        console.warn('[psp] verifier-api2 session-create failed', r.status);
-        return res.status(502).json({ error: 'verifier_unavailable' });
-      }
-      const session = await r.json();
-      const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
-      registerSessionToken(pspEnrollByToken, token, { webhookSecret, verified: null, claims: null });
-      req.session.pspEnroll = { sessionId: session.sessionId, token, webhookSecret };
-      res.json({ sessionId: session.sessionId, qrCode });
-    } catch (err) {
-      console.warn('[psp] session-create error', err.message || err);
-      res.status(502).json({ error: 'verifier_unavailable' });
-    }
-  });
-
-  /**
-   * POST /api/psp/webhook/:token — verifier-api2 callback for the PID
-   * presentation. On SUCCESSFUL we capture {sub, given_name, family_name,
-   * birth_date} into the map entry for the status poll to mirror.
-   */
-  app.post('/api/psp/webhook/:token', (req, res) => {
-    const entry = pspEnrollByToken.get(req.params.token);
-    if (!entry) return res.status(404).json({ error: 'unknown_token' });
-    const authHeader = req.header('authorization') || '';
-    if (!/^Bearer\s+/i.test(authHeader)) {
-      return res.status(401).json({ error: 'bad_secret' });
-    }
-    const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
-    const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
-    if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
-      return res.status(401).json({ error: 'bad_secret' });
-    }
-    if (req.body.event !== 'policy_results_available') return res.json({ ok: true });
-    const session = req.body.session || {};
-    if (session.status !== 'SUCCESSFUL') {
-      entry.verified = false;
-      return res.json({ ok: true });
-    }
-    const creds = session.presentedCredentials || {};
-    for (const arr of Object.values(creds)) {
-      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
-        const cd = arr[0].credentialData;
-        // sub may arrive as `sub` or fall back to credentialData's own id.
-        const sub = cd.sub || cd.subject || arr[0].sub || null;
-        entry.verified = true;
-        entry.claims = {
-          sub: sub,
-          given_name: cd.given_name,
-          family_name: cd.family_name,
-          birth_date: cd.birth_date,
-        };
-        return res.json({ ok: true });
-      }
-    }
-    // No credential data surfaced — treat as a declined presentation.
-    entry.verified = false;
-    res.json({ ok: true });
-  });
-
-  /**
-   * GET /api/psp/status — browser poll. When the webhook has written a
-   * terminal verdict, mirrors the claims into `req.session.pspPidVerified`
-   * and evicts the map entry.
-   */
-  app.get('/api/psp/status', (req, res) => {
-    const tok = req.session.pspEnroll && req.session.pspEnroll.token;
-    if (!tok) return res.json({ verified: null });
-    const entry = pspEnrollByToken.get(tok);
-    if (!entry) return res.json({ verified: null });
-    if (entry.verified === true) {
-      req.session.pspPidVerified = entry.claims || {};
-      pspEnrollByToken.delete(tok);
-      return res.json({ verified: true, claims: entry.claims || null });
-    }
-    if (entry.verified === false) {
-      pspEnrollByToken.delete(tok);
-      return res.json({ verified: false, claims: null });
-    }
-    res.json({ verified: null });
-  });
-
-  /**
-   * POST /api/psp/issue — once PID is verified on the session, ask
-   * issuer-api for a pre-authorized-code credential offer for the
-   * PaymentWalletAttestation VCT.
-   *
-   * Demo card data is derived deterministically from the presented `sub`
-   * so a repeat enrollment shows the same "card ending …" value. In
-   * production the PSP would mint a real PAN here; for the demo we're
-   * just showing the ceremony.
-   */
-  app.post('/api/psp/issue', async (req, res) => {
-    if (!req.session.pspPidVerified) return res.status(403).json({ error: 'pid_required' });
-    const holderSub = req.session.pspPidVerified.sub || 'anonymous';
-    const hash = crypto.createHash('sha256').update(String(holderSub)).digest('hex');
-    const panLastFour = hash.slice(0, 4);
-    const scheme = 'Visa';
-    const iin = '453201';
-    const currency = 'AUD';
-    const payeeName = 'Bank of Demo';
-
-    // The issuer-api route for a tenant-scoped pre-authorized credential
-    // offer is POST /issuers/{issuerId}/openid4vc/sdjwt/issue. It returns
-    // the offer URI as a plain string body. We pass only the config id,
-    // VCT, and credentialData — the tenant's configured issuerKey and
-    // DID are enriched server-side (TenantIssuerRoutes.enrichRequestWithTenantKeys).
-    const offerReq = {
-      credentialConfigurationId: PSP_VCT,
-      vct: PSP_VCT,
-      credentialData: {
-        panLastFour,
-        scheme,
-        iin,
-        currency,
-        payeeName,
-        given_name: req.session.pspPidVerified.given_name,
-        family_name: req.session.pspPidVerified.family_name,
-      },
-      authenticationMethod: 'PRE_AUTHORIZED',
-    };
-
-    try {
-      const url = `${ISSUER_API_URL}/issuers/${encodeURIComponent(PSP_TENANT_ID)}/openid4vc/sdjwt/issue`;
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(offerReq),
-      });
-      if (!r.ok) {
-        console.warn('[psp] issuer-api offer failed', r.status);
-        return res.status(502).json({ error: 'issuer_unavailable', status: r.status });
-      }
-      // Response is the offer URI as plain text (possibly JSON-quoted).
-      const raw = await r.text();
-      let offerUri = raw;
-      try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed === 'string') offerUri = parsed;
-        else if (parsed && typeof parsed === 'object') offerUri = parsed.offerUri || parsed.uri || raw;
-      } catch (_) { /* plain string body */ }
-      res.json({ offerUri, panLastFour, scheme });
-    } catch (err) {
-      console.warn('[psp] offer error', err.message || err);
-      res.status(502).json({ error: 'issuer_unavailable' });
-    }
-  });
+  // The RP no longer hosts /psp/enroll or /api/psp/*. Those routes live
+  // on the standalone Bank of Demo service (psp.theaustraliahack.com).
+  // The profile hover's "Add payment method" button redirects to
+  // `${PUBLIC_PSP_URL}/enroll?return=${RP}/cart`; the PSP bounces the
+  // shopper back to `/cart?pwa=1` after issuance, at which point the
+  // PWA capture flow below takes over.
 
   // ============================================================
   // PWA metadata capture (/cart?pwa=1 return flow)
