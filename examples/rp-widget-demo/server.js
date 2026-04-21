@@ -1233,6 +1233,48 @@ function createApp() {
     res.sendFile(path.join(__dirname, 'public', 'checkout.html'));
   });
 
+  // ============================================================
+  // /order/:id receipt (Task 20)
+  // ============================================================
+  //
+  // Helper: locate an order by id, preferring the current session's order
+  // list and falling back to the logged-in user's persisted orders. Returns
+  // undefined on miss. Demo-scale O(n) scan; order-history lengths are
+  // bounded by session lifetime so this is fine.
+  function findOrder(req, id) {
+    const sessionOrders = Array.isArray(req.session.orders) ? req.session.orders : [];
+    const hit = sessionOrders.find((o) => o && o.id === id);
+    if (hit) return hit;
+    const sub = req.session && req.session.user && req.session.user.sub;
+    if (!sub) return undefined;
+    const stored = userStore.get(sub);
+    const storedOrders = (stored && Array.isArray(stored.orders)) ? stored.orders : [];
+    return storedOrders.find((o) => o && o.id === id);
+  }
+
+  /**
+   * GET /api/orders/:id — receipt JSON. Reads from req.session.orders
+   * first, then falls back to userStore for authenticated users. Returns
+   * 404 when neither has a match. The returned shape is the full order
+   * record (see checkout webhook in Task 18).
+   */
+  app.get('/api/orders/:id', (req, res) => {
+    const order = findOrder(req, req.params.id);
+    if (!order) return res.status(404).json({ error: 'not_found' });
+    res.json(order);
+  });
+
+  /**
+   * GET /order/:id — the receipt page shell. We don't validate :id here
+   * because the client immediately fetches /api/orders/:id and can render
+   * a "not found" state itself; keeping the shell unconditional avoids
+   * a double round-trip and lets receipts survive session rotation as
+   * long as the order is in userStore.
+   */
+  app.get('/order/:id', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'order.html'));
+  });
+
   // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the
   // actual login/callback handlers return 503 when the requested provider

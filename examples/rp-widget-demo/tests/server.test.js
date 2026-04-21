@@ -1048,6 +1048,97 @@ describe('POST /api/checkout/webhook/:token + GET /api/checkout/status', () => {
   });
 });
 
+describe('GET /api/orders/:id + GET /order/:id (Task 20)', () => {
+  // /api/orders/:id is the receipt JSON endpoint — reads req.session.orders
+  // first, then falls back to the user's persisted orders in userStore.
+  // /order/:id always serves the static receipt page (client fetches the
+  // JSON after render); the :id is never validated server-side so a bookmark
+  // or share link never 404s on the page shell.
+  //
+  // userStore is loaded at createApp() time, so any test that needs the
+  // store populated *from outside* the app has to seed the file before
+  // constructing the app. Each test picks its own tmpFile for isolation.
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  const { UserStore } = require('../userStore');
+  const tmpFiles = [];
+  afterAll(() => {
+    tmpFiles.forEach((f) => { try { fs.unlinkSync(f); } catch (_) { /* ignore */ } });
+  });
+
+  function freshAppWithStoreSeeding(seedFn) {
+    const tmpFile = path.join(os.tmpdir(), 'rp-order-test-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.json');
+    tmpFiles.push(tmpFile);
+    process.env.USER_STORE_FILE = tmpFile;
+    if (typeof seedFn === 'function') {
+      const store = new UserStore(tmpFile);
+      seedFn(store);
+    }
+    const app = createApp();
+    const agent = request.agent(app);
+    return { app, agent };
+  }
+
+  const seededOrder = (id = 'ORDER-abc123') => ({
+    id,
+    items: [{ productId: 'hibiki-harmony', qty: 1, priceAud: 120, title: 'Hibiki Harmony', imageUrl: '\u{1F943}', ageRestricted: true }],
+    total: 120,
+    currency: 'AUD',
+    pwaMeta: { panLastFour: '4242', scheme: 'Visa' },
+    transactionRef: id,
+    approvedAt: Date.UTC(2026, 3, 21, 14, 32, 0),
+    vpDigest: 'deadbeef'.repeat(8),
+  });
+
+  it('GET /api/orders/<unknown> returns 404', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    const res = await agent.get('/api/orders/ORDER-nope').expect(404);
+    expect(res.body).toMatchObject({ error: 'not_found' });
+  });
+
+  it('GET /api/orders/<id> reads from session orders', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    const order = seededOrder('ORDER-session-1');
+    await agent.post('/_test/session').send({ orders: [order] }).expect(200);
+    const res = await agent.get('/api/orders/ORDER-session-1').expect(200);
+    expect(res.body).toMatchObject({
+      id: 'ORDER-session-1',
+      total: 120,
+      currency: 'AUD',
+      pwaMeta: { panLastFour: '4242', scheme: 'Visa' },
+      transactionRef: 'ORDER-session-1',
+    });
+    expect(res.body.items).toHaveLength(1);
+  });
+
+  it('GET /api/orders/<id> falls back to userStore for logged-in user', async () => {
+    const order = seededOrder('ORDER-store-1');
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'user-store-sub', provider: 'authop', orders: [order] });
+    });
+    // Seed session so the server identifies the user.
+    await agent.post('/_test/session').send({
+      user: { sub: 'user-store-sub', provider: 'authop' },
+    }).expect(200);
+    const res = await agent.get('/api/orders/ORDER-store-1').expect(200);
+    expect(res.body).toMatchObject({
+      id: 'ORDER-store-1',
+      total: 120,
+      currency: 'AUD',
+      pwaMeta: { panLastFour: '4242', scheme: 'Visa' },
+    });
+  });
+
+  it('GET /order/:id serves the HTML shell regardless of id validity', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    const res = await agent.get('/order/anyString').expect(200);
+    expect(res.headers['content-type']).toMatch(/html/);
+    expect(res.text).toContain('<!DOCTYPE html>');
+    expect(res.text.toLowerCase()).toContain('order');
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;
