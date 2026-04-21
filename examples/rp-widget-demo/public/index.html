@@ -344,6 +344,38 @@
             color: var(--primary);
             text-decoration: underline;
         }
+        /* "Last order" row (Task 21). Matches the inline sizing of a claim
+           row so the hover still reads as a tight list. */
+        #profile-claims .last-order {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.78);
+        }
+        #profile-claims .last-order-label {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        #profile-claims .last-order-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+        }
+        #profile-claims .last-order-link:hover {
+            text-decoration: underline;
+        }
+        #profile-claims .last-order-total {
+            color: var(--white);
+            font-variant-numeric: tabular-nums;
+        }
 
         /* ===== PWA CAPTURE BANNER ===== */
         /* Flashes at the top of the page when the shopper returns from
@@ -2984,7 +3016,7 @@
         // When multiple OIDC providers are configured, show one link per
         // provider. On successful login the banner shows which provider
         // the user came in through.
-        function renderProfileCard(user) {
+        function renderProfileCard(user, lastOrder) {
             const card = document.getElementById('profile-card');
             if (!card) return;
             if (!user) { card.hidden = true; return; }
@@ -3012,7 +3044,7 @@
                 metaEl.textContent = user.email || '';
             }
             card.hidden = false;
-            renderClaimsPopover(user);
+            renderClaimsPopover(user, lastOrder);
         }
 
         /** Format a claim value for display. Objects render as nested
@@ -3110,7 +3142,34 @@
             parent.appendChild(block);
         }
 
-        function renderClaimsPopover(user) {
+        /** Append the "Last order: ORDER-… — AUD 99.00" row to the hover
+         *  popover, linking to /order/:id. Silent no-op when the server
+         *  didn't return a lastOrder — by contract we never render a
+         *  "no orders yet" placeholder (keeps the popover quieter for
+         *  first-time shoppers). */
+        function renderLastOrderSection(parent, lastOrder) {
+            if (!lastOrder || !lastOrder.id) return;
+            const row = document.createElement('div');
+            row.className = 'last-order';
+            const label = document.createElement('span');
+            label.className = 'last-order-label';
+            label.textContent = 'Last order: ';
+            const link = document.createElement('a');
+            link.className = 'last-order-link';
+            link.href = '/order/' + encodeURIComponent(lastOrder.id);
+            link.textContent = lastOrder.id;
+            const total = document.createElement('span');
+            total.className = 'last-order-total';
+            const currency = lastOrder.currency || 'AUD';
+            const amount = (Number(lastOrder.total) || 0).toFixed(2);
+            total.textContent = ' \u2014 ' + currency + ' ' + amount;
+            row.appendChild(label);
+            row.appendChild(link);
+            row.appendChild(total);
+            parent.appendChild(row);
+        }
+
+        function renderClaimsPopover(user, lastOrder) {
             const pop = document.getElementById('profile-claims');
             if (!pop) return;
             while (pop.firstChild) pop.removeChild(pop.firstChild);
@@ -3129,6 +3188,7 @@
                 // Still offer the Add/Replace CTA even when there are no OIDC
                 // claims — the PSP flow doesn't depend on any particular claim.
                 renderPaymentMethodSection(pop, user);
+                renderLastOrderSection(pop, lastOrder);
                 return;
             }
 
@@ -3166,6 +3226,10 @@
             // Payment method Add/Replace row comes last so the primary OIDC
             // claims stay above the fold when scrolling the popover.
             renderPaymentMethodSection(pop, user);
+            // "Last order" row — Task 21. Appended after the payment-method
+            // block so the hover reads top-to-bottom as identity → funding
+            // instrument → most recent purchase.
+            renderLastOrderSection(pop, lastOrder);
         }
 
         // ----------------------------------------------------------------
@@ -3343,7 +3407,7 @@
                 const data = await res.json();
                 while (el.firstChild) el.removeChild(el.firstChild);
                 if (!data.oidcEnabled) { renderProfileCard(null); renderProductShelf(null); return; }
-                renderProfileCard(data.user || null);
+                renderProfileCard(data.user || null, data.lastOrder || null);
                 renderProductShelf(data.user || null);
                 if (data.user) {
                     const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();

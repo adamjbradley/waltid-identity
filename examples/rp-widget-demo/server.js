@@ -1281,10 +1281,15 @@ function createApp() {
   // is not configured.
 
   /** GET /api/me — current login state + list of enabled providers +
-   *  current cart summary. The cart field lets the /checkout page render
-   *  with a single round-trip (user + line items + total in one shot).
-   *  We ensure the session has a cart initialized so summary() works
-   *  even for a fresh visitor. */
+   *  current cart summary + most recent order (Task 21). The cart field
+   *  lets the /checkout page render with a single round-trip (user +
+   *  line items + total in one shot). We ensure the session has a cart
+   *  initialized so summary() works even for a fresh visitor.
+   *
+   *  `lastOrder` is a projection of the newest order — `{id, currency,
+   *  total}` only — not the full record with line items. The profile
+   *  hover is the only consumer; keeping the payload narrow avoids
+   *  leaking purchase history into every page that just wants user/cart. */
   app.get('/api/me', (req, res) => {
     const providers = enabledProviderNames().map((name) => ({
       name,
@@ -1292,12 +1297,30 @@ function createApp() {
       loginPath: name === 'keycloak' ? '/login' : `/login/${name}`,
     }));
     const cart = summary(req.session.cart || emptyCart());
+    // Newest order from whichever source has history: session takes
+    // priority (anonymous checkouts live there); authenticated users
+    // fall back to the persisted userStore record so the hover survives
+    // a new browser session.
+    const sessionOrders = Array.isArray(req.session.orders) ? req.session.orders : [];
+    let ordersSource = sessionOrders;
+    if (!ordersSource.length) {
+      const sub = req.session && req.session.user && req.session.user.sub;
+      if (sub) {
+        const stored = userStore.get(sub);
+        if (stored && Array.isArray(stored.orders)) ordersSource = stored.orders;
+      }
+    }
+    const newest = ordersSource.length ? ordersSource[ordersSource.length - 1] : null;
+    const lastOrder = newest
+      ? { id: newest.id, currency: newest.currency, total: newest.total }
+      : null;
     res.json({
       oidcEnabled: OIDC_ENABLED,
       providers,
       user: (req.session && req.session.user) || null,
       activeProvider: (req.session && req.session.provider) || null,
       cart,
+      lastOrder,
     });
   });
 

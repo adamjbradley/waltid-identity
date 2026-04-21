@@ -1139,6 +1139,64 @@ describe('GET /api/orders/:id + GET /order/:id (Task 20)', () => {
   });
 });
 
+describe('GET /api/me lastOrder (Task 21)', () => {
+  // The profile hover shows a single-line "Last order: <id> — <currency>
+  // <total>" entry pulled from /api/me. Only {id, currency, total} are
+  // surfaced — item-level detail would both bloat the /api/me payload
+  // and leak purchase history into any code path that just wanted
+  // user + cart for a header render.
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  const { UserStore } = require('../userStore');
+  const tmpFiles = [];
+  afterAll(() => {
+    tmpFiles.forEach((f) => { try { fs.unlinkSync(f); } catch (_) { /* ignore */ } });
+  });
+
+  function freshAppWithStoreSeeding(seedFn) {
+    const tmpFile = path.join(os.tmpdir(), 'rp-me-last-test-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.json');
+    tmpFiles.push(tmpFile);
+    process.env.USER_STORE_FILE = tmpFile;
+    if (typeof seedFn === 'function') {
+      const store = new UserStore(tmpFile);
+      seedFn(store);
+    }
+    const app = createApp();
+    const agent = request.agent(app);
+    return { app, agent };
+  }
+
+  it('lastOrder is null when session has no orders', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.lastOrder).toBeNull();
+  });
+
+  it('lastOrder reflects most recent session order (id, currency, total only)', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    const orders = [
+      { id: 'ORDER-a', items: [], total: 10, currency: 'AUD', pwaMeta: { panLastFour: '0000', scheme: 'Visa' }, transactionRef: 'ORDER-a', approvedAt: 1, vpDigest: 'x' },
+      { id: 'ORDER-b', items: [{ productId: 'x', qty: 1, priceAud: 50, title: 'x', imageUrl: 'x', ageRestricted: false }], total: 50, currency: 'AUD', pwaMeta: { panLastFour: '4242', scheme: 'Visa' }, transactionRef: 'ORDER-b', approvedAt: 2, vpDigest: 'y' },
+    ];
+    await agent.post('/_test/session').send({ orders }).expect(200);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.lastOrder).toEqual({ id: 'ORDER-b', currency: 'AUD', total: 50 });
+    // Items deliberately omitted for privacy + payload size.
+    expect(res.body.lastOrder.items).toBeUndefined();
+  });
+
+  it('lastOrder reads from userStore when session has none but user is logged in', async () => {
+    const order = { id: 'ORDER-persisted', items: [], total: 77, currency: 'AUD', pwaMeta: { panLastFour: '4242', scheme: 'Visa' }, transactionRef: 'ORDER-persisted', approvedAt: 1, vpDigest: 'z' };
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'me-lastorder-sub', provider: 'authop', orders: [order] });
+    });
+    await agent.post('/_test/session').send({ user: { sub: 'me-lastorder-sub', provider: 'authop' } }).expect(200);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.lastOrder).toEqual({ id: 'ORDER-persisted', currency: 'AUD', total: 77 });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;
