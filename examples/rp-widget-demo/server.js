@@ -1038,6 +1038,17 @@ function createApp() {
     res.sendFile(path.join(__dirname, 'public', 'checkout.html'));
   });
 
+  // /cart is the landing URL after a PSP enrollment round-trip
+  // (psp.theaustraliahack.com/enroll returns the shopper to
+  // `${returnUrl}?pwa=1`, and the plan-defined returnUrl is
+  // `${rp}/cart`). The RP is a single-page app served from `/`, so
+  // /cart is just an alias that serves the same index.html — the
+  // `?pwa=1` kick-off handler inside the page detects the query on
+  // any URL and fires the capture flow.
+  app.get('/cart', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+
   // ============================================================
   // /order/:id receipt (Task 20)
   // ============================================================
