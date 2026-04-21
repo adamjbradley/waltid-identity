@@ -466,6 +466,66 @@ describe('POST /api/age-check/webhook/:token + GET /api/age-check/status', () =>
     const add = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
     expect(add.body.count).toBe(1);
   });
+
+  it('promotes age flags into session.user + userStore when the shopper is logged in', async () => {
+    // Seed a freshly-upserted userStore profile with NO age claims (simulating
+    // an OIDC login where the id_token didn't carry age_over_21). This
+    // mirrors the real edge case: auth-op realm omitted the age scope, or
+    // the wallet refused disclosure at consent. Shopper then proves age
+    // via the anonymous age-check flow — the server should promote the
+    // verdict onto the persisted profile so future sessions skip the gate.
+    const path = require('path');
+    const os = require('os');
+    const fs = require('fs');
+    const { UserStore } = require('../userStore');
+    const tmp = path.join(os.tmpdir(), `age-promo-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    const seedStore = new UserStore(tmp);
+    seedStore.upsert({ sub: 'promoted-sub', provider: 'authop' });
+    process.env.USER_STORE_FILE = tmp;
+    const freshApp = createApp();
+    const freshAgent = request.agent(freshApp);
+
+    await freshAgent.post('/_test/session').send({
+      user: { sub: 'promoted-sub', provider: 'authop' },
+      ageCheck: { sessionId: 's-promo', token: 'tok-promo', webhookSecret: 'secret-promo' },
+    }).expect(200);
+    await freshAgent.post('/_test/age-check/register').send({ token: 'tok-promo', webhookSecret: 'secret-promo' }).expect(200);
+
+    await request(freshApp).post('/api/age-check/webhook/tok-promo')
+      .set('Authorization', 'Bearer secret-promo')
+      .send({ event: 'policy_results_available', session: { id: 's-promo', status: 'SUCCESSFUL', presentedCredentials: { pid_0: [{ credentialData: { age_over_21: true } }] } } })
+      .expect(200);
+
+    // Status poll promotes: session flag + session.user.* + persisted record.
+    await freshAgent.get('/api/age-check/status').expect(200);
+
+    // Persisted record was updated with both implied flags.
+    const persistedStore = new UserStore(tmp);
+    const persisted = persistedStore.get('promoted-sub');
+    expect(persisted).toBeTruthy();
+    expect(persisted.age_over_21).toBe(true);
+    expect(persisted.age_over_18).toBe(true);
+
+    try { fs.unlinkSync(tmp); } catch (_) {}
+  });
+
+  it('skips userStore promotion when the session is anonymous', async () => {
+    // Anonymous path: no session.user.sub, just session.ageVerified.
+    // The status poll should still mirror the flag but MUST NOT write
+    // anything to the userStore (there's no sub to key on).
+    await agent.post('/_test/session').send({ ageCheck: { sessionId: 's-anon', token: 'tok-anon', webhookSecret: 'secret-anon' } });
+    await agent.post('/_test/age-check/register').send({ token: 'tok-anon', webhookSecret: 'secret-anon' });
+
+    await request(app).post('/api/age-check/webhook/tok-anon')
+      .set('Authorization', 'Bearer secret-anon')
+      .send({ event: 'policy_results_available', session: { id: 's-anon', status: 'SUCCESSFUL', presentedCredentials: { pid_0: [{ credentialData: { age_over_21: true } }] } } })
+      .expect(200);
+    const res = await agent.get('/api/age-check/status').expect(200);
+    expect(res.body).toEqual({ verified: true });
+    // Cart POST still works via the ephemeral ageVerified flag.
+    const add = await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    expect(add.body.count).toBe(1);
+  });
 });
 
 // The PSP-enrollment test block (POST /api/psp/start + /api/psp/webhook

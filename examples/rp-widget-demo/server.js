@@ -710,6 +710,25 @@ function createApp() {
     if (!entry) return res.json({ verified: null });
     if (entry.verified === true || entry.verified === false) {
       req.session.ageVerified = entry.verified;
+      // If the shopper is logged in (has a sub on session.user) and the
+      // verdict is positive, promote the just-proven age_over_21 (and its
+      // implied age_over_18) into BOTH (a) the live session.user shape so
+      // isAgeVerified sees it without going through the userStore, AND
+      // (b) the persisted profile so subsequent logins don't re-prompt.
+      // adminUpdate (not upsert) because this is a verification event —
+      // not a login — so loginCount shouldn't bump.
+      if (entry.verified === true && req.session.user && req.session.user.sub) {
+        req.session.user.age_over_21 = true;
+        req.session.user.age_over_18 = true;
+        try {
+          userStore.adminUpdate(req.session.user.sub, {
+            age_over_21: true,
+            age_over_18: true,
+          });
+        } catch (err) {
+          console.warn(`[age-check] userStore promote failed for sub=${req.session.user.sub}:`, err.message || err);
+        }
+      }
       ageCheckByToken.delete(tok); // eviction: verdict is now on the session cookie
     }
     res.json({ verified: entry.verified });
