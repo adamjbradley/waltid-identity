@@ -69,6 +69,20 @@
         .top-bar-links {
             display: flex;
             gap: 20px;
+            align-items: center;
+        }
+        /* Admin menu entry. Only rendered when /api/me says isAdmin. */
+        .top-bar a.top-bar-admin {
+            color: #9ab8ff;
+            font-weight: 600;
+            padding: 2px 8px;
+            border: 1px solid rgba(154, 184, 255, 0.4);
+            border-radius: 999px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .top-bar a.top-bar-admin:hover {
+            background: rgba(154, 184, 255, 0.15);
+            color: #bcd2ff;
         }
 
         /* ===== HEADER ===== */
@@ -2124,6 +2138,7 @@
             <div class="top-bar-links">
                 <a href="#">Order Tracking</a>
                 <a href="#">Gift Vouchers</a>
+                <a id="admin-link" class="top-bar-admin" href="/admin" hidden>&#x26A1; Admin</a>
                 <span id="auth-status" aria-live="polite"></span>
             </div>
         </div>
@@ -3399,6 +3414,11 @@
                 if (!data.oidcEnabled) { renderProfileCard(null); renderProductShelf(null); return; }
                 renderProfileCard(data.user || null, data.lastOrder || null, data.isAdmin === true);
                 renderProductShelf(data.user || null);
+                // Top-bar admin menu entry — toggled by the /api/me.isAdmin
+                // flag. Hidden for everyone else (the server-side gate still
+                // 403s non-admins that try /admin directly).
+                const adminLink = document.getElementById('admin-link');
+                if (adminLink) adminLink.hidden = data.isAdmin !== true;
                 if (data.user) {
                     const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();
                     const isAuthop = data.user.provider === 'authop' || (

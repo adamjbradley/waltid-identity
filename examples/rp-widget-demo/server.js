@@ -189,13 +189,13 @@ const PUBLIC_PSP_URL = process.env.PUBLIC_PSP_URL || 'https://psp.theaustraliaha
 // user's browser). For the demo stack this is the Cloudflare-tunnelled origin.
 const PUBLIC_URL = process.env.PUBLIC_URL || 'https://rp.theaustraliahack.com';
 
-// Admin access. Only users who sign in via the `keycloak` provider with
-// this email become admins of the /admin surface. Default is the demo
+// Admin access: matched on the verified `email` claim from the id_token,
+// regardless of which OIDC provider was used (the demo stack's auth-op
+// employees realm delegates to the same Keycloak as the direct keycloak
+// provider, so both paths produce the same email). Default is the demo
 // operator; override in .env.local for other deployments. `email_verified`
-// is not enforced here — Keycloak federates to identity providers that
-// generally set it, but for demo-simplicity we trust Keycloak's assertion.
+// is not enforced — for demo simplicity we trust the upstream.
 const ADMIN_EMAIL = process.env.RP_ADMIN_EMAIL || 'adam_j_bradley@yahoo.com';
-const ADMIN_PROVIDER = process.env.RP_ADMIN_PROVIDER || 'keycloak';
 
 /**
  * Is the current session the RP admin? Admin identity is provider + email,
@@ -204,11 +204,15 @@ const ADMIN_PROVIDER = process.env.RP_ADMIN_PROVIDER || 'keycloak';
  */
 function isAdmin(session) {
   if (!session) return false;
-  // `provider` is stored on the session root (set at OIDC callback,
-  // server.js L1215), not on session.user. `user.email` is set only by the
-  // keycloak branch; authop profiles intentionally have no email.
   const u = session.user || {};
-  return session.provider === ADMIN_PROVIDER && u.email === ADMIN_EMAIL;
+  // Admin identity matches on the id_token `email` claim regardless of
+  // which OIDC provider was used — auth-op's employees realm delegates
+  // to the same Keycloak that the direct keycloak provider uses, so
+  // both paths produce the same verified email. authop profiles keep
+  // PII out of the top-level `session.user` shape by design, but the
+  // full claim set (including `email`) is preserved on `user.claims`.
+  const email = u.email || (u.claims && u.claims.email);
+  return email === ADMIN_EMAIL;
 }
 
 // OIDC Providers — multiple are supported side-by-side. Each one needs its

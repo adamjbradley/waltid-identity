@@ -1145,6 +1145,20 @@ describe('admin surface (/api/admin/users + isAdmin)', () => {
     expect(res.body.isAdmin).toBe(false);
   });
 
+  it('GET /api/me exposes isAdmin=true for authop session when claims.email matches', async () => {
+    // Auth-op keeps PII off the top-level user.* shape and instead puts
+    // the full id_token claim set on user.claims. The admin check has
+    // to read through there so operator logins via the employees realm
+    // (which chains to Keycloak) also count as admin.
+    const { agent } = freshAppWithStoreSeeding();
+    await agent.post('/_test/session').send({
+      user: { sub: 'authop-admin', kyc_verified: true, claims: { email: 'adam_j_bradley@yahoo.com' } },
+      provider: 'authop',
+    }).expect(200);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.isAdmin).toBe(true);
+  });
+
   it('GET /api/admin/users 403s for non-admin sessions', async () => {
     const { agent } = freshAppWithStoreSeeding();
     await signInAsRegular(agent);
