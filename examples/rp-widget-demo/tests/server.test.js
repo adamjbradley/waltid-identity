@@ -878,6 +878,176 @@ describe('POST /api/checkout', () => {
   });
 });
 
+describe('POST /api/checkout/webhook/:token + GET /api/checkout/status', () => {
+  // Task 18 — webhook records an order, status poll mirrors it onto the
+  // session + userStore and clears the cart. Same Bearer + constant-time
+  // compare pattern as the other OID4VP webhooks. `entry.completed` +
+  // `entry.order` are written by the webhook; the status poll evicts the
+  // map entry once it has mirrored to req.session.orders.
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  let app;
+  let agent;
+  let originalFetch;
+  const tmpFiles = [];
+  beforeAll(() => { originalFetch = global.fetch; });
+  afterAll(() => {
+    global.fetch = originalFetch;
+    tmpFiles.forEach((f) => { try { fs.unlinkSync(f); } catch (_) { /* ignore */ } });
+  });
+  beforeEach(() => {
+    const tmpFile = path.join(os.tmpdir(), 'rp-ck-test-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.json');
+    tmpFiles.push(tmpFile);
+    process.env.USER_STORE_FILE = tmpFile;
+    app = createApp();
+    agent = request.agent(app);
+    // Stub verifier-api2 session-create so happy-path kickoffs succeed
+    // deterministically (matches the Task 17 suite pattern).
+    global.fetch = jest.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/verification-session/create')) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            sessionId: 'ck-sess-1',
+            bootstrapAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=ck',
+            fullAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=ck_full',
+          }),
+        };
+      }
+      throw new Error('unexpected fetch ' + url);
+    });
+  });
+
+  async function seedAndKickCheckout() {
+    await agent.post('/_test/session').send({
+      user: { sub: 'sub-ck-flow', provider: 'authop', age_over_21: true, paymentMethod: { scheme: 'Visa', panLastFour: '4242' } },
+      provider: 'authop',
+      ageVerified: true,
+    }).expect(200);
+    await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    const res = await agent.post('/api/checkout').expect(200);
+    return res.body;
+  }
+
+  function successfulWebhookBody() {
+    return {
+      event: 'policy_results_available',
+      session: {
+        status: 'SUCCESSFUL',
+        presentedCredentials: {
+          pwa_0: [{ credentialData: { panLastFour: '4242', scheme: 'Visa' } }],
+        },
+      },
+    };
+  }
+
+  it('rejects webhook with no Authorization header (401)', async () => {
+    const { orderId } = await seedAndKickCheckout();
+    // Grab the token by inspecting the upstream webhook URL we forwarded.
+    const [, opts] = global.fetch.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    const webhookUrl = body.core_flow.notifications.webhook.url;
+    const token = webhookUrl.split('/').pop();
+    await request(app).post('/api/checkout/webhook/' + token)
+      .send(successfulWebhookBody())
+      .expect(401);
+  });
+
+  it('rejects webhook with wrong bearer (401)', async () => {
+    await seedAndKickCheckout();
+    const [, opts] = global.fetch.mock.calls[0];
+    const token = JSON.parse(opts.body).core_flow.notifications.webhook.url.split('/').pop();
+    await request(app).post('/api/checkout/webhook/' + token)
+      .set('Authorization', 'Bearer wrong')
+      .send(successfulWebhookBody())
+      .expect(401);
+  });
+
+  it('rejects unknown token with 404', async () => {
+    await request(app).post('/api/checkout/webhook/unknown-token')
+      .set('Authorization', 'Bearer whatever')
+      .send(successfulWebhookBody())
+      .expect(404);
+  });
+
+  it('full flow: webhook -> status poll clears cart, records order on session + userStore', async () => {
+    const { orderId } = await seedAndKickCheckout();
+    const [, opts] = global.fetch.mock.calls[0];
+    const reqBody = JSON.parse(opts.body);
+    const webhookUrl = reqBody.core_flow.notifications.webhook.url;
+    const token = webhookUrl.split('/').pop();
+    const bearer = reqBody.core_flow.notifications.webhook.bearer_token;
+
+    // Status poll before webhook: pending.
+    const pendingRes = await agent.get('/api/checkout/status').expect(200);
+    expect(pendingRes.body).toEqual({ status: 'pending' });
+
+    // Fire the webhook.
+    await request(app).post('/api/checkout/webhook/' + token)
+      .set('Authorization', 'Bearer ' + bearer)
+      .send(successfulWebhookBody())
+      .expect(200);
+
+    // Status poll after webhook: completed; mirrors order + clears cart.
+    const completedRes = await agent.get('/api/checkout/status').expect(200);
+    expect(completedRes.body).toEqual({ status: 'completed', orderId });
+
+    // Cart is cleared.
+    const cart = await agent.get('/api/cart').expect(200);
+    expect(cart.body).toEqual({ items: [], subtotal: 0, count: 0 });
+
+    // Order lives on session.orders[0].
+    const me = await agent.get('/api/me').expect(200);
+    // pendingOrder was cleared.
+    // Session orders present via /api/me has no dedicated field; inspect via
+    // admin /api/users on the store which was persisted for authop sub.
+    const users = await agent.get('/api/users').expect(200);
+    const saved = users.body.users.find((u) => u.sub === 'sub-ck-flow');
+    expect(saved).toBeTruthy();
+    expect(Array.isArray(saved.orders)).toBe(true);
+    expect(saved.orders).toHaveLength(1);
+    expect(saved.orders[0]).toMatchObject({
+      id: orderId,
+      currency: 'AUD',
+      transactionRef: orderId,
+      pwaMeta: { panLastFour: '4242', scheme: 'Visa' },
+    });
+    expect(saved.orders[0].total).toBeGreaterThan(0);
+    expect(saved.orders[0].items).toHaveLength(1);
+
+    // Second status poll: no pending order, returns a sensible default.
+    const repeat = await agent.get('/api/checkout/status').expect(200);
+    expect(repeat.body.status === 'none' || repeat.body.status === 'completed').toBe(true);
+  });
+
+  it('status poll with no pending order returns {status:none}', async () => {
+    const fresh = request.agent(app);
+    const res = await fresh.get('/api/checkout/status').expect(200);
+    expect(res.body).toEqual({ status: 'none' });
+  });
+
+  it('status is pending between kickoff and webhook', async () => {
+    await seedAndKickCheckout();
+    const res = await agent.get('/api/checkout/status').expect(200);
+    expect(res.body).toEqual({ status: 'pending' });
+  });
+
+  it('non-final webhook event leaves status pending', async () => {
+    await seedAndKickCheckout();
+    const [, opts] = global.fetch.mock.calls[0];
+    const reqBody = JSON.parse(opts.body);
+    const token = reqBody.core_flow.notifications.webhook.url.split('/').pop();
+    const bearer = reqBody.core_flow.notifications.webhook.bearer_token;
+    await request(app).post('/api/checkout/webhook/' + token)
+      .set('Authorization', 'Bearer ' + bearer)
+      .send({ event: 'presentation_received', session: { status: 'ACTIVE' } })
+      .expect(200);
+    const res = await agent.get('/api/checkout/status').expect(200);
+    expect(res.body).toEqual({ status: 'pending' });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;

@@ -46,11 +46,18 @@ const path = require('path');
 // the capture flow writes a card stub `{panLastFour, scheme, payeeName,
 // addedAt}` that the checkout page displays as "Card ending ****". It's
 // not PII — last-four + scheme only — so the privacy envelope stays intact.
+//
+// `orders` was added when the checkout webhook landed (Task 18): each
+// record is `{id, items, total, currency, pwaMeta, transactionRef,
+// approvedAt, vpDigest}`. `items` already reflects the line-level shape
+// we keep on the session cart (productId + qty + priceAud + title + icon)
+// — no PII, and the digest is the sha256 of the presented VP payload so
+// receipts stay auditable without persisting the full VC.
 const AUTHOP_ALLOWED_FIELDS = new Set([
   'sub', 'provider',
   'kyc_verified', 'age_over_18', 'age_over_21',
   'firstSeenAt', 'lastSeenAt', 'loginCount',
-  'paymentMethod',
+  'paymentMethod', 'orders',
 ]);
 
 class UserStore {

@@ -1103,6 +1103,121 @@ function createApp() {
     }
   });
 
+  /**
+   * POST /api/checkout/webhook/:token — verifier-api2 callback for the PWA
+   * presentation. Bearer-auth with the secret minted at /api/checkout,
+   * then on terminal SUCCESSFUL event extract panLastFour+scheme from the
+   * presented credential and record the order. The map entry's `completed`
+   * flag is the signal for the status poll to mirror into the session.
+   *
+   * vpDigest is a sha256 over the full presentedCredentials JSON so the
+   * receipt has something auditable to show ("verified by wallet X") even
+   * though we don't persist the raw VP itself.
+   */
+  app.post('/api/checkout/webhook/:token', (req, res) => {
+    const entry = checkoutByToken.get(req.params.token);
+    if (!entry) return res.status(404).json({ error: 'unknown_token' });
+    const authHeader = req.header('authorization') || '';
+    if (!/^Bearer\s+/i.test(authHeader)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
+    const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
+    if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    if (req.body.event !== 'policy_results_available') return res.json({ ok: true });
+    const session = req.body.session || {};
+    if (session.status !== 'SUCCESSFUL') {
+      entry.completed = true;
+      entry.order = null; // declined — status poll will report this
+      return res.json({ ok: true });
+    }
+    const creds = session.presentedCredentials || {};
+    let pwaMeta = { panLastFour: null, scheme: null };
+    for (const arr of Object.values(creds)) {
+      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+        const cd = arr[0].credentialData;
+        pwaMeta = { panLastFour: cd.panLastFour, scheme: cd.scheme };
+        break;
+      }
+    }
+    const vpDigest = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(creds))
+      .digest('hex');
+    entry.completed = true;
+    entry.order = {
+      id: entry.orderId,
+      items: entry.items,
+      total: entry.total,
+      currency: entry.currency || 'AUD',
+      pwaMeta,
+      transactionRef: entry.orderId,
+      approvedAt: Date.now(),
+      vpDigest,
+    };
+    res.json({ ok: true });
+  });
+
+  /**
+   * GET /api/checkout/status — browser poll. Three terminal states:
+   *   - 'completed' : webhook recorded a SUCCESSFUL order; mirror onto
+   *                   session + userStore (if user.sub), clear cart +
+   *                   pendingOrder, evict the map entry.
+   *   - 'pending'   : kickoff happened but no terminal webhook yet OR the
+   *                   webhook was non-final.
+   *   - 'none'      : no pending order on this session cookie at all.
+   * A declined webhook (SUCCESSFUL=false) sets completed=true with
+   * order=null; we surface that as 'declined' for the UI (the page can
+   * show a retry affordance).
+   */
+  app.get('/api/checkout/status', (req, res) => {
+    const pending = req.session.pendingOrder;
+    if (!pending || !pending.token) return res.json({ status: 'none' });
+    const entry = checkoutByToken.get(pending.token);
+    if (!entry) {
+      // Entry evicted (TTL or already mirrored). If session still has the
+      // pending record we treat it as completed-already; otherwise none.
+      return res.json({ status: 'none' });
+    }
+    if (!entry.completed) return res.json({ status: 'pending' });
+    if (!entry.order) {
+      // Declined: clear the pending marker, keep the cart intact so the
+      // user can retry with a different payment method.
+      delete req.session.pendingOrder;
+      checkoutByToken.delete(pending.token);
+      return res.json({ status: 'declined' });
+    }
+    const record = entry.order;
+    // Mirror onto the session so the receipt page can read it without a
+    // round-trip through userStore (and so anonymous checkouts still work).
+    req.session.orders = Array.isArray(req.session.orders)
+      ? req.session.orders.concat([record])
+      : [record];
+    // Persist across sessions when authenticated. Append to any existing
+    // orders on the stored profile; the userStore allowlist already
+    // includes `orders`.
+    if (req.session.user && req.session.user.sub) {
+      try {
+        const existing = userStore.get(req.session.user.sub);
+        const priorOrders = (existing && Array.isArray(existing.orders)) ? existing.orders : [];
+        userStore.upsert(Object.assign({}, req.session.user, {
+          provider: req.session.provider || req.session.user.provider || 'authop',
+          orders: priorOrders.concat([record]),
+        }));
+      } catch (err) {
+        console.warn('[checkout-status] userStore upsert failed:', err.message);
+      }
+    }
+    // Clear cart + pending marker; evict the map entry now that the order
+    // is durable in session + store.
+    if (req.session.cart) clearCart(req.session.cart);
+    delete req.session.pendingOrder;
+    checkoutByToken.delete(pending.token);
+    res.json({ status: 'completed', orderId: record.id });
+  });
+
   // ============================================================
   // /checkout review page (Task 16)
   // ============================================================
