@@ -753,6 +753,7 @@ function createApp() {
       const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
       registerSessionToken(pwaCaptureByToken, token, { webhookSecret, verified: null, claims: null });
       req.session.pwaCapture = { sessionId: session.sessionId, token, webhookSecret };
+      console.log(`[pwa-capture] session created verifier-session=${session.sessionId} token=${token.slice(0,8)}... webhook=${webhookUrl}`);
       res.json({ sessionId: session.sessionId, qrCode });
     } catch (err) {
       console.warn('[pwa-capture] session-create error', err.message || err);
@@ -761,24 +762,35 @@ function createApp() {
   });
 
   app.post('/api/pwa/capture/webhook/:token', (req, res) => {
+    console.log(`[pwa-capture] webhook received token=${req.params.token.slice(0,8)}... event=${req.body && req.body.event} status=${req.body && req.body.session && req.body.session.status}`);
     const entry = pwaCaptureByToken.get(req.params.token);
-    if (!entry) return res.status(404).json({ error: 'unknown_token' });
+    if (!entry) {
+      console.warn(`[pwa-capture] webhook unknown_token (map size=${pwaCaptureByToken.size})`);
+      return res.status(404).json({ error: 'unknown_token' });
+    }
     const authHeader = req.header('authorization') || '';
     if (!/^Bearer\s+/i.test(authHeader)) {
+      console.warn('[pwa-capture] webhook missing bearer');
       return res.status(401).json({ error: 'bad_secret' });
     }
     const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
     const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
     if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+      console.warn('[pwa-capture] webhook bearer mismatch');
       return res.status(401).json({ error: 'bad_secret' });
     }
-    if (req.body.event !== 'policy_results_available') return res.json({ ok: true });
+    if (req.body.event !== 'policy_results_available') {
+      console.log(`[pwa-capture] webhook ack non-terminal event ${req.body.event}`);
+      return res.json({ ok: true });
+    }
     const session = req.body.session || {};
     if (session.status !== 'SUCCESSFUL') {
+      console.log(`[pwa-capture] webhook terminal but status=${session.status}; marking verified=false`);
       entry.verified = false;
       return res.json({ ok: true });
     }
     const creds = session.presentedCredentials || {};
+    console.log(`[pwa-capture] webhook SUCCESSFUL; presentedCredentials keys=${Object.keys(creds)}`);
     for (const arr of Object.values(creds)) {
       if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
         const cd = arr[0].credentialData;
@@ -788,9 +800,11 @@ function createApp() {
           scheme: cd.scheme,
           payeeName: cd.payeeName,
         };
+        console.log(`[pwa-capture] webhook captured panLastFour=${cd.panLastFour} scheme=${cd.scheme}`);
         return res.json({ ok: true });
       }
     }
+    console.warn('[pwa-capture] webhook SUCCESSFUL but no credentialData in presentedCredentials');
     entry.verified = false;
     res.json({ ok: true });
   });
