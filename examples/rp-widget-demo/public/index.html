@@ -3098,7 +3098,12 @@
          *  PSP short-circuits to "You already have a card enrolled". */
         function pspEnrollUrl() {
             const base = (config.publicPspUrl || '').replace(/\/$/, '') || '/';
-            const ret = encodeURIComponent(location.origin + '/cart');
+            // Round-trip the shopper back to whatever page they launched
+            // enrolment from — profile hover on the shop lands back on /,
+            // hover from /checkout lands back on /checkout, etc. The PSP's
+            // RP_RETURN_URL_ALLOWLIST is by hostname so every path on this
+            // origin passes.
+            const ret = encodeURIComponent(location.origin + location.pathname);
             return `${base}/enroll?return=${ret}`;
         }
         function renderPaymentMethodSection(parent, user) {

@@ -265,6 +265,43 @@
             font-size: 11px;
             color: #67a3ff;
         }
+        /* QR slot + "Open in wallet" fallback link, mirrored from the PSP
+           enrolment page so the Pay experience is identical in shape —
+           scan the QR from another device, or tap the deep-link if
+           already on mobile. */
+        .qr-slot {
+            width: 180px;
+            height: 180px;
+            margin: 8px auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+        }
+        .qr-slot img { width: 100%; height: 100%; display: block; }
+        .qr-slot.is-placeholder {
+            color: var(--muted);
+            font-size: 12px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .qr-open-link {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: rgba(114, 216, 135, 0.18);
+            border: 1px solid rgba(114, 216, 135, 0.3);
+            color: var(--ok);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .qr-open-link:hover {
+            background: rgba(114, 216, 135, 0.28);
+        }
         .banner {
             margin: -8px 0 16px;
             padding: 10px 14px;
@@ -275,6 +312,22 @@
             color: #ffc9c9;
         }
         .banner[hidden] { display: none; }
+        /* Green pill shown briefly when the shopper returns from PSP
+           enrolment via ?pwa=1. Separate class from the red .banner
+           above so states don't bleed. */
+        .pwa-added-pill {
+            margin: -8px 0 16px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            background: rgba(114, 216, 135, 0.10);
+            border: 1px solid rgba(114, 216, 135, 0.35);
+            color: var(--ok);
+            font-weight: 600;
+            transition: opacity 320ms ease;
+        }
+        .pwa-added-pill[hidden] { display: none; }
+        .pwa-added-pill.is-fading { opacity: 0; }
     </style>
 </head>
 <body>
@@ -287,6 +340,9 @@
         <p class="subtitle">Review your order and confirm with your EUDI wallet.</p>
 
         <div id="error-banner" class="banner" hidden></div>
+        <div id="pwa-added-pill" class="pwa-added-pill" hidden role="status">
+            &#x2713; Payment method added &mdash; scan to pay.
+        </div>
 
         <section class="section" id="order-summary-section">
             <div class="section-title">Order summary</div>
@@ -311,7 +367,8 @@
 
         <div class="qr-box" id="qr-box" hidden>
             <p>Scan with your EUDI Wallet to authorize payment.</p>
-            <a id="qr-link" class="qr-link" href="#" rel="noopener">openid4vp://&hellip;</a>
+            <div class="qr-slot is-placeholder" id="pay-qr">Preparing&hellip;</div>
+            <a id="pay-link" class="qr-open-link" href="#" rel="noopener" hidden>Open in wallet</a>
         </div>
 
         <p class="footer-note">
@@ -341,9 +398,12 @@
         }
         function pspEnrollUrl() {
             const base = (publicPspUrl || '').replace(/\/$/, '') || '/';
-            // Route the shopper back via /cart?pwa=1 so the PWA capture
-            // flow runs before they re-enter /checkout.
-            const ret = encodeURIComponent(location.origin + '/cart');
+            // Land back here on /checkout so the shopper can pay right
+            // after enrolment instead of being dumped at / and having to
+            // re-walk the cart. The PSP appends ?pwa=1 to whatever return
+            // URL we pass; the handler below listens for that and shows a
+            // "Payment method added" toast before the Pay button.
+            const ret = encodeURIComponent(location.origin + location.pathname);
             return `${base}/enroll?return=${ret}`;
         }
 
@@ -352,6 +412,29 @@
         // strict about XSS-safe DOM construction throughout the page.
         function clearNode(el) {
             while (el.firstChild) el.removeChild(el.firstChild);
+        }
+
+        // QR helpers. Mirror the pattern used by examples/mock-psp-demo's
+        // enrolment page so scanning-to-authorise-payment looks identical
+        // to scanning-to-enrol. The external QR-serving API is the same
+        // zero-dep shortcut (api.qrserver.com) both pages already use.
+        function qrImg(payload) {
+            const img = document.createElement('img');
+            img.alt = 'QR code';
+            img.width = 176;
+            img.height = 176;
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(payload);
+            return img;
+        }
+        function renderQr(slotId, linkId, payload) {
+            const slot = document.getElementById(slotId);
+            const link = document.getElementById(linkId);
+            if (slot) {
+                clearNode(slot);
+                slot.classList.remove('is-placeholder');
+                slot.appendChild(qrImg(payload));
+            }
+            if (link) { link.href = payload; link.hidden = false; }
         }
 
         async function loadMe() {
@@ -458,10 +541,8 @@
                 }
                 const body = await res.json();
                 const qrBox = document.getElementById('qr-box');
-                const qrLink = document.getElementById('qr-link');
                 if (body.qrCode) {
-                    qrLink.href = body.qrCode;
-                    qrLink.textContent = body.qrCode;
+                    renderQr('pay-qr', 'pay-link', body.qrCode);
                     qrBox.hidden = false;
                 }
                 payBtn.textContent = 'Waiting for wallet\u2026';
@@ -495,6 +576,30 @@
         });
         document.getElementById('pay-btn').addEventListener('click', pay);
 
+        /** If the shopper just returned from PSP enrolment (?pwa=1 breadcrumb),
+         *  strip the query and flash a green pill acknowledging it. Pay
+         *  button gets focus so tapping Enter triggers the OID4VP session
+         *  immediately. Nothing server-side — enrolment is a wallet-side
+         *  event and this is display-only. */
+        function handlePwaBreadcrumb() {
+            const params = new URLSearchParams(location.search);
+            if (params.get('pwa') !== '1') return;
+            const clean = location.pathname + location.hash;
+            history.replaceState({}, '', clean);
+            const pill = document.getElementById('pwa-added-pill');
+            if (pill) {
+                pill.hidden = false;
+                setTimeout(() => pill.classList.add('is-fading'), 2600);
+                setTimeout(() => { pill.hidden = true; pill.classList.remove('is-fading'); }, 3100);
+            }
+            // Defer the focus so the Pay button has finished rendering
+            // after renderPaymentMethod runs below.
+            setTimeout(() => {
+                const payBtn = document.getElementById('pay-btn');
+                if (payBtn && !payBtn.disabled) payBtn.focus();
+            }, 60);
+        }
+
         (async () => {
             try {
                 // Fire config + me in parallel. We need publicPspUrl before
@@ -508,6 +613,7 @@
                 renderItems(me.cart.items);
                 document.getElementById('total-amount').textContent = AUD(me.cart.subtotal);
                 renderPaymentMethod();
+                handlePwaBreadcrumb();
             } catch (err) {
                 showError('Failed to load checkout.');
             }
