@@ -764,6 +764,12 @@ function createApp() {
     // look at until the user polls).
     entry.presentedCnfJkt = extractCnfThumbprint(creds);
     entry.verified = claim === true;
+    for (const arr of Object.values(creds)) {
+      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+        console.log(`[age-check] webhook presented cnf=${JSON.stringify(arr[0].credentialData.cnf)} thumbprint=${entry.presentedCnfJkt && entry.presentedCnfJkt.slice(0,12)}`);
+        break;
+      }
+    }
     res.json({ ok: true });
   });
 
@@ -1034,6 +1040,16 @@ function createApp() {
     // the check.
     if (entry.expectedCnfJkt) {
       const presentedJkt = extractCnfThumbprint(creds);
+      console.log(`[checkout] cnf check expected=${entry.expectedCnfJkt && entry.expectedCnfJkt.slice(0,12)} presented=${presentedJkt && presentedJkt.slice(0,12)} match=${presentedJkt === entry.expectedCnfJkt}`);
+      // Log the raw cnf objects so we can see if the wallet rotated keys
+      // (different jwk) vs a canonicalisation bug (same jwk, different
+      // thumbprint). Temporary — strip when diagnosis is done.
+      for (const arr of Object.values(creds)) {
+        if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+          console.log(`[checkout] presented cnf.jwk = ${JSON.stringify(arr[0].credentialData.cnf)}`);
+          break;
+        }
+      }
       if (!presentedJkt || presentedJkt !== entry.expectedCnfJkt) {
         entry.completed = true;
         entry.order = null;
@@ -1425,6 +1441,7 @@ function createApp() {
       if (providerName === 'authop' && typeof claims.cnf_jkt === 'string' && claims.cnf_jkt) {
         req.session.cnfThumbprint = claims.cnf_jkt;
       }
+      console.log(`[oidc] sub=${String(claims.sub).slice(0,12)} provider=${providerName} cnf_jkt=${claims.cnf_jkt ? String(claims.cnf_jkt).slice(0,12) : '<none>'}`);
       delete req.session.oidc;
 
       // Persist the profile for this sub across sessions. Upsert semantics:
