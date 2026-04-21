@@ -312,6 +312,23 @@
             color: #ffc9c9;
         }
         .banner[hidden] { display: none; }
+        /* Secondary first-time setup link under the payment-method panel.
+           Small, quiet, unobtrusive — PWAs are durable so this affordance
+           is rarely needed after the first enrolment. */
+        .pm-first-time {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-decoration: none;
+            opacity: 0.75;
+            transition: opacity 140ms ease;
+        }
+        .pm-first-time:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+        .pm-first-time[hidden] { display: none; }
         /* Green pill shown briefly when the shopper returns from PSP
            enrolment via ?pwa=1. Separate class from the red .banner
            above so states don't bleed. */
@@ -358,6 +375,7 @@
             <div class="payment-method" id="payment-method">
                 <span class="pm-missing">Loading&hellip;</span>
             </div>
+            <a id="first-time-link" class="pm-first-time" href="#" hidden>First time? Set up payment with Bank of Demo &rarr;</a>
         </section>
 
         <div class="actions">
@@ -490,6 +508,11 @@
             const payBtn = document.getElementById('pay-btn');
             clearNode(box);
 
+            // PWAs (RFC007) are durable across purchases and merchants — one
+            // enrolment with the shopper's PSP covers unlimited payments.
+            // So we render a neutral "ready to pay" panel as the default
+            // state and demote the "set up" affordance to a small secondary
+            // link beneath, for first-time shoppers.
             const left = document.createElement('div');
             left.className = 'pm-left';
             const icon = document.createElement('span');
@@ -498,23 +521,25 @@
             const meta = document.createElement('div');
             const label = document.createElement('div');
             label.className = 'pm-label';
-            label.textContent = 'Your EUDI Wallet';
+            label.textContent = 'Ready to pay with your EUDI Wallet';
             const sub = document.createElement('div');
             sub.className = 'pm-sub';
-            sub.textContent = 'Card details are presented from your wallet at payment time.';
+            sub.textContent = 'Tap Pay — your wallet will present the credential.';
             meta.appendChild(label);
             meta.appendChild(sub);
             left.appendChild(icon);
             left.appendChild(meta);
-
-            const add = document.createElement('a');
-            add.className = 'pm-cta';
-            add.href = pspEnrollUrl();
-            add.textContent = 'Add payment method';
-
             box.appendChild(left);
-            box.appendChild(add);
             payBtn.disabled = false;
+
+            // Secondary first-time setup link, placed just under the panel.
+            // The PSP short-circuits if the wallet already holds a PWA, so
+            // clicking this when you've already enrolled is harmless.
+            const hint = document.getElementById('first-time-link');
+            if (hint) {
+                hint.href = pspEnrollUrl();
+                hint.hidden = false;
+            }
         }
 
         function showError(msg) {
