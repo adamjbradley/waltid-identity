@@ -589,6 +589,23 @@
                         location.href = '/order/' + encodeURIComponent(body.orderId);
                         return;
                     }
+                    // `cnf_mismatch` decline: the wallet that answered the
+                    // OID4VP request was different from the one the
+                    // shopper logged in with. Surface a distinct message
+                    // (not a generic "payment failed") and re-enable Pay
+                    // so they can retry with the correct wallet without
+                    // a full page reload. Cart is intentionally NOT
+                    // cleared server-side for any decline — the shopper
+                    // keeps their items and just tries again.
+                    if (body.status === 'declined' && body.reason === 'cnf_mismatch') {
+                        showError("This wallet doesn't match the one you signed in with. Use the same wallet, or sign out to continue as a guest.");
+                        const qrBox = document.getElementById('qr-box');
+                        if (qrBox) qrBox.hidden = true;
+                        const payBtn = document.getElementById('pay-btn');
+                        payBtn.disabled = false;
+                        payBtn.textContent = 'Pay with EUDI Wallet';
+                        return;
+                    }
                 } catch (_) { /* retry */ }
                 setTimeout(tick, 1500);
             };

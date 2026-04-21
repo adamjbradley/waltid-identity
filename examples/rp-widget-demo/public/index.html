@@ -3824,14 +3824,26 @@
             if (modal && modal.open) modal.close();
         }
 
-        function showAgeVerifyFailure() {
+        function showAgeVerifyFailure(reason) {
             const qr = document.getElementById('age-verify-qr');
             const link = document.getElementById('age-verify-link');
+            // `cnf_mismatch` is raised when the presentation was made by a
+            // different wallet than the one the shopper logged in with —
+            // the RP's session is bound to a specific wallet key, so
+            // another wallet's verdict can't land on this user. Copy
+            // pulled from the cnf-binding plan, shown to the shopper so
+            // they can either re-scan with the right wallet or log out
+            // and continue anonymously.
+            const mismatch = reason === 'cnf_mismatch';
+            const messageText = mismatch
+                ? "This wallet doesn't match the one you signed in with. Use the same wallet, or sign out to continue as a guest."
+                : 'Sorry, this is a 21+ store.';
+            const statusText = mismatch ? 'Wrong wallet' : 'Verification declined';
             if (qr) {
                 while (qr.firstChild) qr.removeChild(qr.firstChild);
                 qr.classList.add('is-error');
                 const msg = document.createElement('div');
-                msg.textContent = 'Sorry, this is a 21+ store.';
+                msg.textContent = messageText;
                 qr.appendChild(msg);
                 const back = document.createElement('button');
                 back.type = 'button';
@@ -3842,7 +3854,7 @@
                 qr.appendChild(back);
             }
             if (link) link.hidden = true;
-            setAgeVerifyStatus('Verification declined', { spinning: false });
+            setAgeVerifyStatus(statusText, { spinning: false });
         }
 
         function onAgeVerifyClosed() {
@@ -3930,7 +3942,9 @@
                     }
                 } else if (data.verified === false) {
                     stopAgeVerifyPolling();
-                    showAgeVerifyFailure();
+                    // data.mismatch === 'cnf_mismatch' → wrong-wallet copy;
+                    // anything else → standard 21+ decline.
+                    showAgeVerifyFailure(data.mismatch);
                 }
             } catch (err) {
                 console.warn('[age-verify] poll error:', err);

@@ -46,6 +46,72 @@ function buildSingletonDcql(vcts, claimPaths, format = 'dc+sd-jwt', idPrefix = '
 }
 
 /**
+ * Compute the SHA-256 JWK thumbprint (RFC 7638) of a JWK object.
+ *
+ * Canonicalises the JWK to the required members only (`crv, kty, x, y`
+ * for EC; `e, kty, n` for RSA; `crv, kty, x` for OKP), in lexicographic
+ * order, JSON-encodes without whitespace, SHA-256s, Base64URL-encodes
+ * without padding. Returns null on unsupported key types or missing
+ * required members — callers treat null as "no binding" and skip the
+ * check gracefully.
+ *
+ * **Why canonical form matters.** Two JWKs that are structurally
+ * different (member order, extra kids, whitespace) MUST hash to the
+ * same thumbprint when their required members are identical. The helper
+ * builds the canonical JSON by hand rather than trusting
+ * `JSON.stringify`'s insertion-order behaviour — V8 preserves key
+ * insertion order, which is NOT the same as lexicographic.
+ */
+function jwkThumbprint(jwk) {
+  if (!jwk || typeof jwk !== 'object' || !jwk.kty) return null;
+  let canonical;
+  switch (jwk.kty) {
+    case 'EC':
+      if (!jwk.crv || !jwk.x || !jwk.y) return null;
+      canonical = JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y });
+      break;
+    case 'RSA':
+      if (!jwk.e || !jwk.n) return null;
+      canonical = JSON.stringify({ e: jwk.e, kty: jwk.kty, n: jwk.n });
+      break;
+    case 'OKP':
+      if (!jwk.crv || !jwk.x) return null;
+      canonical = JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x });
+      break;
+    default:
+      return null;
+  }
+  return crypto.createHash('sha256').update(canonical).digest('base64url');
+}
+
+/**
+ * Extract a cnf thumbprint from a presentedCredentials map entry.
+ *
+ * Walks `presentedCredentials[*][0].credentialData.cnf.jwk`, returning
+ * the thumbprint of the first credential that carries one. Returns null
+ * if no cnf is present on any presented credential — e.g. an mdoc-only
+ * presentation, a DCQL query that didn't request holder-binding, or a
+ * wallet whose SD-JWC issuance-time cnf was stripped.
+ *
+ * Callers should treat null as "unbindable session" and fall back to
+ * the anonymous / non-binding code path rather than failing closed.
+ */
+function extractCnfThumbprint(presentedCredentials) {
+  if (!presentedCredentials || typeof presentedCredentials !== 'object') return null;
+  for (const arr of Object.values(presentedCredentials)) {
+    if (!Array.isArray(arr)) continue;
+    for (const cred of arr) {
+      const cnf = cred && cred.credentialData && cred.credentialData.cnf;
+      if (cnf && cnf.jwk) {
+        const t = jwkThumbprint(cnf.jwk);
+        if (t) return t;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Age-only DCQL over the four EUDI-compat PID VCTs. Used by the
  * /api/age-check/* flow.
  */
@@ -690,6 +756,13 @@ function createApp() {
         }
       }
     }
+    // Capture the presentation's cnf thumbprint (if any) for the status
+    // endpoint to compare against the session's expected value. We do
+    // the comparison there rather than here so the webhook stays
+    // stateless w.r.t. the browser session (the webhook is invoked by
+    // verifier-api2 with no cookies; we don't know which session to
+    // look at until the user polls).
+    entry.presentedCnfJkt = extractCnfThumbprint(creds);
     entry.verified = claim === true;
     res.json({ ok: true });
   });
@@ -708,6 +781,30 @@ function createApp() {
     if (!tok) return res.json({ verified: null });
     const entry = ageCheckByToken.get(tok);
     if (!entry) return res.json({ verified: null });
+    // Cnf-key binding check. If the session carries a wallet-key
+    // thumbprint from login AND the webhook captured a thumbprint from
+    // the presentation, they must match — otherwise a shopper who
+    // logged in with wallet A cannot satisfy age-check using wallet B's
+    // PID (same person, different device? sure — but the RP's binding
+    // promise would be broken). Mismatch flips `verified` to false and
+    // surfaces a distinguishable `mismatch` reason so the client can
+    // render the "wrong wallet" message instead of the default
+    // under-21 decline.
+    //
+    // Anonymous sessions (no `session.cnfThumbprint`) skip the check —
+    // they never made a binding promise in the first place, so there's
+    // nothing to violate. Presentations that don't carry cnf (mdoc,
+    // DCQL without holder-binding) also skip — we treat those as
+    // unbindable rather than failing closed.
+    if (
+      entry.verified === true &&
+      req.session.cnfThumbprint &&
+      entry.presentedCnfJkt &&
+      entry.presentedCnfJkt !== req.session.cnfThumbprint
+    ) {
+      entry.verified = false;
+      entry.mismatch = 'cnf_mismatch';
+    }
     if (entry.verified === true || entry.verified === false) {
       req.session.ageVerified = entry.verified;
       // If the shopper is logged in (has a sub on session.user) and the
@@ -731,7 +828,9 @@ function createApp() {
       }
       ageCheckByToken.delete(tok); // eviction: verdict is now on the session cookie
     }
-    res.json({ verified: entry.verified });
+    const out = { verified: entry.verified };
+    if (entry.mismatch) out.mismatch = entry.mismatch;
+    res.json(out);
   });
 
   // Dev-only session hydration helper for tests. Lets supertest seed
@@ -878,6 +977,12 @@ function createApp() {
         items: items.slice(),
         webhookSecret,
         completed: false,
+        // Snapshot the session's expected wallet-key thumbprint at
+        // checkout-create time. The webhook (invoked server-to-server
+        // by verifier-api2) has no access to the browser session, so
+        // we carry the expected value on the token record. Null =
+        // anonymous (or non-cnf-binding) login → no binding check.
+        expectedCnfJkt: req.session.cnfThumbprint || null,
       });
       req.session.pendingOrder = { orderId, total, items: items.slice(), token };
       res.json({ orderId, sessionId: session.sessionId, qrCode });
@@ -918,6 +1023,24 @@ function createApp() {
       return res.json({ ok: true });
     }
     const creds = session.presentedCredentials || {};
+    // Cnf-key binding check. If the checkout session was created while
+    // the shopper was logged in with a cnf_jkt (expectedCnfJkt captured
+    // from session.cnfThumbprint at /api/checkout time), then the PWA
+    // must be presented by the SAME wallet. PWA issuance routes the
+    // wallet's OID4VCI proof key through as cnf.jwk (verified in the
+    // plan spike), so a mismatch here means the shopper used a
+    // different wallet than they logged in with — decline, don't
+    // record the order. Anonymous checkouts (expectedCnfJkt=null) skip
+    // the check.
+    if (entry.expectedCnfJkt) {
+      const presentedJkt = extractCnfThumbprint(creds);
+      if (!presentedJkt || presentedJkt !== entry.expectedCnfJkt) {
+        entry.completed = true;
+        entry.order = null;
+        entry.declined = 'cnf_mismatch';
+        return res.json({ ok: true });
+      }
+    }
     let pwaMeta = { panLastFour: null, scheme: null };
     for (const arr of Object.values(creds)) {
       if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
@@ -968,10 +1091,16 @@ function createApp() {
     if (!entry.completed) return res.json({ status: 'pending' });
     if (!entry.order) {
       // Declined: clear the pending marker, keep the cart intact so the
-      // user can retry with a different payment method.
+      // user can retry with a different payment method. `reason` is
+      // populated when the webhook set a specific decline cause (e.g.
+      // `cnf_mismatch` when the presented wallet key didn't match the
+      // one the shopper logged in with); absent for generic declines.
+      const reason = entry.declined;
       delete req.session.pendingOrder;
       checkoutByToken.delete(pending.token);
-      return res.json({ status: 'declined' });
+      const body = { status: 'declined' };
+      if (reason) body.reason = reason;
+      return res.json(body);
     }
     const record = entry.order;
     // Mirror onto the session so the receipt page can read it without a
@@ -1285,6 +1414,17 @@ function createApp() {
       req.session.user = userProfile;
       req.session.idToken = tokenSet.id_token;
       req.session.provider = providerName;
+      // Wallet-key binding anchor (auth-op's citizens realm only).
+      // auth-op projects `cnf_jkt` — SHA-256 JWK thumbprint (RFC 7638)
+      // of the PID's holder-binding key — for OID4VP realm logins.
+      // Employees-realm (Keycloak upstream) logins carry no VP, hence
+      // no cnf_jkt. We stash the thumbprint on the session as the
+      // expected value for subsequent age-check + checkout webhooks to
+      // compare against. No thumbprint = unbindable session = those
+      // webhooks skip the binding check (anonymous-session semantics).
+      if (providerName === 'authop' && typeof claims.cnf_jkt === 'string' && claims.cnf_jkt) {
+        req.session.cnfThumbprint = claims.cnf_jkt;
+      }
       delete req.session.oidc;
 
       // Persist the profile for this sub across sessions. Upsert semantics:
@@ -1387,4 +1527,4 @@ if (require.main === module) {
 }
 
 // Export for testing
-module.exports = { createApp, config, isAgeVerified, cartMinAge };
+module.exports = { createApp, config, isAgeVerified, cartMinAge, jwkThumbprint, extractCnfThumbprint };
