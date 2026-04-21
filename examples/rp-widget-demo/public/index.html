@@ -288,6 +288,275 @@
             font-style: italic;
         }
 
+        /* ===== CART ICON + BADGE ===== */
+        .cart-icon {
+            background: transparent;
+            border: none;
+            font: inherit;
+            padding: 0;
+            position: relative;
+        }
+        .cart-icon:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 4px;
+            border-radius: 4px;
+        }
+        .cart-icon-badge-wrap {
+            position: relative;
+            display: inline-flex;
+            line-height: 0;
+        }
+        .cart-badge {
+            position: absolute;
+            top: -6px;
+            right: -8px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: var(--primary);
+            color: var(--white);
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            box-shadow: 0 0 0 2px var(--header-bg);
+        }
+
+        /* ===== CART DRAWER ===== */
+        .cart-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            opacity: 0;
+            transition: opacity 180ms ease;
+            z-index: 500;
+        }
+        .cart-overlay.open {
+            opacity: 1;
+        }
+        .cart-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: min(420px, 100vw);
+            background: #111;
+            color: var(--white);
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: -12px 0 40px -8px rgba(0, 0, 0, 0.7);
+            transform: translateX(100%);
+            transition: transform 220ms ease;
+            display: flex;
+            flex-direction: column;
+            z-index: 510; /* above .cart-overlay (500) and #profile-claims (200) */
+        }
+        .cart-drawer.open {
+            transform: translateX(0);
+        }
+        .cart-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .cart-drawer-header h3 {
+            margin: 0;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .cart-drawer-close {
+            background: transparent;
+            border: none;
+            color: var(--white);
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 140ms ease, color 140ms ease;
+        }
+        .cart-drawer-close:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--primary);
+        }
+        .cart-drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+        .cart-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 48px 16px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .cart-empty-emoji {
+            font-size: 56px;
+            opacity: 0.7;
+        }
+        .cart-empty p {
+            margin: 0;
+            font-size: 14px;
+        }
+        .cart-keep-shopping {
+            margin-top: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+            transition: background 140ms ease, border-color 140ms ease;
+        }
+        .cart-keep-shopping:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: var(--primary);
+        }
+        .cart-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .cart-item {
+            display: grid;
+            grid-template-columns: 48px 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+        }
+        .cart-item-img {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+        .cart-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+        .cart-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cart-item-price {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+        }
+        .cart-item-qty {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .cart-qty-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            cursor: pointer;
+            font: inherit;
+            line-height: 1;
+            padding: 0;
+            transition: background 140ms ease;
+        }
+        .cart-qty-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: var(--primary);
+        }
+        .cart-qty-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .cart-qty-value {
+            min-width: 22px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+        }
+        .cart-item-remove {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 140ms ease, background 140ms ease;
+        }
+        .cart-item-remove:hover {
+            color: #ff9191;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .cart-drawer-footer {
+            padding: 16px 20px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .cart-subtotal {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .cart-subtotal strong {
+            color: var(--white);
+            font-size: 18px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-variant-numeric: tabular-nums;
+        }
+        .cart-checkout-btn {
+            width: 100%;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 140ms ease;
+        }
+        .cart-checkout-btn:hover {
+            background: var(--primary-hover);
+        }
+
         .store-btn {
             display: inline-flex;
             align-items: center;
@@ -1646,10 +1915,13 @@
                         </div>
                         <div id="profile-claims" role="tooltip" aria-label="All OIDC claims passed to this RP"></div>
                     </div>
-                    <a class="header-action" href="#">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                    <button id="cart-icon" class="header-action cart-icon" type="button" aria-label="Open cart" aria-haspopup="dialog" aria-controls="cart-drawer">
+                        <span class="cart-icon-badge-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                            <span id="cart-badge" class="cart-badge" style="display:none" aria-live="polite">0</span>
+                        </span>
                         Basket
-                    </a>
+                    </button>
                     <button class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Toggle menu">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
@@ -1657,6 +1929,32 @@
             </div>
         </div>
     </header>
+
+    <!-- Cart drawer overlay (click to dismiss) -->
+    <div id="cart-overlay" class="cart-overlay" hidden></div>
+
+    <!-- Cart drawer -->
+    <aside id="cart-drawer" class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" aria-hidden="true">
+        <div class="cart-drawer-header">
+            <h3 id="cart-drawer-title">Cart</h3>
+            <button class="cart-drawer-close" type="button" aria-label="Close cart">&times;</button>
+        </div>
+        <div class="cart-drawer-body">
+            <div id="cart-empty" class="cart-empty">
+                <div class="cart-empty-emoji" aria-hidden="true">&#128722;</div>
+                <p>Your cart is empty</p>
+                <button id="cart-keep-shopping" class="cart-keep-shopping" type="button">Keep shopping</button>
+            </div>
+            <ul id="cart-items" class="cart-items" hidden></ul>
+        </div>
+        <div id="cart-footer" class="cart-drawer-footer" hidden>
+            <div class="cart-subtotal">
+                <span>Subtotal</span>
+                <strong id="cart-subtotal-amount">&pound;0.00</strong>
+            </div>
+            <button id="cart-checkout-btn" class="cart-checkout-btn" type="button">Checkout</button>
+        </div>
+    </aside>
 
     <!-- Navigation -->
     <nav id="main-nav">
@@ -2775,10 +3073,62 @@
             }
         }
 
+        /* ============================================================
+         *  Cart drawer: open/close chrome
+         *
+         *  The drawer slides in by toggling `.open` on the aside; overlay
+         *  fades in via the same class. We push `aria-hidden` state and
+         *  flip the body to non-scrollable while the drawer is open.
+         *  Items-rendering + CRUD wiring comes next (Task 9); this commit
+         *  is chrome only.
+         * ============================================================ */
+        function openCartDrawer() {
+            const drawer = document.getElementById('cart-drawer');
+            const overlay = document.getElementById('cart-overlay');
+            if (!drawer || !overlay) return;
+            overlay.hidden = false;
+            // Force a reflow so the CSS transition kicks in on the class toggle
+            // (otherwise `hidden=false` + `.open` would paint in the final state).
+            void overlay.offsetWidth;
+            drawer.classList.add('open');
+            overlay.classList.add('open');
+            drawer.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeCartDrawer() {
+            const drawer = document.getElementById('cart-drawer');
+            const overlay = document.getElementById('cart-overlay');
+            if (!drawer || !overlay) return;
+            drawer.classList.remove('open');
+            overlay.classList.remove('open');
+            drawer.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            // Hide overlay after the transition finishes — keeps pointer events
+            // off it and the backdrop filter cost zero while the drawer's shut.
+            setTimeout(() => {
+                if (!drawer.classList.contains('open')) overlay.hidden = true;
+            }, 220);
+        }
+        function setupCartDrawer() {
+            const icon = document.getElementById('cart-icon');
+            const overlay = document.getElementById('cart-overlay');
+            const closeBtn = document.querySelector('#cart-drawer .cart-drawer-close');
+            const keepShopping = document.getElementById('cart-keep-shopping');
+            if (icon) icon.addEventListener('click', openCartDrawer);
+            if (overlay) overlay.addEventListener('click', closeCartDrawer);
+            if (closeBtn) closeBtn.addEventListener('click', closeCartDrawer);
+            if (keepShopping) keepShopping.addEventListener('click', closeCartDrawer);
+            document.addEventListener('keydown', (e) => {
+                const drawer = document.getElementById('cart-drawer');
+                if (e.key === 'Escape' && drawer && drawer.classList.contains('open')) closeCartDrawer();
+            });
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
             handleResize();
             initializeSDK();
+            setupCartDrawer();
             // Fetch the catalogue from the server before any code consumes
             // PRODUCT_CATALOGUE. renderProductShelf reads the global, so
             // this await must resolve before the first render.
