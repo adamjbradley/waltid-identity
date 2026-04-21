@@ -129,6 +129,12 @@ class UserStore {
   count() {
     return this.users.length;
   }
+
+  /** Look up a single stored user by sub. Returns undefined on miss. */
+  get(sub) {
+    if (!sub) return undefined;
+    return this.users.find((u) => u.sub === sub);
+  }
 }
 
 module.exports = { UserStore };

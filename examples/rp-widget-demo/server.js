@@ -19,14 +19,35 @@ const { CATALOGUE, getProduct } = require('./catalogue');
 const { emptyCart, summary, addItem, setQty, removeItem, clearCart } = require('./cart');
 
 /**
- * Per-VCT DCQL singleton query for the `age_over_21` claim. Four EUDI-compat
- * PID VCTs share the same demo requirement ("prove you're 21+"). We emit them
- * as four separate `credentials` entries with a single-element `vct_values`
- * array each, then OR them via `credential_sets.options` — the EUDI iOS
- * wallet-kit matcher only honours the FIRST entry of a `vct_values` array
- * (upstream bug), so grouping them into one credential with a 4-item array
- * leaves non-EUDI wallets ignored by EUDI and vice versa. PR #88 landed this
- * shape in auth-op's `buildDcqlQuery`; same logic here.
+ * Per-VCT DCQL singleton query helper. For any ordered list of VCTs + claim
+ * paths, emits one `credentials` entry per VCT with a single-element
+ * `vct_values` array and the shared claim list, then ORs them under
+ * `credential_sets.options`. This is the PR #88 workaround for the EUDI iOS
+ * wallet-kit's first-VCT-only matcher — splitting the VCTs into separate
+ * credentials keeps both EUDI and non-EUDI wallets matchable.
+ *
+ * For a single-VCT requirement (e.g. PaymentWalletAttestation) pass a one-
+ * element `vcts` array; the helper still emits credential_sets so the shape
+ * stays uniform on the wire.
+ */
+function buildSingletonDcql(vcts, claimPaths, format = 'dc+sd-jwt', idPrefix = 'cred') {
+  return {
+    credentials: vcts.map((vct, i) => ({
+      id: `${idPrefix}_${i}`,
+      format,
+      meta: { vct_values: [vct] },
+      claims: claimPaths.map((path) => ({ path: Array.isArray(path) ? path : [path] })),
+    })),
+    credential_sets: [{
+      required: true,
+      options: vcts.map((_, i) => [`${idPrefix}_${i}`]),
+    }],
+  };
+}
+
+/**
+ * Age-only DCQL over the four EUDI-compat PID VCTs. Used by the
+ * /api/age-check/* flow.
  */
 function buildAgeOnlyDcql() {
   const vcts = [
@@ -35,39 +56,54 @@ function buildAgeOnlyDcql() {
     'urn:in:gov:aadhaar:pid:1',
     'urn:uk:gov:govuk-one-login:pid:1',
   ];
-  return {
-    credentials: vcts.map((vct, i) => ({
-      id: `pid_${i}`,
-      format: 'dc+sd-jwt',
-      meta: { vct_values: [vct] },
-      claims: [{ path: ['age_over_21'] }],
-    })),
-    credential_sets: [{
-      required: true,
-      options: vcts.map((_, i) => [`pid_${i}`]),
-    }],
-  };
+  return buildSingletonDcql(vcts, [['age_over_21']], 'dc+sd-jwt', 'pid');
 }
 
 /**
- * In-memory ageCheckByToken entries leak if nothing ever evicts them. The
- * status-poll handler deletes once a terminal verdict has been mirrored into
- * the session cookie, but a user who closes the tab before polling would
- * leave the entry stranded. This TTL is the fallback for that case: after
- * AGE_CHECK_TTL_MS the entry is unconditionally removed. `unref()` on the
- * timeout handle keeps an idle event loop from being held open purely by
- * pending evictions (otherwise a freshly-started server with outstanding
- * tokens couldn't exit cleanly).
+ * PID identity DCQL — asks for given_name, family_name, birth_date across
+ * the four PID VCTs. Used by the /psp/enroll Step 1 (PID presentation).
  */
-const AGE_CHECK_TTL_MS = 10 * 60 * 1000;
-function registerAgeCheck(map, token, entry) {
+function buildPidIdentityDcql() {
+  const vcts = [
+    'urn:eudi:pid:1',
+    'urn:au:gov:mygovid:pid:1',
+    'urn:in:gov:aadhaar:pid:1',
+    'urn:uk:gov:govuk-one-login:pid:1',
+  ];
+  return buildSingletonDcql(
+    vcts,
+    [['given_name'], ['family_name'], ['birth_date']],
+    'dc+sd-jwt',
+    'pid',
+  );
+}
+
+/**
+ * In-memory token maps leak if nothing ever evicts them. The status-poll
+ * handler deletes once a terminal verdict has been mirrored into the
+ * session cookie, but a user who closes the tab before polling would leave
+ * the entry stranded. This TTL is the fallback for that case: after
+ * SESSION_TOKEN_TTL_MS the entry is unconditionally removed. `unref()` on
+ * the timeout handle keeps an idle event loop from being held open purely
+ * by pending evictions (otherwise a freshly-started server with outstanding
+ * tokens couldn't exit cleanly).
+ *
+ * Shared by all three OID4VP-webhook flows (age-check, psp-enroll PID,
+ * pwa-capture) — they each have their own Map instance but register via
+ * this helper so TTL semantics stay uniform.
+ */
+const SESSION_TOKEN_TTL_MS = 10 * 60 * 1000;
+function registerSessionToken(map, token, entry) {
   map.set(token, entry);
   setTimeout(() => {
     const current = map.get(token);
     // Only delete if still the same entry (not replaced mid-flight)
     if (current === entry) map.delete(token);
-  }, AGE_CHECK_TTL_MS).unref();
+  }, SESSION_TOKEN_TTL_MS).unref();
 }
+// Backwards-compatible alias. Old call sites (and the _test helper) keep
+// using the original name; new code prefers `registerSessionToken`.
+const registerAgeCheck = registerSessionToken;
 
 /**
  * Does this session satisfy the `minAge` requirement? The demo treats a
@@ -102,6 +138,14 @@ const RP_DOMAIN = process.env.RP_DOMAIN || '';
 // Verifier API2 internal URL (for proxying verification-session responses from wallets)
 const VERIFIER_API2_URL = process.env.VERIFIER_API2_URL || 'http://verifier-api2:7004';
 
+// Issuer API internal URL (for PSP-enrollment credential-offer minting).
+// The PSP tenant id maps to a multi-tenant issuer record set up on the
+// remote stack (Task 11 in the rp-cart-dpc plan). `PSP_TENANT_ID` selects
+// the tenant; `PSP_VCT` is the credential type the /psp/enroll flow issues.
+const ISSUER_API_URL = process.env.ISSUER_API_URL || 'http://issuer-api:7002';
+const PSP_TENANT_ID = process.env.PSP_TENANT_ID || 'psp.bankofdemo';
+const PSP_VCT = process.env.PSP_VCT || 'PaymentWalletAttestation';
+
 // Public base for webhook callbacks verifier-api2 can reach. The verifier-api2
 // server must be able to HTTP POST here when a wallet completes a presentation,
 // so it has to resolve from verifier-api2's network namespace (not just the
@@ -119,9 +163,13 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
 // Path to the file-backed user profile registry. Defaulted under the
 // container WORKDIR (/usr/src/app) but overridable for tests / local dev.
 // When bind-mounted from the host, profiles survive container recycles.
-const USER_STORE_FILE = process.env.USER_STORE_FILE || path.join(__dirname, 'data', 'users.json');
-const userStore = new UserStore(USER_STORE_FILE);
-console.log(`[userStore] loaded ${userStore.count()} profile(s) from ${USER_STORE_FILE}`);
+// The actual UserStore instance is constructed inside `createApp()` so
+// tests can set `USER_STORE_FILE` per-test and get a fresh on-disk
+// registry; binding it here at module-load would lock every test into
+// the same file.
+function resolveUserStoreFile() {
+  return process.env.USER_STORE_FILE || path.join(__dirname, 'data', 'users.json');
+}
 
 const OIDC_PROVIDERS = {
   keycloak: {
@@ -212,6 +260,20 @@ function createApp() {
   // knows which entry belongs to them. Scoped per createApp() call so jest
   // test suites that build a fresh app don't inherit state from earlier ones.
   const ageCheckByToken = new Map();
+
+  // Parallel map for the PSP-enrollment PID presentation. Same keying +
+  // TTL discipline as ageCheckByToken — kept separate so the status poll
+  // doesn't need to disambiguate "which flow owns this token".
+  const pspEnrollByToken = new Map();
+
+  // Per-app userStore. See resolveUserStoreFile() — the file path is
+  // evaluated here so each call to createApp() can pick up a fresh
+  // USER_STORE_FILE env (required for test isolation).
+  const userStoreFile = resolveUserStoreFile();
+  const userStore = new UserStore(userStoreFile);
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`[userStore] loaded ${userStore.count()} profile(s) from ${userStoreFile}`);
+  }
 
   // Trust proxy so secure cookies work behind Caddy/Cloudflare
   app.set('trust proxy', 1);
@@ -601,7 +663,208 @@ function createApp() {
       registerAgeCheck(ageCheckByToken, token, { webhookSecret, verified: null });
       res.json({ ok: true });
     });
+    // Same pattern for the PSP-enrollment PID flow.
+    app.post('/_test/psp/register', (req, res) => {
+      const { token, webhookSecret } = req.body || {};
+      if (!token || !webhookSecret) return res.status(400).json({ error: 'missing_fields' });
+      registerSessionToken(pspEnrollByToken, token, { webhookSecret, verified: null, claims: null });
+      res.json({ ok: true });
+    });
   }
+
+  // ============================================================
+  // PSP enrollment (PID presentation → PaymentWalletAttestation)
+  // ============================================================
+  //
+  // Two-step ceremony served at /psp/enroll:
+  //   1. User presents PID via OID4VP. We pull {given_name, family_name,
+  //      birth_date} + `sub` into `req.session.pspPidVerified`.
+  //   2. RP calls issuer-api's credential-offer endpoint to mint a
+  //      PaymentWalletAttestation, hands the resulting offerUri back as a
+  //      QR/deep link the wallet consumes.
+  //
+  // Step 2 has no polling on the RP side — the user clicks "I've added it"
+  // and is routed to /cart?pwa=1 where the Task 15 capture flow picks up
+  // the newly-issued credential via a fresh OID4VP presentation request.
+
+  /** GET /psp/enroll — serves the static mini-page. */
+  app.get('/psp/enroll', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'psp-enroll.html'));
+  });
+
+  /**
+   * POST /api/psp/start — kick an OID4VP session asking for PID identity
+   * claims (given_name, family_name, birth_date). Wire shape mirrors
+   * /api/age-check/start, differing only in the DCQL.
+   */
+  app.post('/api/psp/start', async (req, res) => {
+    const token = crypto.randomBytes(16).toString('hex');
+    const webhookSecret = crypto.randomBytes(32).toString('base64url');
+    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, '')}/api/psp/webhook/${token}`;
+    const body = {
+      flow_type: 'cross_device',
+      core_flow: {
+        dcql_query: buildPidIdentityDcql(),
+        signed_request: true,
+        notifications: {
+          webhook: {
+            url: webhookUrl,
+            bearer_token: webhookSecret,
+          },
+        },
+      },
+    };
+    try {
+      const r = await fetch(
+        `${VERIFIER_API2_URL}/verification-session/create?rpId=${encodeURIComponent(RP_ID)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
+      if (!r.ok) {
+        console.warn('[psp] verifier-api2 session-create failed', r.status);
+        return res.status(502).json({ error: 'verifier_unavailable' });
+      }
+      const session = await r.json();
+      const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
+      registerSessionToken(pspEnrollByToken, token, { webhookSecret, verified: null, claims: null });
+      req.session.pspEnroll = { sessionId: session.sessionId, token, webhookSecret };
+      res.json({ sessionId: session.sessionId, qrCode });
+    } catch (err) {
+      console.warn('[psp] session-create error', err.message || err);
+      res.status(502).json({ error: 'verifier_unavailable' });
+    }
+  });
+
+  /**
+   * POST /api/psp/webhook/:token — verifier-api2 callback for the PID
+   * presentation. On SUCCESSFUL we capture {sub, given_name, family_name,
+   * birth_date} into the map entry for the status poll to mirror.
+   */
+  app.post('/api/psp/webhook/:token', (req, res) => {
+    const entry = pspEnrollByToken.get(req.params.token);
+    if (!entry) return res.status(404).json({ error: 'unknown_token' });
+    const authHeader = req.header('authorization') || '';
+    if (!/^Bearer\s+/i.test(authHeader)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
+    const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
+    if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    if (req.body.event !== 'policy_results_available') return res.json({ ok: true });
+    const session = req.body.session || {};
+    if (session.status !== 'SUCCESSFUL') {
+      entry.verified = false;
+      return res.json({ ok: true });
+    }
+    const creds = session.presentedCredentials || {};
+    for (const arr of Object.values(creds)) {
+      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+        const cd = arr[0].credentialData;
+        // sub may arrive as `sub` or fall back to credentialData's own id.
+        const sub = cd.sub || cd.subject || arr[0].sub || null;
+        entry.verified = true;
+        entry.claims = {
+          sub: sub,
+          given_name: cd.given_name,
+          family_name: cd.family_name,
+          birth_date: cd.birth_date,
+        };
+        return res.json({ ok: true });
+      }
+    }
+    // No credential data surfaced — treat as a declined presentation.
+    entry.verified = false;
+    res.json({ ok: true });
+  });
+
+  /**
+   * GET /api/psp/status — browser poll. When the webhook has written a
+   * terminal verdict, mirrors the claims into `req.session.pspPidVerified`
+   * and evicts the map entry.
+   */
+  app.get('/api/psp/status', (req, res) => {
+    const tok = req.session.pspEnroll && req.session.pspEnroll.token;
+    if (!tok) return res.json({ verified: null });
+    const entry = pspEnrollByToken.get(tok);
+    if (!entry) return res.json({ verified: null });
+    if (entry.verified === true) {
+      req.session.pspPidVerified = entry.claims || {};
+      pspEnrollByToken.delete(tok);
+      return res.json({ verified: true, claims: entry.claims || null });
+    }
+    if (entry.verified === false) {
+      pspEnrollByToken.delete(tok);
+      return res.json({ verified: false, claims: null });
+    }
+    res.json({ verified: null });
+  });
+
+  /**
+   * POST /api/psp/issue — once PID is verified on the session, ask
+   * issuer-api for a pre-authorized-code credential offer for the
+   * PaymentWalletAttestation VCT.
+   *
+   * Demo card data is derived deterministically from the presented `sub`
+   * so a repeat enrollment shows the same "card ending …" value. In
+   * production the PSP would mint a real PAN here; for the demo we're
+   * just showing the ceremony.
+   */
+  app.post('/api/psp/issue', async (req, res) => {
+    if (!req.session.pspPidVerified) return res.status(403).json({ error: 'pid_required' });
+    const holderSub = req.session.pspPidVerified.sub || 'anonymous';
+    const hash = crypto.createHash('sha256').update(String(holderSub)).digest('hex');
+    const panLastFour = hash.slice(0, 4);
+    const scheme = 'Visa';
+    const iin = '453201';
+    const currency = 'AUD';
+    const payeeName = 'Bank of Demo';
+
+    // The issuer-api route for a tenant-scoped pre-authorized credential
+    // offer is POST /issuers/{issuerId}/openid4vc/sdjwt/issue. It returns
+    // the offer URI as a plain string body. We pass only the config id,
+    // VCT, and credentialData — the tenant's configured issuerKey and
+    // DID are enriched server-side (TenantIssuerRoutes.enrichRequestWithTenantKeys).
+    const offerReq = {
+      credentialConfigurationId: PSP_VCT,
+      vct: PSP_VCT,
+      credentialData: {
+        panLastFour,
+        scheme,
+        iin,
+        currency,
+        payeeName,
+        given_name: req.session.pspPidVerified.given_name,
+        family_name: req.session.pspPidVerified.family_name,
+      },
+      authenticationMethod: 'PRE_AUTHORIZED',
+    };
+
+    try {
+      const url = `${ISSUER_API_URL}/issuers/${encodeURIComponent(PSP_TENANT_ID)}/openid4vc/sdjwt/issue`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offerReq),
+      });
+      if (!r.ok) {
+        console.warn('[psp] issuer-api offer failed', r.status);
+        return res.status(502).json({ error: 'issuer_unavailable', status: r.status });
+      }
+      // Response is the offer URI as plain text (possibly JSON-quoted).
+      const raw = await r.text();
+      let offerUri = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'string') offerUri = parsed;
+        else if (parsed && typeof parsed === 'object') offerUri = parsed.offerUri || parsed.uri || raw;
+      } catch (_) { /* plain string body */ }
+      res.json({ offerUri, panLastFour, scheme });
+    } catch (err) {
+      console.warn('[psp] offer error', err.message || err);
+      res.status(502).json({ error: 'issuer_unavailable' });
+    }
+  });
 
   // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the
@@ -741,6 +1004,17 @@ function createApp() {
             family_name: claims.family_name,
             claims: displayClaims,
           };
+      // If the userStore already has a paymentMethod for this sub, fold it
+      // into the session profile so the hover popover reflects previously-
+      // enrolled payment methods on every login. The hover reads
+      // `user.paymentMethod`, so this is the hydration point for it.
+      try {
+        const existing = userStore.get && userStore.get(claims.sub);
+        if (existing && existing.paymentMethod) {
+          userProfile.paymentMethod = existing.paymentMethod;
+        }
+      } catch (_) { /* getter missing — treated as no existing profile */ }
+
       req.session.user = userProfile;
       req.session.idToken = tokenSet.id_token;
       req.session.provider = providerName;
