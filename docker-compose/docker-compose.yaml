@@ -485,11 +485,14 @@ services:
     ports:
       - "${RP_WIDGET_PORT:-4000}:4000"
     volumes:
-      # Persistent user registry — without this every container recreate
-      # wipes /app/data/users.json and the admin console only sees the
-      # most recent login. Named volume keeps the data stack-scoped and
-      # out of git (bind mounts would land in the repo).
-      - rp-widget-data:/app/data
+      # Persistent user registry — host-side bind mount so the operator
+      # can inspect / edit / back up users.json directly from the host
+      # filesystem. On the Windows docker host this resolves to
+      # C:\Users\sshuser\Projects\waltid-identity\docker-compose\rp-widget-demo\data\.
+      # Dockerfile creates /app/data as demoapp:nodejs — Docker Desktop's
+      # Windows bind mounts tolerate the uid mismatch so file writes work
+      # without a chown dance.
+      - ./rp-widget-demo/data:/app/data
 
   # Mock PSP (Bank of Demo) — Payment Wallet Attestation issuer for the
   # rp-widget-demo. Production-shaped: own process, own domain
@@ -709,6 +712,3 @@ volumes:
   valkey_data:
   verifier-api2-data:
   n8n_data:
-  # Persistent profile registry for rp-widget-demo (users + per-user
-  # orders). See examples/rp-widget-demo/userStore.js for the shape.
-  rp-widget-data:
