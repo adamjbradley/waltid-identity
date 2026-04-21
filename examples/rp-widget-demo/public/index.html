@@ -580,6 +580,118 @@
             transform: translateY(0);
         }
 
+        /* ===== AGE VERIFY MODAL ===== */
+        .age-verify-modal {
+            border: none;
+            padding: 0;
+            background: transparent;
+            color: var(--white);
+            max-width: 420px;
+            width: 90vw;
+        }
+        .age-verify-modal::backdrop {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+        .age-verify-form {
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8);
+            padding: 28px 24px 24px;
+            position: relative;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .age-verify-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 26px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .age-verify-close:hover {
+            color: var(--white);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .age-verify-modal h3 {
+            margin: 0;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .age-verify-subtitle {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+            max-width: 320px;
+        }
+        .age-verify-qr {
+            min-width: 220px;
+            min-height: 220px;
+            background: var(--white);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .age-verify-qr img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .age-verify-qr.is-error {
+            background: rgba(255, 145, 145, 0.12);
+            color: #ffc5c5;
+            padding: 24px;
+            font-size: 13px;
+            text-align: center;
+            min-height: auto;
+        }
+        .age-verify-link {
+            font-size: 12px;
+            color: var(--primary);
+            text-decoration: underline;
+        }
+        .age-verify-link:hover {
+            color: var(--white);
+        }
+        .age-verify-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            min-height: 18px;
+        }
+        .age-verify-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: age-verify-spin 0.9s linear infinite;
+        }
+        .age-verify-spinner.is-hidden {
+            display: none;
+        }
+        @keyframes age-verify-spin {
+            to { transform: rotate(360deg); }
+        }
+
         .store-btn {
             display: inline-flex;
             align-items: center;
@@ -1979,6 +2091,21 @@
         </div>
     </aside>
 
+    <!-- Age verification modal (presentation QR) -->
+    <dialog id="age-verify-modal" class="age-verify-modal" aria-labelledby="age-verify-title">
+        <form method="dialog" class="age-verify-form">
+            <button class="age-verify-close" type="submit" value="cancel" aria-label="Close">&times;</button>
+            <h3 id="age-verify-title">Confirm you're 21+</h3>
+            <p class="age-verify-subtitle" id="age-verify-subtitle">This product is 21+. Present your wallet to verify.</p>
+            <div class="age-verify-qr" id="age-verify-qr" aria-live="polite"></div>
+            <a class="age-verify-link" id="age-verify-link" href="#" hidden>Open in wallet</a>
+            <div class="age-verify-status">
+                <span class="age-verify-spinner" id="age-verify-spinner" aria-hidden="true"></span>
+                <span class="age-verify-status-text" id="age-verify-status-text">Waiting for wallet&hellip;</span>
+            </div>
+        </form>
+    </dialog>
+
     <!-- Navigation -->
     <nav id="main-nav">
         <div class="container">
@@ -3367,6 +3494,171 @@
             requestAnimationFrame(() => toast.classList.add('is-visible'));
             if (cartToastTimer) clearTimeout(cartToastTimer);
             cartToastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2400);
+        }
+
+        /* ============================================================
+         *  Age-verify modal
+         *
+         *  When /api/cart/items returns 403 age_verification_required, we
+         *  open the <dialog>, POST /api/age-check/start to get a QR payload
+         *  (bootstrapAuthorizationRequestUrl from verifier-api2), render it
+         *  as an <img> via a public QR data-URL service — YAGNI, no library
+         *  dep; the payload is the same OID4VP bootstrap URL wallets scan.
+         *  We poll /api/age-check/status every 1500 ms; on verified=true we
+         *  close + retry the add that triggered the gate, on verified=false
+         *  we surface "Sorry, 21+ only" inside the modal.
+         *
+         *  This replaces the earlier per-product WaltVerify shortcut — cart
+         *  enforcement now lives server-side, and this modal exists only to
+         *  fulfil the gate when the server asks for it.
+         * ============================================================ */
+        const AGE_VERIFY_POLL_MS = 1500;
+        const AGE_VERIFY_STILL_WAITING_MS = 60000;
+        let ageVerifyPollTimer = null;
+        let ageVerifyStillWaitingTimer = null;
+        let ageVerifyActive = false;
+        let ageVerifyRetryProductId = null;
+
+        function buildQrImage(qrPayload) {
+            const img = document.createElement('img');
+            img.alt = 'Scan with your wallet to present age-over-21';
+            img.width = 220;
+            img.height = 220;
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(qrPayload);
+            return img;
+        }
+
+        function stopAgeVerifyPolling() {
+            if (ageVerifyPollTimer) { clearInterval(ageVerifyPollTimer); ageVerifyPollTimer = null; }
+            if (ageVerifyStillWaitingTimer) { clearTimeout(ageVerifyStillWaitingTimer); ageVerifyStillWaitingTimer = null; }
+        }
+
+        function setAgeVerifyStatus(text, { spinning = true } = {}) {
+            const statusText = document.getElementById('age-verify-status-text');
+            const spinner = document.getElementById('age-verify-spinner');
+            if (statusText) statusText.textContent = text;
+            if (spinner) spinner.classList.toggle('is-hidden', !spinning);
+        }
+
+        function closeAgeVerify() {
+            stopAgeVerifyPolling();
+            ageVerifyActive = false;
+            ageVerifyRetryProductId = null;
+            const modal = document.getElementById('age-verify-modal');
+            if (modal && modal.open) modal.close();
+        }
+
+        function showAgeVerifyFailure() {
+            const qr = document.getElementById('age-verify-qr');
+            const link = document.getElementById('age-verify-link');
+            if (qr) {
+                while (qr.firstChild) qr.removeChild(qr.firstChild);
+                qr.classList.add('is-error');
+                const msg = document.createElement('div');
+                msg.textContent = 'Sorry, this is a 21+ store.';
+                qr.appendChild(msg);
+                const back = document.createElement('button');
+                back.type = 'button';
+                back.className = 'cart-keep-shopping';
+                back.style.marginTop = '12px';
+                back.textContent = 'Back to shop';
+                back.addEventListener('click', closeAgeVerify);
+                qr.appendChild(back);
+            }
+            if (link) link.hidden = true;
+            setAgeVerifyStatus('Verification declined', { spinning: false });
+        }
+
+        function onAgeVerifyClosed() {
+            // Fires on ESC, the form-dialog close button, and any other path
+            // out of the dialog. We tear down polling + retry state so the
+            // user can re-open cleanly on the next 403.
+            stopAgeVerifyPolling();
+            ageVerifyActive = false;
+            ageVerifyRetryProductId = null;
+        }
+
+        async function startAgeVerify(retryProductId, minAge) {
+            if (ageVerifyActive) {
+                const modal = document.getElementById('age-verify-modal');
+                if (modal && !modal.open && typeof modal.showModal === 'function') modal.showModal();
+                return;
+            }
+            ageVerifyActive = true;
+            ageVerifyRetryProductId = retryProductId || null;
+
+            const modal = document.getElementById('age-verify-modal');
+            const qr = document.getElementById('age-verify-qr');
+            const link = document.getElementById('age-verify-link');
+            const subtitle = document.getElementById('age-verify-subtitle');
+            const title = document.getElementById('age-verify-title');
+
+            if (title) title.textContent = "Confirm you're " + (minAge || 21) + '+';
+            if (subtitle) subtitle.textContent = 'This product is ' + (minAge || 21) + '+. Present your wallet to verify.';
+            if (qr) { while (qr.firstChild) qr.removeChild(qr.firstChild); qr.classList.remove('is-error'); }
+            if (link) { link.hidden = true; link.removeAttribute('href'); }
+            setAgeVerifyStatus('Requesting verification\u2026', { spinning: true });
+
+            if (modal && typeof modal.showModal === 'function' && !modal.open) {
+                modal.showModal();
+                // `close` fires on ESC, the in-form submit-close button, AND
+                // programmatic modal.close(), so one teardown path covers all.
+                modal.addEventListener('close', onAgeVerifyClosed, { once: true });
+            }
+
+            try {
+                const r = await fetch('/api/age-check/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({}),
+                });
+                if (!r.ok) {
+                    setAgeVerifyStatus('Could not start verification.', { spinning: false });
+                    return;
+                }
+                const data = await r.json();
+                const payload = data.qrCode;
+                if (!payload) {
+                    setAgeVerifyStatus('Verification unavailable.', { spinning: false });
+                    return;
+                }
+                if (qr) qr.appendChild(buildQrImage(payload));
+                if (link) { link.href = payload; link.hidden = false; }
+                setAgeVerifyStatus('Waiting for wallet\u2026', { spinning: true });
+
+                ageVerifyPollTimer = setInterval(pollAgeVerifyStatus, AGE_VERIFY_POLL_MS);
+                ageVerifyStillWaitingTimer = setTimeout(() => {
+                    setAgeVerifyStatus('Still waiting\u2026 you can close this and try again.', { spinning: true });
+                }, AGE_VERIFY_STILL_WAITING_MS);
+            } catch (err) {
+                console.warn('[age-verify] start error:', err);
+                setAgeVerifyStatus('Network error. Close and try again.', { spinning: false });
+            }
+        }
+
+        async function pollAgeVerifyStatus() {
+            try {
+                const r = await fetch('/api/age-check/status', { credentials: 'same-origin' });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data.verified === true) {
+                    stopAgeVerifyPolling();
+                    const retry = ageVerifyRetryProductId;
+                    closeAgeVerify();
+                    if (retry) {
+                        // session.ageVerified is now true; addToCart's POST
+                        // will clear the gate and add the item without a
+                        // re-visit to the modal.
+                        addToCart(retry);
+                    }
+                } else if (data.verified === false) {
+                    stopAgeVerifyPolling();
+                    showAgeVerifyFailure();
+                }
+            } catch (err) {
+                console.warn('[age-verify] poll error:', err);
+            }
         }
 
         // Initialize on page load
