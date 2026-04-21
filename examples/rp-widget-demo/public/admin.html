@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Majestic</title>
+<style>
+    :root {
+        --primary: #3d8b37;
+        --primary-hover: #2e6a29;
+        --bg: #0d0e12;
+        --panel: rgba(22, 24, 32, 0.72);
+        --panel-border: rgba(255, 255, 255, 0.08);
+        --text: #eaecef;
+        --muted: #9099a8;
+        --accent: #69aaff;
+        --danger: #d8574b;
+        --danger-hover: #be4339;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        min-height: 100vh;
+    }
+    body::before {
+        content: "";
+        position: fixed; inset: 0;
+        background:
+            radial-gradient(circle at 15% 10%, rgba(90, 140, 255, 0.12), transparent 50%),
+            radial-gradient(circle at 85% 90%, rgba(61, 139, 55, 0.10), transparent 50%);
+        z-index: -1;
+    }
+    header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 28px;
+        border-bottom: 1px solid var(--panel-border);
+        background: rgba(12, 14, 20, 0.64);
+        backdrop-filter: blur(14px);
+    }
+    header .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    header .brand small { color: var(--muted); font-weight: 500; margin-left: 8px; }
+    header a.back { color: var(--accent); text-decoration: none; font-size: 14px; }
+    header a.back:hover { text-decoration: underline; }
+    main { max-width: 1280px; margin: 0 auto; padding: 32px 28px 64px; }
+    h1 { font-size: 28px; margin: 0 0 6px; }
+    .subtitle { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+    .toolbar {
+        display: flex; align-items: center; gap: 12px;
+        margin-bottom: 18px;
+    }
+    .toolbar .count {
+        font-size: 13px; color: var(--muted);
+        margin-left: auto;
+    }
+    button {
+        font-family: inherit;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        color: var(--text);
+        cursor: pointer;
+        transition: all 140ms ease;
+    }
+    button:hover { border-color: rgba(255, 255, 255, 0.2); }
+    button.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+    }
+    button.primary:hover { background: var(--primary-hover); }
+    button.danger {
+        background: transparent;
+        border-color: rgba(216, 87, 75, 0.4);
+        color: var(--danger);
+    }
+    button.danger:hover:not(:disabled) {
+        background: var(--danger);
+        border-color: var(--danger);
+        color: white;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .panel {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        overflow: hidden;
+        backdrop-filter: blur(14px);
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    thead tr {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--panel-border);
+    }
+    th {
+        text-align: left;
+        padding: 12px 14px;
+        font-weight: 600;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--panel-border);
+        vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr.admin-row { background: rgba(105, 170, 255, 0.04); }
+    td.sub code {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 3px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+    td.provider .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .pill.authop { background: rgba(61, 139, 55, 0.18); color: #88cc82; }
+    .pill.keycloak { background: rgba(90, 140, 255, 0.18); color: #9ab8ff; }
+    label.flag {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 7px; border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        user-select: none;
+        transition: background 120ms ease;
+    }
+    label.flag:hover { background: rgba(255, 255, 255, 0.04); }
+    label.flag input { margin: 0; cursor: pointer; accent-color: var(--primary); }
+    label.flag.on .status { color: #88cc82; }
+    label.flag.off .status { color: var(--muted); }
+    .orders-count {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.06);
+    }
+    .meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .email { font-size: 12px; }
+    .actions { text-align: right; }
+    .empty, .loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .toast {
+        position: fixed;
+        bottom: 28px; right: 28px;
+        padding: 12px 18px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        backdrop-filter: blur(14px);
+        font-size: 13px;
+        opacity: 0; transform: translateY(10px);
+        transition: opacity 200ms ease, transform 200ms ease;
+        pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { border-color: rgba(216, 87, 75, 0.5); }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="brand">Majestic <small>Admin</small></div>
+    <a class="back" href="/">← Back to shop</a>
+</header>
+
+<main>
+    <h1>User profiles</h1>
+    <p class="subtitle">All signed-in users the RP has persisted. Toggle verification flags inline; deletions are immediate.</p>
+
+    <div class="toolbar">
+        <button class="primary" id="refresh-btn">Refresh</button>
+        <span class="count" id="user-count"></span>
+    </div>
+
+    <div class="panel">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Provider</th>
+                    <th>KYC</th>
+                    <th>18+</th>
+                    <th>21+</th>
+                    <th>Logins</th>
+                    <th>Orders</th>
+                    <th>Last seen</th>
+                    <th class="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    // All DOM mutations use DOM methods (no innerHTML) — defence against any
+    // future field that might carry user-typed strings (emails are one such
+    // field today).
+
+    // Current session's sub — we gray out the delete button on the admin's
+    // own row so they can't lock themselves out.
+    let selfSub = null;
+
+    function setStatusRow(message) {
+        const tbody = document.getElementById('rows');
+        tbody.textContent = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.className = 'loading';
+        td.colSpan = 9;
+        td.textContent = message;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+
+    async function fetchMe() {
+        try {
+            const r = await fetch('/api/me');
+            if (!r.ok) return;
+            const body = await r.json();
+            if (!body.isAdmin) {
+                // Defense in depth — should never happen because /admin
+                // redirects non-admins, but bail visibly if we do get here.
+                window.location = '/';
+                return;
+            }
+            selfSub = body.user && body.user.sub;
+        } catch (err) {
+            console.warn('[admin] /api/me failed', err);
+        }
+    }
+
+    async function fetchUsers() {
+        setStatusRow('Loading…');
+        try {
+            const r = await fetch('/api/admin/users');
+            if (r.status === 403) { window.location = '/'; return; }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const body = await r.json();
+            renderRows(body.users || []);
+            document.getElementById('user-count').textContent = `${body.count} user${body.count === 1 ? '' : 's'}`;
+        } catch (err) {
+            setStatusRow('Failed to load users: ' + (err.message || err));
+        }
+    }
+
+    function renderRows(users) {
+        const tbody = document.getElementById('rows');
+        tbody.textContent = '';
+        if (!users.length) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.className = 'empty';
+            td.colSpan = 9;
+            td.textContent = 'No users persisted yet.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+        for (const u of users) {
+            tbody.appendChild(renderRow(u));
+        }
+    }
+
+    function renderRow(u) {
+        const tr = document.createElement('tr');
+        if (u.sub === selfSub) tr.classList.add('admin-row');
+
+        // User column: name / email for keycloak, sub hash for authop
+        const userCell = document.createElement('td');
+        if (u.email) {
+            const name = document.createElement('div');
+            name.textContent = u.name || u.given_name || '(unnamed)';
+            name.style.fontWeight = '600';
+            const email = document.createElement('div');
+            email.className = 'email';
+            email.style.color = 'var(--muted)';
+            email.textContent = u.email;
+            userCell.appendChild(name);
+            userCell.appendChild(email);
+        } else {
+            userCell.classList.add('sub');
+            const code = document.createElement('code');
+            code.textContent = (u.sub || '').slice(0, 16) + ((u.sub || '').length > 16 ? '…' : '');
+            code.title = u.sub;
+            userCell.appendChild(code);
+        }
+        tr.appendChild(userCell);
+
+        // Provider pill
+        const provCell = document.createElement('td');
+        provCell.className = 'provider';
+        const pill = document.createElement('span');
+        pill.className = 'pill ' + (u.provider || 'other');
+        pill.textContent = u.provider || '—';
+        provCell.appendChild(pill);
+        tr.appendChild(provCell);
+
+        // Three flag checkboxes — KYC, 18+, 21+
+        tr.appendChild(flagCell(u, 'kyc_verified'));
+        tr.appendChild(flagCell(u, 'age_over_18'));
+        tr.appendChild(flagCell(u, 'age_over_21'));
+
+        // Login count
+        const loginCell = document.createElement('td');
+        loginCell.textContent = u.loginCount || 0;
+        tr.appendChild(loginCell);
+
+        // Orders count
+        const ordersCell = document.createElement('td');
+        const orderPill = document.createElement('span');
+        orderPill.className = 'orders-count';
+        orderPill.textContent = (u.orders && u.orders.length) || 0;
+        ordersCell.appendChild(orderPill);
+        tr.appendChild(ordersCell);
+
+        // Last-seen timestamp
+        const metaCell = document.createElement('td');
+        metaCell.className = 'meta';
+        metaCell.textContent = u.lastSeenAt ? formatTime(u.lastSeenAt) : '—';
+        tr.appendChild(metaCell);
+
+        // Action: delete
+        const actionCell = document.createElement('td');
+        actionCell.className = 'actions';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'danger';
+        delBtn.textContent = 'Delete';
+        delBtn.disabled = u.sub === selfSub;
+        delBtn.title = u.sub === selfSub ? "Can't delete yourself" : 'Remove this profile';
+        delBtn.onclick = () => deleteUser(u);
+        actionCell.appendChild(delBtn);
+        tr.appendChild(actionCell);
+
+        return tr;
+    }
+
+    function flagCell(u, field) {
+        const td = document.createElement('td');
+        const label = document.createElement('label');
+        label.className = 'flag ' + (u[field] ? 'on' : 'off');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!u[field];
+        cb.onchange = () => setFlag(u, field, cb.checked, label);
+        const status = document.createElement('span');
+        status.className = 'status';
+        status.textContent = u[field] ? 'yes' : 'no';
+        label.appendChild(cb);
+        label.appendChild(status);
+        td.appendChild(label);
+        return td;
+    }
+
+    async function setFlag(user, field, value, labelEl) {
+        try {
+            const r = await fetch('/api/admin/users/' + encodeURIComponent(user.sub), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value }),
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const saved = await r.json();
+            user[field] = saved[field];
+            labelEl.className = 'flag ' + (saved[field] ? 'on' : 'off');
+            labelEl.querySelector('.status').textContent = saved[field] ? 'yes' : 'no';
+            showToast(`${field.replace('_', ' ')} → ${saved[field]}`);
+        } catch (err) {
+            showToast('Update failed: ' + (err.message || err), true);
+            // Revert the UI to the previous server-known state
+            const cb = labelEl.querySelector('input');
+            cb.checked = !value;
+            labelEl.className = 'flag ' + (user[field] ? 'on' : 'off');
+            labelEl.querySelector('.status').textContent = user[field] ? 'yes' : 'no';
+        }
+    }
+
+    async function deleteUser(u) {
+        const label = u.email || (u.sub || '').slice(0, 12) + '…';
+        if (!confirm(`Remove ${label}?\n\nTheir orders (${(u.orders || []).length}) will be deleted too.`)) return;
+        try {
+            const r = await fetch('/api/admin/users/' + encodeURIComponent(u.sub), { method: 'DELETE' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            showToast('Deleted ' + label);
+            fetchUsers();
+        } catch (err) {
+            showToast('Delete failed: ' + (err.message || err), true);
+        }
+    }
+
+    function formatTime(iso) {
+        try {
+            const d = new Date(iso);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        } catch (_) { return iso; }
+    }
+
+    let toastTimer = null;
+    function showToast(msg, isError) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.toggle('error', !!isError);
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', fetchUsers);
+    (async () => { await fetchMe(); fetchUsers(); })();
+</script>
+
+</body>
+</html>

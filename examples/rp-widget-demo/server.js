@@ -189,6 +189,28 @@ const PUBLIC_PSP_URL = process.env.PUBLIC_PSP_URL || 'https://psp.theaustraliaha
 // user's browser). For the demo stack this is the Cloudflare-tunnelled origin.
 const PUBLIC_URL = process.env.PUBLIC_URL || 'https://rp.theaustraliahack.com';
 
+// Admin access. Only users who sign in via the `keycloak` provider with
+// this email become admins of the /admin surface. Default is the demo
+// operator; override in .env.local for other deployments. `email_verified`
+// is not enforced here — Keycloak federates to identity providers that
+// generally set it, but for demo-simplicity we trust Keycloak's assertion.
+const ADMIN_EMAIL = process.env.RP_ADMIN_EMAIL || 'adam_j_bradley@yahoo.com';
+const ADMIN_PROVIDER = process.env.RP_ADMIN_PROVIDER || 'keycloak';
+
+/**
+ * Is the current session the RP admin? Admin identity is provider + email,
+ * not a role/scope, because the demo's OIDC providers don't emit roles.
+ * In production this would read a verified role claim from the id_token.
+ */
+function isAdmin(session) {
+  if (!session) return false;
+  // `provider` is stored on the session root (set at OIDC callback,
+  // server.js L1215), not on session.user. `user.email` is set only by the
+  // keycloak branch; authop profiles intentionally have no email.
+  const u = session.user || {};
+  return session.provider === ADMIN_PROVIDER && u.email === ADMIN_EMAIL;
+}
+
 // OIDC Providers — multiple are supported side-by-side. Each one needs its
 // own ISSUER/CLIENT_ID/CLIENT_SECRET trio; a provider is only enabled when
 // all three are set. Callback paths are /callback (for the default keycloak
@@ -1069,22 +1091,67 @@ function createApp() {
       providers,
       user: (req.session && req.session.user) || null,
       activeProvider: (req.session && req.session.provider) || null,
+      isAdmin: isAdmin(req.session),
       cart,
       lastOrder,
     });
   });
 
+  // Admin surface. All routes below require isAdmin(session). A non-admin
+  // call returns 403 rather than 404 so an admin who is logged out sees a
+  // useful error instead of a confusing "page not found". The whole admin
+  // subtree is gated by a single middleware to keep the check in one place.
+  const requireAdmin = (req, res, next) => {
+    if (!isAdmin(req.session)) return res.status(403).json({ error: 'admin_required' });
+    next();
+  };
+
   /**
-   * GET /api/users — list of all known users persisted by the RP, newest
-   * login first. Read-only admin view for the demo; if/when this moves
-   * beyond demo use it should be gated by a role / auth check.
-   *
-   * Intentionally returns the full profile including email and DOB — the
-   * stack is a private demo and this endpoint is the fastest way to
-   * confirm that the upsert hook fires on every successful OIDC callback.
+   * GET /admin — serves the admin dashboard HTML. Clients render the user
+   * table + actions after fetching /api/admin/users. The HTML itself is
+   * not secret (no auth on the static asset); it just fails closed when
+   * calling the gated API.
    */
-  app.get('/api/users', (req, res) => {
+  app.get('/admin', (req, res) => {
+    if (!isAdmin(req.session)) return res.redirect('/');
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  });
+
+  /**
+   * GET /api/admin/users — list every stored profile, newest-login first.
+   * Returns full records including email (keycloak profiles) and orders.
+   * Replaces the earlier ungated /api/users debug endpoint.
+   */
+  app.get('/api/admin/users', requireAdmin, (req, res) => {
     res.json({ count: userStore.count(), users: userStore.list() });
+  });
+
+  /**
+   * DELETE /api/admin/users/:sub — purge a profile + its orders. Admin
+   * cannot delete their own record (easy foot-gun); UI should gray out
+   * that row as well.
+   */
+  app.delete('/api/admin/users/:sub', requireAdmin, (req, res) => {
+    const adminSub = req.session && req.session.user && req.session.user.sub;
+    if (req.params.sub === adminSub) {
+      return res.status(400).json({ error: 'cannot_delete_self' });
+    }
+    const removed = userStore.remove(req.params.sub);
+    if (!removed) return res.status(404).json({ error: 'unknown_user' });
+    res.json({ ok: true, sub: req.params.sub });
+  });
+
+  /**
+   * PATCH /api/admin/users/:sub { kyc_verified?, age_over_18?, age_over_21? }
+   *
+   * Writable fields are the three verification booleans. Anything else in
+   * the body is silently stripped (userStore.adminUpdate enforces). Returns
+   * 404 on unknown sub, 200 + the saved record otherwise.
+   */
+  app.patch('/api/admin/users/:sub', requireAdmin, (req, res) => {
+    const saved = userStore.adminUpdate(req.params.sub, req.body || {});
+    if (!saved) return res.status(404).json({ error: 'unknown_user' });
+    res.json(saved);
   });
 
   /**

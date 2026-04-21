@@ -150,6 +150,43 @@ class UserStore {
     if (!sub) return undefined;
     return this.users.find((u) => u.sub === sub);
   }
+
+  /**
+   * Remove a user by sub. Returns true on deletion, false if no such user.
+   * Used by the admin API to purge a profile; orders on that profile go
+   * with it since they live under the user record.
+   */
+  remove(sub) {
+    if (!sub) return false;
+    const before = this.users.length;
+    this.users = this.users.filter((u) => u.sub !== sub);
+    if (this.users.length === before) return false;
+    this._persist();
+    return true;
+  }
+
+  /**
+   * Admin-initiated partial update of a stored profile. Unlike `upsert`
+   * this does NOT bump `loginCount` or `lastSeenAt` — it's an administrative
+   * edit, not a login event. Only the three boolean verification flags are
+   * writable; anything else in the patch is ignored. Returns the saved
+   * record, or undefined if no such user.
+   */
+  adminUpdate(sub, patch) {
+    if (!sub) return undefined;
+    const existing = this.users.find((u) => u.sub === sub);
+    if (!existing) return undefined;
+    const allowed = new Set(['kyc_verified', 'age_over_18', 'age_over_21']);
+    const sanitized = Object.fromEntries(
+      Object.entries(patch || {})
+        .filter(([k, v]) => allowed.has(k) && typeof v === 'boolean'),
+    );
+    if (Object.keys(sanitized).length === 0) return existing;
+    const saved = Object.assign({}, existing, sanitized);
+    this.users = this.users.map((u) => (u.sub === sub ? saved : u));
+    this._persist();
+    return saved;
+  }
 }
 
 module.exports = { UserStore };

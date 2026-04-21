@@ -818,9 +818,14 @@ describe('POST /api/checkout/webhook/:token + GET /api/checkout/status', () => {
     // Order lives on session.orders[0].
     const me = await agent.get('/api/me').expect(200);
     // pendingOrder was cleared.
-    // Session orders present via /api/me has no dedicated field; inspect via
-    // admin /api/users on the store which was persisted for authop sub.
-    const users = await agent.get('/api/users').expect(200);
+    // The persisted profile under `sub-ck-flow` now lives on the
+    // admin-gated /api/admin/users endpoint. Promote this agent to admin
+    // via the test-only session hydrator so the read succeeds.
+    await agent.post('/_test/session').send({
+      user: Object.assign({}, (me.body.user || { sub: 'sub-ck-flow' }), { email: 'adam_j_bradley@yahoo.com' }),
+      provider: 'keycloak',
+    }).expect(200);
+    const users = await agent.get('/api/admin/users').expect(200);
     const saved = users.body.users.find((u) => u.sub === 'sub-ck-flow');
     expect(saved).toBeTruthy();
     expect(Array.isArray(saved.orders)).toBe(true);
@@ -1076,5 +1081,176 @@ describe('Integration Tests with Sandbox API', () => {
     const expiryDate = new Date(expiryMs);
     const now = new Date();
     expect(expiryDate.getTime()).toBeGreaterThan(now.getTime());
+  });
+});
+
+describe('admin surface (/api/admin/users + isAdmin)', () => {
+  // Admin identity is provider=keycloak + email=adam_j_bradley@yahoo.com.
+  // These tests exercise the gate, the listing, the update, and the
+  // delete — and the self-deletion guard. userStore is seeded via the
+  // same per-createApp + tmpdir pattern used by the receipt-page tests
+  // so the state is isolated per case.
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  const { UserStore } = require('../userStore');
+  const tmpFiles = [];
+  afterAll(() => {
+    for (const f of tmpFiles) { try { fs.unlinkSync(f); } catch (_) {} }
+  });
+
+  function freshAppWithStoreSeeding(seedFn) {
+    const tmp = path.join(os.tmpdir(), `admin-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    tmpFiles.push(tmp);
+    if (seedFn) { const store = new UserStore(tmp); seedFn(store); }
+    process.env.USER_STORE_FILE = tmp;
+    const app = createApp();
+    return { app, agent: request.agent(app), tmp };
+  }
+
+  async function signInAsAdmin(agent, sub = 'admin-sub') {
+    await agent.post('/_test/session').send({
+      user: { sub, email: 'adam_j_bradley@yahoo.com', name: 'Admin' },
+      provider: 'keycloak',
+    }).expect(200);
+  }
+  async function signInAsRegular(agent) {
+    await agent.post('/_test/session').send({
+      user: { sub: 'regular-sub', age_over_21: true, provider: 'authop' },
+      provider: 'authop',
+    }).expect(200);
+  }
+
+  it('GET /api/me exposes isAdmin=true for the allow-listed keycloak email', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsAdmin(agent);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.isAdmin).toBe(true);
+  });
+
+  it('GET /api/me exposes isAdmin=false for other sessions', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsRegular(agent);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.isAdmin).toBe(false);
+  });
+
+  it('GET /api/me exposes isAdmin=false for keycloak session with wrong email', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await agent.post('/_test/session').send({
+      user: { sub: 'impostor', email: 'imposter@example.com' },
+      provider: 'keycloak',
+    }).expect(200);
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.isAdmin).toBe(false);
+  });
+
+  it('GET /api/admin/users 403s for non-admin sessions', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsRegular(agent);
+    const res = await agent.get('/api/admin/users').expect(403);
+    expect(res.body).toEqual({ error: 'admin_required' });
+  });
+
+  it('GET /api/admin/users 200s for admin and returns all stored profiles', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'u1', provider: 'authop', age_over_21: true });
+      store.upsert({ sub: 'u2', provider: 'keycloak', email: 'joe@example.com' });
+    });
+    await signInAsAdmin(agent);
+    const res = await agent.get('/api/admin/users').expect(200);
+    expect(res.body.count).toBeGreaterThanOrEqual(2);
+    const subs = res.body.users.map((u) => u.sub);
+    expect(subs).toContain('u1');
+    expect(subs).toContain('u2');
+  });
+
+  it('PATCH /api/admin/users/:sub toggles kyc_verified', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'patch-target', provider: 'authop', kyc_verified: false });
+    });
+    await signInAsAdmin(agent);
+    const res = await agent.patch('/api/admin/users/patch-target')
+      .send({ kyc_verified: true })
+      .expect(200);
+    expect(res.body.kyc_verified).toBe(true);
+    expect(res.body.sub).toBe('patch-target');
+  });
+
+  it('PATCH /api/admin/users/:sub strips non-allowed fields silently', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'ignore-test', provider: 'authop', kyc_verified: false });
+    });
+    await signInAsAdmin(agent);
+    const res = await agent.patch('/api/admin/users/ignore-test')
+      .send({ kyc_verified: true, email: 'injected@bad.example', sub: 'different' })
+      .expect(200);
+    expect(res.body.kyc_verified).toBe(true);
+    expect(res.body.email).toBeUndefined();
+    expect(res.body.sub).toBe('ignore-test');
+  });
+
+  it('PATCH /api/admin/users/:sub 404s on unknown user', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsAdmin(agent);
+    await agent.patch('/api/admin/users/nosuch').send({ kyc_verified: true }).expect(404);
+  });
+
+  it('PATCH /api/admin/users/:sub 403s for non-admin', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'x', provider: 'authop', kyc_verified: false });
+    });
+    await signInAsRegular(agent);
+    await agent.patch('/api/admin/users/x').send({ kyc_verified: true }).expect(403);
+  });
+
+  it('DELETE /api/admin/users/:sub removes the profile', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'to-remove', provider: 'authop' });
+    });
+    await signInAsAdmin(agent);
+    const res = await agent.delete('/api/admin/users/to-remove').expect(200);
+    expect(res.body).toEqual({ ok: true, sub: 'to-remove' });
+    // Verify it's gone via the admin listing.
+    const list = await agent.get('/api/admin/users').expect(200);
+    expect(list.body.users.find((u) => u.sub === 'to-remove')).toBeUndefined();
+  });
+
+  it('DELETE /api/admin/users/:sub 400s when admin tries to delete themselves', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'me-sub', provider: 'keycloak', email: 'adam_j_bradley@yahoo.com' });
+    });
+    await signInAsAdmin(agent, 'me-sub');
+    const res = await agent.delete('/api/admin/users/me-sub').expect(400);
+    expect(res.body).toEqual({ error: 'cannot_delete_self' });
+  });
+
+  it('DELETE /api/admin/users/:sub 404s on unknown user', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsAdmin(agent);
+    await agent.delete('/api/admin/users/nosuch').expect(404);
+  });
+
+  it('DELETE /api/admin/users/:sub 403s for non-admin', async () => {
+    const { agent } = freshAppWithStoreSeeding((store) => {
+      store.upsert({ sub: 'victim', provider: 'authop' });
+    });
+    await signInAsRegular(agent);
+    await agent.delete('/api/admin/users/victim').expect(403);
+  });
+
+  it('GET /admin redirects non-admins to /', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsRegular(agent);
+    const res = await agent.get('/admin').expect(302);
+    expect(res.headers.location).toBe('/');
+  });
+
+  it('GET /admin serves admin.html to admins', async () => {
+    const { agent } = freshAppWithStoreSeeding();
+    await signInAsAdmin(agent);
+    const res = await agent.get('/admin').expect(200);
+    expect(res.text).toMatch(/Admin/);
+    expect(res.headers['content-type']).toMatch(/html/);
   });
 });
