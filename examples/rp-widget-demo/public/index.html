@@ -377,49 +377,6 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* ===== PWA CAPTURE BANNER ===== */
-        /* Flashes at the top of the page when the shopper returns from
-           /psp/enroll via ?pwa=1. Style matches the glass aesthetic: thin
-           primary-accent strip with a live-region text + spinner. Fades out
-           when the capture flow resolves (either verified=true → refresh
-           profile, or verified=false → warn in console). */
-        .pwa-capture-banner {
-            position: sticky;
-            top: 0;
-            z-index: 600;
-            background: linear-gradient(180deg, rgba(195, 31, 43, 0.92) 0%, rgba(136, 24, 34, 0.92) 100%);
-            color: var(--white);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 4px 16px -6px rgba(0, 0, 0, 0.6);
-            font-family: 'Source Sans 3', sans-serif;
-            font-size: 13px;
-            transition: opacity 240ms ease, transform 240ms ease;
-        }
-        .pwa-capture-banner[hidden] {
-            display: none;
-        }
-        .pwa-capture-banner.is-leaving {
-            opacity: 0;
-            transform: translateY(-6px);
-        }
-        .pwa-capture-banner-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 10px 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .pwa-capture-spinner {
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.35);
-            border-top-color: var(--white);
-            border-radius: 50%;
-            animation: pwa-capture-spin 900ms linear infinite;
-        }
-        @keyframes pwa-capture-spin { to { transform: rotate(360deg); } }
-
         /* ===== CART ICON + BADGE ===== */
         .cart-icon {
             background: transparent;
@@ -2137,16 +2094,6 @@
     </style>
 </head>
 <body>
-    <!-- PWA capture banner: shown transiently when the user returns from
-         /psp/enroll via /cart?pwa=1. The `hidden` attribute is removed by
-         the capture init script only if ?pwa=1 is on the URL. -->
-    <div id="pwa-capture-banner" class="pwa-capture-banner" role="status" hidden>
-        <div class="pwa-capture-banner-inner">
-            <span class="pwa-capture-spinner" aria-hidden="true"></span>
-            <span id="pwa-capture-banner-text">Verifying your new payment method…</span>
-        </div>
-    </div>
-
     <!-- Top Bar -->
     <div class="top-bar">
         <div class="container">
@@ -3104,14 +3051,17 @@
             parent.appendChild(group);
         }
 
-        /** Append the payment-method row to the profile hover. If the user
-         *  has a `paymentMethod` on their session profile we render the
-         *  "Card ending …" summary plus a small [Replace] link; otherwise
-         *  we render a primary [Add payment method] CTA. Both redirect to
-         *  the external PSP at `${publicPspUrl}/enroll?return=<cart>` —
-         *  the standalone Bank of Demo service that issues the PWA and
-         *  then bounces the shopper back to /cart?pwa=1 where the capture
-         *  flow takes over. */
+        /** Append the payment-method row to the profile hover. Renders an
+         *  [Add payment method] CTA pointing at the external PSP at
+         *  `${publicPspUrl}/enroll?return=<cart>`.
+         *
+         *  The RP deliberately does not display any card metadata on the
+         *  hover. In a standards-compliant OID4VP flow the merchant does
+         *  not discover PAN-last-four / scheme between enrollment and
+         *  checkout — those claims surface on the checkout presentation
+         *  (see /order/:id receipt, which renders order.pwaMeta). Clicking
+         *  the CTA when the shopper already has a PWA is harmless — the
+         *  PSP short-circuits to "You already have a card enrolled". */
         function pspEnrollUrl() {
             const base = (config.publicPspUrl || '').replace(/\/$/, '') || '/';
             const ret = encodeURIComponent(location.origin + '/cart');
@@ -3129,34 +3079,15 @@
 
             const info = document.createElement('div');
             info.className = 'payment-method-info';
+            info.textContent = 'Stored in your wallet';
+            left.appendChild(info);
+            block.appendChild(left);
 
-            const enrollUrl = pspEnrollUrl();
-
-            if (user && user.paymentMethod) {
-                const { scheme, panLastFour } = user.paymentMethod;
-                info.appendChild(document.createTextNode(`${scheme || 'Card'} ending `));
-                const strong = document.createElement('strong');
-                strong.textContent = panLastFour || '****';
-                info.appendChild(strong);
-                left.appendChild(info);
-                block.appendChild(left);
-
-                const replace = document.createElement('a');
-                replace.className = 'payment-method-replace';
-                replace.href = enrollUrl;
-                replace.textContent = 'Replace';
-                block.appendChild(replace);
-            } else {
-                info.textContent = 'None on file';
-                left.appendChild(info);
-                block.appendChild(left);
-
-                const add = document.createElement('a');
-                add.className = 'payment-method-cta';
-                add.href = enrollUrl;
-                add.textContent = 'Add payment method';
-                block.appendChild(add);
-            }
+            const add = document.createElement('a');
+            add.className = 'payment-method-cta';
+            add.href = pspEnrollUrl();
+            add.textContent = 'Add payment method';
+            block.appendChild(add);
 
             parent.appendChild(block);
         }
@@ -3738,7 +3669,7 @@
             }
         }
         let cartToastTimer = null;
-        function showCartToast(msg) {
+        function showCartToast(msg, durationMs) {
             let toast = document.getElementById('cart-toast');
             if (!toast) {
                 toast = document.createElement('div');
@@ -3749,7 +3680,8 @@
             toast.textContent = msg;
             requestAnimationFrame(() => toast.classList.add('is-visible'));
             if (cartToastTimer) clearTimeout(cartToastTimer);
-            cartToastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2400);
+            const ms = typeof durationMs === 'number' ? durationMs : 2400;
+            cartToastTimer = setTimeout(() => toast.classList.remove('is-visible'), ms);
         }
 
         /* ============================================================
@@ -3917,80 +3849,6 @@
             }
         }
 
-        /* =================================================================
-         *  PWA metadata capture (rp-cart-dpc Task 15)
-         *
-         *  Fires when the shopper returns from /psp/enroll via ?pwa=1. We
-         *  POST /api/pwa/capture to kick a PaymentWalletAttestation
-         *  presentation, then poll /api/pwa/capture-status every 1500ms.
-         *  On verified=true: refresh the profile (new paymentMethod now
-         *  on session), hide the banner. On verified=false: console.warn,
-         *  hide the banner. No deep-link/QR here — the wallet that just
-         *  finished issuance is already the presenter for this capture,
-         *  so the session kicks off its own request; the banner is purely
-         *  an "I'm working on it" indicator.
-         * ============================================================= */
-        const PWA_CAPTURE_POLL_MS = 1500;
-        const PWA_CAPTURE_MAX_MS = 30000;
-        function hidePwaCaptureBanner() {
-            const banner = document.getElementById('pwa-capture-banner');
-            if (!banner) return;
-            banner.classList.add('is-leaving');
-            setTimeout(() => { banner.hidden = true; banner.classList.remove('is-leaving'); }, 260);
-        }
-        function setPwaCaptureBannerText(text) {
-            const el = document.getElementById('pwa-capture-banner-text');
-            if (el) el.textContent = text;
-        }
-        async function startPwaCapture() {
-            const banner = document.getElementById('pwa-capture-banner');
-            if (banner) banner.hidden = false;
-            setPwaCaptureBannerText('Verifying your new payment method\u2026');
-            try {
-                const r = await fetch('/api/pwa/capture', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({}),
-                });
-                if (!r.ok) {
-                    console.warn('[pwa-capture] start failed:', r.status);
-                    hidePwaCaptureBanner();
-                    return;
-                }
-                const start = Date.now();
-                const poll = setInterval(async () => {
-                    if (Date.now() - start > PWA_CAPTURE_MAX_MS) {
-                        clearInterval(poll);
-                        console.warn('[pwa-capture] timed out waiting for verdict');
-                        hidePwaCaptureBanner();
-                        return;
-                    }
-                    try {
-                        const sr = await fetch('/api/pwa/capture-status', { credentials: 'same-origin' });
-                        if (!sr.ok) return;
-                        const data = await sr.json();
-                        if (data.verified === true) {
-                            clearInterval(poll);
-                            // Re-render the profile hover so the new
-                            // paymentMethod shows up without a full reload.
-                            renderAuthStatus();
-                            hidePwaCaptureBanner();
-                        } else if (data.verified === false) {
-                            clearInterval(poll);
-                            console.warn('[pwa-capture] verification declined');
-                            hidePwaCaptureBanner();
-                        }
-                    } catch (err) {
-                        console.warn('[pwa-capture] poll error:', err);
-                    }
-                }, PWA_CAPTURE_POLL_MS);
-            } catch (err) {
-                console.warn('[pwa-capture] start error:', err);
-                hidePwaCaptureBanner();
-            }
-        }
-
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
             handleResize();
@@ -4012,17 +3870,21 @@
             // Reflect the session's existing cart state (a revisit within the
             // session TTL should see its items already populated).
             refreshCart();
-            // PWA-return flow: detect ?pwa=1 and run the capture ceremony.
+            // PSP return flow: the PSP bounces the shopper to
+            // /cart?pwa=1 after issuing their PaymentWalletAttestation.
+            // There's no metadata round-trip (the merchant only sees card
+            // details at checkout presentation time); we just flash a
+            // reassurance toast and strip the query param so a page
+            // reload doesn't re-toast.
             try {
                 const params = new URLSearchParams(window.location.search);
                 if (params.get('pwa') === '1') {
-                    // Strip the query param so a page reload doesn't re-fire.
                     const clean = window.location.pathname + window.location.hash;
                     window.history.replaceState({}, '', clean);
-                    startPwaCapture();
+                    showCartToast('Payment method added. It lives in your wallet.', 3500);
                 }
             } catch (err) {
-                console.warn('[pwa-capture] init error:', err);
+                console.warn('[pwa-return] init error:', err);
             }
         });
     </script>

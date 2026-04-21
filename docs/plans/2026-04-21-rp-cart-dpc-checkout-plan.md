@@ -626,20 +626,36 @@ git commit -m "feat(rp): profile hover exposes Add/Replace payment method"
 
 ## Task 15: RP side — capture PWA metadata on `/cart?pwa=1`
 
-**Files:**
-- Modify: `server.js` — add `POST /api/pwa/capture` that starts an OID4VP session for PaymentWalletAttestation with claims `[panLastFour, scheme, payeeName]`; a webhook stores the result on the user profile.
-- Modify: `userStore.js` — allow `paymentMethod: {panLastFour, scheme, payeeName, addedAt}` on the profile.
-- Modify: `public/index.html` — on `?pwa=1` query, show a "Verifying your new payment method…" banner, fire `POST /api/pwa/capture`, poll status, remove banner on success.
-- Test: `tests/server.test.js` — the capture webhook updates the profile.
+**Status: RESOLVED — deleted. 2026-04-21.**
 
-**Step 1:** Failing test — webhook with `panLastFour=4242 scheme=Visa` updates `userStore.get(sub).paymentMethod`.
-**Step 2:** Impl capture + webhook.
-**Step 3:** Impl front-end banner.
-**Step 4:** Run → pass + smoke.
-**Step 5: Commit**
-```bash
-git commit -m "feat(rp): capture PWA metadata after PSP enrollment"
-```
+The capture flow was implemented (commit `ed0591dae`, landed alongside
+the PSP move in `dcb5c6936` / `274c0d0e0`) but was subsequently removed
+in full. Two reasons:
+
+1. **Architecturally broken** — the kickoff minted a verifier-api2
+   session but never rendered the QR / deep-link on the page, so no
+   wallet could answer the presentation request. The "Verifying your
+   new payment method…" banner looped for 30s and then timed out. The
+   task description ("no deep-link/QR here — the wallet that just
+   finished issuance is already the presenter") assumed a silent-
+   presentation primitive that OID4VP doesn't define.
+
+2. **Not standards-compliant** — even if the flow had worked, the
+   merchant doesn't legitimately discover card metadata between
+   enrollment and checkout. `panLastFour` / `scheme` are surfaced at
+   checkout via the pay-session OID4VP presentation (Task 17/18); the
+   RP profile hover does not need to render them.
+
+Deleted:
+- `server.js`: `/api/pwa/capture`, webhook, status routes + map + DCQL helper + `/_test/pwa-capture/register`
+- `userStore.js`: `paymentMethod` from the authop allowlist
+- `public/index.html`: banner DOM/CSS, `startPwaCapture`, profile-hover card-summary branch
+- `tests/server.test.js`: four PWA-capture tests
+
+Added in its place: on `?pwa=1`, the client flashes a 3.5s toast
+("Payment method added. It lives in your wallet.") and strips the
+query param. No server round-trip. See the design doc §
+"RP metadata capture (REMOVED)".
 
 ---
 

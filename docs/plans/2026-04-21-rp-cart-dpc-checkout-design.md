@@ -200,20 +200,41 @@ RP profile hover ──► [Add payment method] click
   → 302 back to rp.theaustraliahack.com/cart?pwa=1
 ```
 
-### RP metadata capture (silent, post-enrollment)
+### RP metadata capture (REMOVED)
 
-On landing `/cart?pwa=1`:
+**Status: deleted after initial implementation. 2026-04-21.**
 
-1. RP fires an OID4VP request to verifier-api2 for `PaymentWalletAttestation` VCT, claims `[panLastFour, scheme, payeeName]`.
-2. Wallet presents; RP reads the disclosed claims.
-3. RP writes `profile.paymentMethod = { panLastFour, scheme, payeeName, addedAt }` to **userStore** (the persistent store PR #81 introduced).
-4. Profile hover now renders "Payment method: Visa ending 4242".
+An earlier draft of this design proposed a "silent capture" step on
+`/cart?pwa=1`: the RP would fire a fresh OID4VP request for the newly-
+issued `PaymentWalletAttestation`, read `[panLastFour, scheme, payeeName]`
+from the wallet's presentation, and store them on `profile.paymentMethod`
+in the userStore so the profile hover could render "Card ending 4242".
+
+The step was removed. The standards don't prescribe it and the merchant
+doesn't legitimately know the card details between enrollment and
+checkout — `panLastFour` / `scheme` are discovered at checkout time via
+the pay-session OID4VP presentation (the RFC008-shape flow described in
+§ Feature 4 below). Displaying a card summary on the profile hover was
+an Apple-Pay-style on-file-card mental model that doesn't map to
+wallet-bound PWAs, where the wallet is the only party that knows which
+credentials are stored. The implementation was also architecturally
+broken (the kickoff minted a verifier session but never surfaced the
+QR / deep-link to the shopper, so no wallet could actually answer the
+request and the "Verifying your new payment method…" banner spun
+forever).
+
+What still happens on `/cart?pwa=1`: the RP flashes a transient toast
+("Payment method added. It lives in your wallet.") and strips the query
+param. No server round-trip, no metadata on the profile. The next time
+the shopper clicks Pay, the wallet presents its `PaymentWalletAttestation`
+and the merchant learns `panLastFour` / `scheme` — scoped to that
+transaction.
 
 ### Edge cases
 
-- **User already has a PWA** — PSP shows "You already have a card enrolled" + `[Replace]`. Replace issues a fresh credential with new `cnf`; RP re-captures metadata.
+- **User already has a PWA** — PSP shows "You already have a card enrolled" + `[Replace]`. Replace issues a fresh credential with new `cnf`.
 - **Wallet has no PID** — step 1 fails; PSP surfaces "You need an identity credential first" + link to `issuer.theaustraliahack.com`.
-- **User aborts mid-enrollment** — RP never sees `?pwa=1`, userStore unchanged. Profile still says "Add payment method".
+- **User aborts mid-enrollment** — RP never sees `?pwa=1`. Profile hover still says "Add payment method" — same as before.
 
 ### Trust
 

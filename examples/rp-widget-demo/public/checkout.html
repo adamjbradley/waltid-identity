@@ -389,46 +389,49 @@
             });
         }
 
-        function renderPaymentMethod(pm) {
+        /**
+         * The checkout page deliberately does not render any card
+         * metadata. The merchant does not know which PaymentWalletAttestation
+         * the shopper will present — that's discovered at OID4VP
+         * presentation time (the order receipt at /order/:id echoes back
+         * the scheme + PAN-last-four the wallet actually disclosed).
+         *
+         * So we surface a neutral "Pay with your EUDI Wallet" line and
+         * keep the [Add payment method] link available for shoppers who
+         * don't have a PWA enrolled yet. The Pay button is always enabled:
+         * if the wallet has no PWA the OID4VP presentation will reject and
+         * the status poll surfaces the decline.
+         */
+        function renderPaymentMethod() {
             const box = document.getElementById('payment-method');
             const payBtn = document.getElementById('pay-btn');
             clearNode(box);
-            if (pm && pm.scheme && pm.panLastFour) {
-                const left = document.createElement('div');
-                left.className = 'pm-left';
-                const icon = document.createElement('span');
-                icon.className = 'pm-icon';
-                icon.textContent = (pm.scheme || 'CARD').toUpperCase();
-                const meta = document.createElement('div');
-                const label = document.createElement('div');
-                label.className = 'pm-label';
-                label.textContent = pm.scheme + ' ****' + pm.panLastFour;
-                const sub = document.createElement('div');
-                sub.className = 'pm-sub';
-                sub.textContent = pm.payeeName ? ('Issued by ' + pm.payeeName) : 'Payment Wallet Attestation';
-                meta.appendChild(label);
-                meta.appendChild(sub);
-                left.appendChild(icon);
-                left.appendChild(meta);
-                const replace = document.createElement('a');
-                replace.className = 'pm-cta';
-                replace.href = pspEnrollUrl();
-                replace.textContent = 'Replace';
-                box.appendChild(left);
-                box.appendChild(replace);
-                payBtn.disabled = false;
-            } else {
-                const missing = document.createElement('span');
-                missing.className = 'pm-missing';
-                missing.textContent = 'No payment method on file.';
-                const cta = document.createElement('a');
-                cta.className = 'pm-cta';
-                cta.href = pspEnrollUrl();
-                cta.textContent = 'Add a payment method';
-                box.appendChild(missing);
-                box.appendChild(cta);
-                payBtn.disabled = true;
-            }
+
+            const left = document.createElement('div');
+            left.className = 'pm-left';
+            const icon = document.createElement('span');
+            icon.className = 'pm-icon';
+            icon.textContent = 'EUDI';
+            const meta = document.createElement('div');
+            const label = document.createElement('div');
+            label.className = 'pm-label';
+            label.textContent = 'Your EUDI Wallet';
+            const sub = document.createElement('div');
+            sub.className = 'pm-sub';
+            sub.textContent = 'Card details are presented from your wallet at payment time.';
+            meta.appendChild(label);
+            meta.appendChild(sub);
+            left.appendChild(icon);
+            left.appendChild(meta);
+
+            const add = document.createElement('a');
+            add.className = 'pm-cta';
+            add.href = pspEnrollUrl();
+            add.textContent = 'Add payment method';
+
+            box.appendChild(left);
+            box.appendChild(add);
+            payBtn.disabled = false;
         }
 
         function showError(msg) {
@@ -448,10 +451,7 @@
                     headers: { 'Content-Type': 'application/json' },
                 });
                 if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    showError(err.error === 'payment_method_required'
-                        ? 'Add a payment method before checking out.'
-                        : 'Unable to start checkout session. Try again.');
+                    showError('Unable to start checkout session. Try again.');
                     payBtn.textContent = 'Pay with EUDI Wallet';
                     payBtn.disabled = false;
                     return;
@@ -498,8 +498,8 @@
         (async () => {
             try {
                 // Fire config + me in parallel. We need publicPspUrl before
-                // renderPaymentMethod runs (it composes the Replace / Add
-                // CTA href), and /api/me for the cart + user data.
+                // renderPaymentMethod runs (it composes the Add-payment-method
+                // CTA href), and /api/me for the cart data.
                 const [, me] = await Promise.all([loadConfig(), loadMe()]);
                 if (!me.cart || !me.cart.items || !me.cart.items.length) {
                     location.href = '/';
@@ -507,7 +507,7 @@
                 }
                 renderItems(me.cart.items);
                 document.getElementById('total-amount').textContent = AUD(me.cart.subtotal);
-                renderPaymentMethod(me.user && me.user.paymentMethod);
+                renderPaymentMethod();
             } catch (err) {
                 showError('Failed to load checkout.');
             }

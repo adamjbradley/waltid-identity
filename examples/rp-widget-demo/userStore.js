@@ -41,23 +41,24 @@ const path = require('path');
 // is stripped at upsert time — defence in depth if a future refactor
 // regresses and sends PII through.
 //
-// `paymentMethod` was added when the rp-cart-dpc PWA capture flow landed
-// (Task 15): after the user completes /psp/enroll and returns to the cart,
-// the capture flow writes a card stub `{panLastFour, scheme, payeeName,
-// addedAt}` that the checkout page displays as "Card ending ****". It's
-// not PII — last-four + scheme only — so the privacy envelope stays intact.
-//
 // `orders` was added when the checkout webhook landed (Task 18): each
 // record is `{id, items, total, currency, pwaMeta, transactionRef,
 // approvedAt, vpDigest}`. `items` already reflects the line-level shape
 // we keep on the session cart (productId + qty + priceAud + title + icon)
 // — no PII, and the digest is the sha256 of the presented VP payload so
 // receipts stay auditable without persisting the full VC.
+//
+// NOTE: `paymentMethod` used to be here too, carrying a capture-flow
+// stub `{panLastFour, scheme, payeeName, addedAt}`. That flow was
+// removed — the merchant doesn't discover card metadata between
+// enrollment and checkout in a standards-compliant OID4VP flow. Card
+// details surface on the order record (pwaMeta) after the checkout
+// presentation, not on the standalone user profile.
 const AUTHOP_ALLOWED_FIELDS = new Set([
   'sub', 'provider',
   'kyc_verified', 'age_over_18', 'age_over_21',
   'firstSeenAt', 'lastSeenAt', 'loginCount',
-  'paymentMethod', 'orders',
+  'orders',
 ]);
 
 class UserStore {

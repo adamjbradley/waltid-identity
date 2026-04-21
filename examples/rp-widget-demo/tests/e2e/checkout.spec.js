@@ -4,11 +4,12 @@
  * Walks a signed-in shopper from the storefront through the full
  * cart → checkout → pay → receipt flow without touching verifier-api2
  * or the PSP. Session is pre-hydrated via /_test/session so the user has
- * a 21+ claim (bypasses the age modal) and a paymentMethod on file
- * (unlocks the Pay button on /checkout).
+ * a 21+ claim (bypasses the age modal). The Pay button is always
+ * enabled on /checkout — card metadata is learned at presentation
+ * time, not before.
  *
  * Wire:
- *   1. POST /_test/session           — seed user + paymentMethod.
+ *   1. POST /_test/session           — seed user (age_over_21).
  *   2. POST /api/cart/items          — real route, clears age gate via
  *                                       user.age_over_21.
  *   3. Cart drawer → Checkout link   — navigates to /checkout (real route,
@@ -56,19 +57,17 @@ test.describe('rp-cart-dpc checkout e2e', () => {
     });
 
     // 1) Seed server session: user sub + age_over_21 (clears the age gate
-    //    on the first add) + a paymentMethod (unlocks the Pay button).
-    //    paymentMethod fields mirror the shape written by /api/pwa/capture
-    //    so the checkout + receipt render logic is exercised as-in-prod.
+    //    on the first add). The checkout page no longer gates the Pay
+    //    button on an on-session payment method — the wallet discovers
+    //    card details only at presentation time via OID4VP — so no
+    //    paymentMethod is seeded. The receipt page renders scheme +
+    //    panLastFour from the stubbed /api/orders/:id response below,
+    //    which mirrors a real POST /api/checkout/webhook capture.
     await page.request.post('/_test/session', {
       data: {
         user: {
           sub: 'test-sub',
           age_over_21: true,
-          paymentMethod: {
-            panLastFour: '4242',
-            scheme: 'Visa',
-            payeeName: 'Bank of Demo',
-          },
         },
       },
     });
