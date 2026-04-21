@@ -604,6 +604,141 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
   });
 });
 
+describe('POST /api/pwa/capture + /api/pwa/capture/webhook + /api/pwa/capture-status', () => {
+  // PWA capture (/cart?pwa=1 return flow): single-VCT DCQL for
+  // PaymentWalletAttestation asking for [panLastFour, scheme, payeeName].
+  // Success hydrates req.session.user.paymentMethod AND persists via
+  // userStore.upsert (when the session user has a sub).
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  let app;
+  let agent;
+  let originalFetch;
+  const tmpFiles = [];
+  beforeAll(() => { originalFetch = global.fetch; });
+  afterAll(() => {
+    global.fetch = originalFetch;
+    // Clean up any userStore files this suite created.
+    tmpFiles.forEach((f) => { try { fs.unlinkSync(f); } catch (_) { /* ignore */ } });
+  });
+  beforeEach(() => {
+    // Use a per-test userStore file (in the OS temp dir so nothing lands
+    // in the repo) so upsert persistence is inspectable without leaking
+    // state across tests.
+    const tmpFile = path.join(os.tmpdir(), 'rp-pwa-test-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.json');
+    tmpFiles.push(tmpFile);
+    process.env.USER_STORE_FILE = tmpFile;
+    app = createApp();
+    agent = request.agent(app);
+    global.fetch = jest.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/verification-session/create')) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            sessionId: 'pwa-sess-1',
+            bootstrapAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=pwa',
+            fullAuthorizationRequestUrl: 'openid4vp://authorize?request_uri=pwa_full',
+          }),
+        };
+      }
+      throw new Error('unexpected fetch ' + url);
+    });
+  });
+
+  it('POST /api/pwa/capture returns sessionId+qrCode and forwards PWA-capture DCQL', async () => {
+    const res = await agent.post('/api/pwa/capture').expect(200);
+    expect(res.body).toHaveProperty('sessionId', 'pwa-sess-1');
+    expect(res.body.qrCode).toMatch(/^openid4vp:/);
+    const [, opts] = global.fetch.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    const serialized = JSON.stringify(body.core_flow.dcql_query);
+    expect(serialized).toContain('PaymentWalletAttestation');
+    expect(serialized).toContain('panLastFour');
+    expect(serialized).toContain('scheme');
+    expect(serialized).toContain('payeeName');
+    // Single VCT — single credential in DCQL.
+    expect(body.core_flow.dcql_query.credentials).toHaveLength(1);
+    expect(body.core_flow.notifications.webhook.url).toMatch(/\/api\/pwa\/capture\/webhook\//);
+  });
+
+  it('webhook writes claims to the capture map', async () => {
+    await agent.post('/_test/session').send({
+      pwaCapture: { sessionId: 'p-1', token: 'pwa-tok', webhookSecret: 'pwa-sec' },
+    }).expect(200);
+    await agent.post('/_test/pwa-capture/register').send({ token: 'pwa-tok', webhookSecret: 'pwa-sec' }).expect(200);
+
+    await request(app).post('/api/pwa/capture/webhook/pwa-tok')
+      .set('Authorization', 'Bearer pwa-sec')
+      .send({
+        event: 'policy_results_available',
+        session: {
+          status: 'SUCCESSFUL',
+          presentedCredentials: {
+            pwa_0: [{ credentialData: { panLastFour: '4242', scheme: 'Visa', payeeName: 'Bank of Demo' } }],
+          },
+        },
+      })
+      .expect(200);
+
+    const statusRes = await agent.get('/api/pwa/capture-status').expect(200);
+    expect(statusRes.body.verified).toBe(true);
+    expect(statusRes.body.paymentMethod).toMatchObject({
+      panLastFour: '4242', scheme: 'Visa', payeeName: 'Bank of Demo',
+    });
+    expect(statusRes.body.paymentMethod.addedAt).toBeGreaterThan(0);
+  });
+
+  it('hydrates req.session.user.paymentMethod and persists via userStore when user.sub present', async () => {
+    // Seed a session user with a sub first (authop-style profile).
+    await agent.post('/_test/session').send({
+      user: { sub: 'sub-capture-1', provider: 'authop', age_over_21: true, kyc_verified: true },
+      provider: 'authop',
+      pwaCapture: { sessionId: 'p-2', token: 'pwa-tok-2', webhookSecret: 'secret-2' },
+    }).expect(200);
+    await agent.post('/_test/pwa-capture/register').send({ token: 'pwa-tok-2', webhookSecret: 'secret-2' }).expect(200);
+
+    await request(app).post('/api/pwa/capture/webhook/pwa-tok-2')
+      .set('Authorization', 'Bearer secret-2')
+      .send({
+        event: 'policy_results_available',
+        session: {
+          status: 'SUCCESSFUL',
+          presentedCredentials: { pwa_0: [{ credentialData: { panLastFour: '1234', scheme: 'Visa', payeeName: 'Bank of Demo' } }] },
+        },
+      })
+      .expect(200);
+
+    await agent.get('/api/pwa/capture-status').expect(200);
+
+    // Verify session user now carries paymentMethod via /api/me readback.
+    const me = await agent.get('/api/me').expect(200);
+    expect(me.body.user).toBeTruthy();
+    expect(me.body.user.paymentMethod).toMatchObject({ panLastFour: '1234', scheme: 'Visa', payeeName: 'Bank of Demo' });
+
+    // Verify userStore persisted. Construct a fresh UserStore pointed at
+    // the same file so we're reading from disk, not an in-memory copy.
+    const { UserStore } = require('../userStore');
+    const store = new UserStore(process.env.USER_STORE_FILE);
+    const saved = store.get('sub-capture-1');
+    expect(saved).toBeTruthy();
+    expect(saved.paymentMethod).toMatchObject({ panLastFour: '1234', scheme: 'Visa' });
+  });
+
+  it('capture-status ignores non-final events (returns null)', async () => {
+    await agent.post('/_test/session').send({
+      pwaCapture: { sessionId: 'p-3', token: 'pwa-tok-3', webhookSecret: 'sec3' },
+    }).expect(200);
+    await agent.post('/_test/pwa-capture/register').send({ token: 'pwa-tok-3', webhookSecret: 'sec3' }).expect(200);
+    await request(app).post('/api/pwa/capture/webhook/pwa-tok-3')
+      .set('Authorization', 'Bearer sec3')
+      .send({ event: 'presentation_received', session: { status: 'ACTIVE' } })
+      .expect(200);
+    const statusRes = await agent.get('/api/pwa/capture-status').expect(200);
+    expect(statusRes.body.verified).toBeNull();
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;

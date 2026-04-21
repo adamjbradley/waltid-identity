@@ -40,10 +40,17 @@ const path = require('path');
 // Fields permitted on authop records. Anything else on the incoming profile
 // is stripped at upsert time — defence in depth if a future refactor
 // regresses and sends PII through.
+//
+// `paymentMethod` was added when the rp-cart-dpc PWA capture flow landed
+// (Task 15): after the user completes /psp/enroll and returns to the cart,
+// the capture flow writes a card stub `{panLastFour, scheme, payeeName,
+// addedAt}` that the checkout page displays as "Card ending ****". It's
+// not PII — last-four + scheme only — so the privacy envelope stays intact.
 const AUTHOP_ALLOWED_FIELDS = new Set([
   'sub', 'provider',
   'kyc_verified', 'age_over_18', 'age_over_21',
   'firstSeenAt', 'lastSeenAt', 'loginCount',
+  'paymentMethod',
 ]);
 
 class UserStore {

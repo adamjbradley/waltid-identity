@@ -79,6 +79,20 @@ function buildPidIdentityDcql() {
 }
 
 /**
+ * PaymentWalletAttestation DCQL — single-VCT, single-credential. Claims
+ * [panLastFour, scheme, payeeName] is what the /cart?pwa=1 capture flow
+ * asks for after the user returns from /psp/enroll.
+ */
+function buildPwaCaptureDcql() {
+  return buildSingletonDcql(
+    ['PaymentWalletAttestation'],
+    [['panLastFour'], ['scheme'], ['payeeName']],
+    'dc+sd-jwt',
+    'pwa',
+  );
+}
+
+/**
  * In-memory token maps leak if nothing ever evicts them. The status-poll
  * handler deletes once a terminal verdict has been mirrored into the
  * session cookie, but a user who closes the tab before polling would leave
@@ -261,10 +275,12 @@ function createApp() {
   // test suites that build a fresh app don't inherit state from earlier ones.
   const ageCheckByToken = new Map();
 
-  // Parallel map for the PSP-enrollment PID presentation. Same keying +
-  // TTL discipline as ageCheckByToken — kept separate so the status poll
-  // doesn't need to disambiguate "which flow owns this token".
+  // Parallel maps for the PSP-enrollment PID presentation and the
+  // post-return PWA metadata capture. Same keying + TTL discipline as
+  // ageCheckByToken — kept separate so the status poll doesn't need to
+  // disambiguate "which flow owns this token".
   const pspEnrollByToken = new Map();
+  const pwaCaptureByToken = new Map();
 
   // Per-app userStore. See resolveUserStoreFile() — the file path is
   // evaluated here so each call to createApp() can pick up a fresh
@@ -663,11 +679,17 @@ function createApp() {
       registerAgeCheck(ageCheckByToken, token, { webhookSecret, verified: null });
       res.json({ ok: true });
     });
-    // Same pattern for the PSP-enrollment PID flow.
+    // Same pattern for the PSP-enrollment PID and PWA capture flows.
     app.post('/_test/psp/register', (req, res) => {
       const { token, webhookSecret } = req.body || {};
       if (!token || !webhookSecret) return res.status(400).json({ error: 'missing_fields' });
       registerSessionToken(pspEnrollByToken, token, { webhookSecret, verified: null, claims: null });
+      res.json({ ok: true });
+    });
+    app.post('/_test/pwa-capture/register', (req, res) => {
+      const { token, webhookSecret } = req.body || {};
+      if (!token || !webhookSecret) return res.status(400).json({ error: 'missing_fields' });
+      registerSessionToken(pwaCaptureByToken, token, { webhookSecret, verified: null, claims: null });
       res.json({ ok: true });
     });
   }
@@ -864,6 +886,119 @@ function createApp() {
       console.warn('[psp] offer error', err.message || err);
       res.status(502).json({ error: 'issuer_unavailable' });
     }
+  });
+
+  // ============================================================
+  // PWA metadata capture (/cart?pwa=1 return flow)
+  // ============================================================
+  //
+  // After /psp/enroll the user clicks "I've added it" and lands on
+  // /cart?pwa=1. The client fires POST /api/pwa/capture, which starts
+  // a fresh OID4VP presentation for the PaymentWalletAttestation VCT
+  // with claims [panLastFour, scheme, payeeName]. When the webhook
+  // receives SUCCESSFUL, the capture-status poll hydrates the payment
+  // method onto the session user AND persists it via userStore.upsert
+  // (so the profile hover keeps showing the card across sessions).
+
+  app.post('/api/pwa/capture', async (req, res) => {
+    const token = crypto.randomBytes(16).toString('hex');
+    const webhookSecret = crypto.randomBytes(32).toString('base64url');
+    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, '')}/api/pwa/capture/webhook/${token}`;
+    const body = {
+      flow_type: 'cross_device',
+      core_flow: {
+        dcql_query: buildPwaCaptureDcql(),
+        signed_request: true,
+        notifications: {
+          webhook: { url: webhookUrl, bearer_token: webhookSecret },
+        },
+      },
+    };
+    try {
+      const r = await fetch(
+        `${VERIFIER_API2_URL}/verification-session/create?rpId=${encodeURIComponent(RP_ID)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
+      if (!r.ok) {
+        console.warn('[pwa-capture] verifier-api2 session-create failed', r.status);
+        return res.status(502).json({ error: 'verifier_unavailable' });
+      }
+      const session = await r.json();
+      const qrCode = session.bootstrapAuthorizationRequestUrl || session.fullAuthorizationRequestUrl;
+      registerSessionToken(pwaCaptureByToken, token, { webhookSecret, verified: null, claims: null });
+      req.session.pwaCapture = { sessionId: session.sessionId, token, webhookSecret };
+      res.json({ sessionId: session.sessionId, qrCode });
+    } catch (err) {
+      console.warn('[pwa-capture] session-create error', err.message || err);
+      res.status(502).json({ error: 'verifier_unavailable' });
+    }
+  });
+
+  app.post('/api/pwa/capture/webhook/:token', (req, res) => {
+    const entry = pwaCaptureByToken.get(req.params.token);
+    if (!entry) return res.status(404).json({ error: 'unknown_token' });
+    const authHeader = req.header('authorization') || '';
+    if (!/^Bearer\s+/i.test(authHeader)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    const provided = Buffer.from(authHeader.replace(/^Bearer\s+/i, '').trim(), 'utf8');
+    const expected = Buffer.from(entry.webhookSecret || '', 'utf8');
+    if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+      return res.status(401).json({ error: 'bad_secret' });
+    }
+    if (req.body.event !== 'policy_results_available') return res.json({ ok: true });
+    const session = req.body.session || {};
+    if (session.status !== 'SUCCESSFUL') {
+      entry.verified = false;
+      return res.json({ ok: true });
+    }
+    const creds = session.presentedCredentials || {};
+    for (const arr of Object.values(creds)) {
+      if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
+        const cd = arr[0].credentialData;
+        entry.verified = true;
+        entry.claims = {
+          panLastFour: cd.panLastFour,
+          scheme: cd.scheme,
+          payeeName: cd.payeeName,
+        };
+        return res.json({ ok: true });
+      }
+    }
+    entry.verified = false;
+    res.json({ ok: true });
+  });
+
+  app.get('/api/pwa/capture-status', (req, res) => {
+    const tok = req.session.pwaCapture && req.session.pwaCapture.token;
+    if (!tok) return res.json({ verified: null });
+    const entry = pwaCaptureByToken.get(tok);
+    if (!entry) return res.json({ verified: null });
+    if (entry.verified === true) {
+      const paymentMethod = Object.assign({}, entry.claims || {}, { addedAt: Date.now() });
+      // Mirror into the active session so the profile hover reflects the
+      // new payment method without a re-login.
+      req.session.user = Object.assign({}, req.session.user || {}, { paymentMethod });
+      // Persist across sessions. If the session user has a sub, upsert;
+      // otherwise the capture still lives on the session cookie until
+      // logout — demo UX, not a production contract.
+      if (req.session.user && req.session.user.sub) {
+        try {
+          userStore.upsert(Object.assign({}, req.session.user, {
+            provider: req.session.provider || req.session.user.provider || 'authop',
+          }));
+        } catch (err) {
+          console.warn('[pwa-capture] userStore upsert failed:', err.message);
+        }
+      }
+      pwaCaptureByToken.delete(tok);
+      return res.json({ verified: true, paymentMethod });
+    }
+    if (entry.verified === false) {
+      pwaCaptureByToken.delete(tok);
+      return res.json({ verified: false, paymentMethod: null });
+    }
+    res.json({ verified: null });
   });
 
   // ---------------- OIDC login routes (multi-provider) ----------------
