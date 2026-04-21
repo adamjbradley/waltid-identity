@@ -1001,23 +1001,44 @@ function createApp() {
     res.json({ verified: null });
   });
 
+  // ============================================================
+  // /checkout review page (Task 16)
+  // ============================================================
+  //
+  // Gated on cart non-emptiness: an empty-cart visit redirects home so
+  // the user can't land on a review page with nothing to review. The
+  // page itself fetches /api/me for {user, cart} in one round trip
+  // and renders the order summary + "Pay with …" line client-side.
+
+  app.get('/checkout', (req, res) => {
+    const items = (req.session.cart && req.session.cart.items) || [];
+    if (!items.length) return res.redirect('/');
+    res.sendFile(path.join(__dirname, 'public', 'checkout.html'));
+  });
+
   // ---------------- OIDC login routes (multi-provider) ----------------
   // These are registered unconditionally so `/api/me` always works; the
   // actual login/callback handlers return 503 when the requested provider
   // is not configured.
 
-  /** GET /api/me — current login state + list of enabled providers. */
+  /** GET /api/me — current login state + list of enabled providers +
+   *  current cart summary. The cart field lets the /checkout page render
+   *  with a single round-trip (user + line items + total in one shot).
+   *  We ensure the session has a cart initialized so summary() works
+   *  even for a fresh visitor. */
   app.get('/api/me', (req, res) => {
     const providers = enabledProviderNames().map((name) => ({
       name,
       label: OIDC_PROVIDERS[name].label,
       loginPath: name === 'keycloak' ? '/login' : `/login/${name}`,
     }));
+    const cart = summary(req.session.cart || emptyCart());
     res.json({
       oidcEnabled: OIDC_ENABLED,
       providers,
       user: (req.session && req.session.user) || null,
       activeProvider: (req.session && req.session.provider) || null,
+      cart,
     });
   });
 

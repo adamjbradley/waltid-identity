@@ -3434,6 +3434,15 @@
             if (overlay) overlay.addEventListener('click', closeCartDrawer);
             if (closeBtn) closeBtn.addEventListener('click', closeCartDrawer);
             if (keepShopping) keepShopping.addEventListener('click', closeCartDrawer);
+            // Drawer's "Checkout" CTA → dedicated review page. /checkout
+            // itself 302s back to / when the cart is empty so this doesn't
+            // need to guard (but we still close the drawer first so the
+            // destination page isn't layered behind an open drawer).
+            const checkoutBtn = document.getElementById('cart-checkout-btn');
+            if (checkoutBtn) checkoutBtn.addEventListener('click', () => {
+                closeCartDrawer();
+                location.href = '/checkout';
+            });
             document.addEventListener('keydown', (e) => {
                 const drawer = document.getElementById('cart-drawer');
                 if (e.key === 'Escape' && drawer && drawer.classList.contains('open')) closeCartDrawer();

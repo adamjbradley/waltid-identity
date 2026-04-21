@@ -739,6 +739,56 @@ describe('POST /api/pwa/capture + /api/pwa/capture/webhook + /api/pwa/capture-st
   });
 });
 
+describe('GET /checkout + GET /api/me', () => {
+  // Task 16 — the /checkout review page gates on cart non-emptiness and the
+  // new /api/me response shape combines {user, cart} so the page's on-load
+  // fetch only needs one round-trip. /api/me pre-existed (provider list);
+  // we additively return a cart summary so the checkout page can render
+  // items + total + payment-method line without a second call.
+  let app;
+  let agent;
+  beforeEach(() => {
+    app = createApp();
+    agent = request.agent(app);
+  });
+
+  it('GET /checkout with empty cart redirects to /', async () => {
+    const res = await agent.get('/checkout').expect(302);
+    expect(res.headers.location).toBe('/');
+  });
+
+  it('GET /checkout with items returns 200 HTML', async () => {
+    await agent.post('/_test/session').send({ ageVerified: true }).expect(200);
+    await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+    const res = await agent.get('/checkout').expect(200);
+    expect(res.headers['content-type']).toMatch(/html/);
+    expect(res.text).toContain('<!DOCTYPE html>');
+    expect(res.text.toLowerCase()).toContain('checkout');
+  });
+
+  it('GET /api/me returns user + cart summary', async () => {
+    // Seed a user and an item.
+    await agent.post('/_test/session').send({
+      user: { sub: 'u1', provider: 'authop', age_over_21: true, paymentMethod: { scheme: 'Visa', panLastFour: '4242' } },
+      ageVerified: true,
+    }).expect(200);
+    await agent.post('/api/cart/items').send({ productId: 'hibiki-harmony' }).expect(200);
+
+    const res = await agent.get('/api/me').expect(200);
+    expect(res.body.user).toMatchObject({ sub: 'u1', paymentMethod: { scheme: 'Visa', panLastFour: '4242' } });
+    expect(res.body.cart).toMatchObject({ count: 1, subtotal: expect.any(Number) });
+    expect(res.body.cart.items).toHaveLength(1);
+    expect(res.body.cart.items[0]).toMatchObject({ productId: 'hibiki-harmony', qty: 1 });
+  });
+
+  it('GET /api/me returns empty cart + null user for fresh session', async () => {
+    const fresh = request.agent(app);
+    const res = await fresh.get('/api/me').expect(200);
+    expect(res.body.user).toBeNull();
+    expect(res.body.cart).toEqual({ items: [], subtotal: 0, count: 0 });
+  });
+});
+
 describe('Integration Tests with Sandbox API', () => {
   let app;
   let sandboxAvailable = false;
