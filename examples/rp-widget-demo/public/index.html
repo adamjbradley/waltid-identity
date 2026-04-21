@@ -287,6 +287,63 @@
             color: rgba(255, 255, 255, 0.4);
             font-style: italic;
         }
+        /* Payment-method section in the profile hover — introduced by the
+           rp-cart-dpc PSP-enrollment flow (Task 14). Renders either a
+           card-ending summary + [Replace] link, or an [Add payment method]
+           CTA when no PWA has been captured yet. Styled to match the
+           existing framed sub-groups (.claim-group). */
+        #profile-claims .payment-method {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-left: 2px solid var(--primary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        #profile-claims .payment-method-title {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        #profile-claims .payment-method-info {
+            font-size: 12px;
+            color: var(--white);
+        }
+        #profile-claims .payment-method-info strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+        #profile-claims .payment-method-cta {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--primary);
+            color: var(--white);
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: filter 140ms ease;
+        }
+        #profile-claims .payment-method-cta:hover {
+            filter: brightness(1.1);
+        }
+        #profile-claims .payment-method-replace {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.55);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        #profile-claims .payment-method-replace:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
 
         /* ===== CART ICON + BADGE ===== */
         .cart-icon {
@@ -2953,6 +3010,53 @@
             parent.appendChild(group);
         }
 
+        /** Append the payment-method row to the profile hover. If the user
+         *  has a `paymentMethod` on their session profile we render the
+         *  "Card ending …" summary plus a small [Replace] link; otherwise
+         *  we render a primary [Add payment method] CTA. Both point at
+         *  /psp/enroll (the Bank-of-Demo mini-page from Task 13). */
+        function renderPaymentMethodSection(parent, user) {
+            const block = document.createElement('div');
+            block.className = 'payment-method';
+
+            const left = document.createElement('div');
+            const t = document.createElement('div');
+            t.className = 'payment-method-title';
+            t.textContent = 'Payment method';
+            left.appendChild(t);
+
+            const info = document.createElement('div');
+            info.className = 'payment-method-info';
+
+            if (user && user.paymentMethod) {
+                const { scheme, panLastFour } = user.paymentMethod;
+                info.appendChild(document.createTextNode(`${scheme || 'Card'} ending `));
+                const strong = document.createElement('strong');
+                strong.textContent = panLastFour || '****';
+                info.appendChild(strong);
+                left.appendChild(info);
+                block.appendChild(left);
+
+                const replace = document.createElement('a');
+                replace.className = 'payment-method-replace';
+                replace.href = '/psp/enroll';
+                replace.textContent = 'Replace';
+                block.appendChild(replace);
+            } else {
+                info.textContent = 'None on file';
+                left.appendChild(info);
+                block.appendChild(left);
+
+                const add = document.createElement('a');
+                add.className = 'payment-method-cta';
+                add.href = '/psp/enroll';
+                add.textContent = 'Add payment method';
+                block.appendChild(add);
+            }
+
+            parent.appendChild(block);
+        }
+
         function renderClaimsPopover(user) {
             const pop = document.getElementById('profile-claims');
             if (!pop) return;
@@ -2969,6 +3073,9 @@
                 empty.className = 'claim-empty';
                 empty.textContent = 'No claims in session.';
                 pop.appendChild(empty);
+                // Still offer the Add/Replace CTA even when there are no OIDC
+                // claims — the PSP flow doesn't depend on any particular claim.
+                renderPaymentMethodSection(pop, user);
                 return;
             }
 
@@ -3002,6 +3109,10 @@
                     if (!known.has(k)) appendClaimRow(pop, 'preferences.' + k, v);
                 });
             }
+
+            // Payment method Add/Replace row comes last so the primary OIDC
+            // claims stay above the fold when scrolling the popover.
+            renderPaymentMethodSection(pop, user);
         }
 
         // ----------------------------------------------------------------
