@@ -22,6 +22,34 @@ services:
       - ./wallet-api/data:/waltid-wallet-api/data
       - ./caddy-root-ca.crt:/etc/ssl/certs/caddy-root-ca.crt:ro
 
+  # One-shot bootstrap: seed runtime status-list registry files into the
+  # bind mount if they don't already exist. Runtime files are gitignored
+  # (mutated on every issuance), but StatusListIssuanceHook.allocateForCredential
+  # crashes with FileNotFoundException when they go missing. Seeding from a
+  # tracked snapshot keeps a fresh deploy — and any accidental wipe — usable.
+  issuer-api-init:
+    image: busybox:latest
+    pull_policy: missing
+    profiles:
+      - services
+      - identity
+      - all
+    volumes:
+      - ./issuer-api/config:/config
+    command: >
+      sh -c 'mkdir -p /config/status-lists/registry &&
+             for f in /config/status-lists.seed/*.json; do
+               [ -e "$$f" ] || continue;
+               dest=/config/status-lists/$$(basename "$$f");
+               [ -e "$$dest" ] || cp "$$f" "$$dest" && echo "seeded $$dest";
+             done &&
+             for f in /config/status-lists.seed/registry/*.json; do
+               [ -e "$$f" ] || continue;
+               dest=/config/status-lists/registry/$$(basename "$$f");
+               [ -e "$$dest" ] || cp "$$f" "$$dest" && echo "seeded $$dest";
+             done'
+    restart: "no"
+
   issuer-api:
     image: ${IMAGE_PREFIX}waltid/issuer-api:${VERSION_TAG:-latest}
     profiles:
@@ -30,8 +58,12 @@ services:
       - all
     pull_policy: missing
     depends_on:
-      - caddy
-      - keycloak
+      issuer-api-init:
+        condition: service_completed_successfully
+      caddy:
+        condition: service_started
+      keycloak:
+        condition: service_started
     env_file:
       - .env
       - path: .env.local
