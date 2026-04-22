@@ -208,3 +208,7 @@ docker-compose/.env.local
 # Issuer-api runtime status-list state (regenerated on every credential issuance)
 docker-compose/issuer-api/config/status-lists/*.json
 docker-compose/issuer-api/config/status-lists/registry/*.json
+
+# rp-widget-demo runtime user profile registry (bind-mounted into
+# the container at /app/data — see docker-compose.yaml)
+docker-compose/rp-widget-demo/data/

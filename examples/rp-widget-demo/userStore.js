@@ -40,10 +40,25 @@ const path = require('path');
 // Fields permitted on authop records. Anything else on the incoming profile
 // is stripped at upsert time — defence in depth if a future refactor
 // regresses and sends PII through.
+//
+// `orders` was added when the checkout webhook landed (Task 18): each
+// record is `{id, items, total, currency, pwaMeta, transactionRef,
+// approvedAt, vpDigest}`. `items` already reflects the line-level shape
+// we keep on the session cart (productId + qty + priceAud + title + icon)
+// — no PII, and the digest is the sha256 of the presented VP payload so
+// receipts stay auditable without persisting the full VC.
+//
+// NOTE: `paymentMethod` used to be here too, carrying a capture-flow
+// stub `{panLastFour, scheme, payeeName, addedAt}`. That flow was
+// removed — the merchant doesn't discover card metadata between
+// enrollment and checkout in a standards-compliant OID4VP flow. Card
+// details surface on the order record (pwaMeta) after the checkout
+// presentation, not on the standalone user profile.
 const AUTHOP_ALLOWED_FIELDS = new Set([
   'sub', 'provider',
   'kyc_verified', 'age_over_18', 'age_over_21',
   'firstSeenAt', 'lastSeenAt', 'loginCount',
+  'orders',
 ]);
 
 class UserStore {
@@ -128,6 +143,49 @@ class UserStore {
   /** Count of stored users (for tiny metrics in the UI). */
   count() {
     return this.users.length;
+  }
+
+  /** Look up a single stored user by sub. Returns undefined on miss. */
+  get(sub) {
+    if (!sub) return undefined;
+    return this.users.find((u) => u.sub === sub);
+  }
+
+  /**
+   * Remove a user by sub. Returns true on deletion, false if no such user.
+   * Used by the admin API to purge a profile; orders on that profile go
+   * with it since they live under the user record.
+   */
+  remove(sub) {
+    if (!sub) return false;
+    const before = this.users.length;
+    this.users = this.users.filter((u) => u.sub !== sub);
+    if (this.users.length === before) return false;
+    this._persist();
+    return true;
+  }
+
+  /**
+   * Admin-initiated partial update of a stored profile. Unlike `upsert`
+   * this does NOT bump `loginCount` or `lastSeenAt` — it's an administrative
+   * edit, not a login event. Only the three boolean verification flags are
+   * writable; anything else in the patch is ignored. Returns the saved
+   * record, or undefined if no such user.
+   */
+  adminUpdate(sub, patch) {
+    if (!sub) return undefined;
+    const existing = this.users.find((u) => u.sub === sub);
+    if (!existing) return undefined;
+    const allowed = new Set(['kyc_verified', 'age_over_18', 'age_over_21']);
+    const sanitized = Object.fromEntries(
+      Object.entries(patch || {})
+        .filter(([k, v]) => allowed.has(k) && typeof v === 'boolean'),
+    );
+    if (Object.keys(sanitized).length === 0) return existing;
+    const saved = Object.assign({}, existing, sanitized);
+    this.users = this.users.map((u) => (u.sub === sub ? saved : u));
+    this._persist();
+    return saved;
   }
 }
 

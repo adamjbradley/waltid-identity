@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order — Oz Bottleshop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #1f6feb;
+            --accent-dark: #1a5bc4;
+            --bg-gradient: radial-gradient(circle at 20% 10%, #1c2a4a 0%, #0a1024 60%, #060916 100%);
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text: #f3f5ff;
+            --text-dim: rgba(243, 245, 255, 0.65);
+            --muted: rgba(243, 245, 255, 0.4);
+            --ok: #72d887;
+            --danger: #ff9191;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Source Sans 3', -apple-system, sans-serif;
+            color: var(--text);
+            background: var(--bg-gradient);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 16px;
+        }
+        .card {
+            width: 100%;
+            max-width: 620px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.55);
+            padding: 32px 28px 28px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent) 0%, #67a3ff 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text);
+            box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
+        }
+        .brand-name {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        h1 {
+            margin: 14px 0 6px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 26px;
+            font-weight: 700;
+        }
+        .hero {
+            color: var(--text-dim);
+            font-size: 15px;
+            margin-bottom: 14px;
+        }
+        .hero strong {
+            color: var(--ok);
+            font-weight: 600;
+        }
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            background: rgba(114, 216, 135, 0.08);
+            border: 1px solid rgba(114, 216, 135, 0.28);
+            color: var(--ok);
+            border-radius: 999px;
+            margin-bottom: 22px;
+            cursor: help;
+        }
+        .verified-badge svg {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+        }
+        .section {
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .section-title {
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+        .line-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .line-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+            font-size: 14px;
+        }
+        .line-item:last-child { border-bottom: 0; }
+        .line-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .line-item-icon {
+            font-size: 22px;
+            line-height: 1;
+            width: 30px;
+            text-align: center;
+        }
+        .line-item-name {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .line-item-qty {
+            color: var(--text-dim);
+            margin-left: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+        .line-item-price {
+            color: var(--muted);
+            margin-left: 6px;
+            font-variant-numeric: tabular-nums;
+            font-size: 12px;
+        }
+        .line-item-total {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+        .totals {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+        }
+        .totals-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+        }
+        .totals-amount {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 28px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .meta-row + .meta-row { border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+        .meta-label {
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+        .meta-value {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .meta-value code {
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 12px;
+            color: #67a3ff;
+            background: rgba(31, 111, 235, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 22px;
+        }
+        .btn-primary, .btn-secondary {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: background 160ms ease, transform 80ms ease;
+            text-align: center;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #67a3ff 100%);
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(31, 111, 235, 0.35);
+        }
+        .btn-primary:hover { transform: translateY(-1px); }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); }
+        .banner {
+            margin: -8px 0 16px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: rgba(255, 145, 145, 0.08);
+            border: 1px solid rgba(255, 145, 145, 0.25);
+            color: #ffc9c9;
+        }
+        .banner[hidden] { display: none; }
+        .footer-note {
+            margin-top: 18px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="brand">
+            <div class="brand-mark">OZ</div>
+            <div class="brand-name">Oz Bottleshop</div>
+        </div>
+        <h1 id="page-title">Order</h1>
+        <p class="hero"><strong>Thanks!</strong> Your order is confirmed.</p>
+        <span id="verified-badge" class="verified-badge" hidden title="">
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+                <path fill="currentColor" d="M4.5 8.6 2 6.1l1-1 1.5 1.5L8.9 2.3l1 1z"/>
+            </svg>
+            Verified by EUDI Wallet
+        </span>
+
+        <div id="error-banner" class="banner" hidden></div>
+
+        <section class="section" id="items-section" hidden>
+            <div class="section-title">Items</div>
+            <ul id="line-items" class="line-items"></ul>
+            <div class="totals">
+                <span class="totals-label">Subtotal</span>
+                <span class="totals-amount" id="total-amount">AUD 0.00</span>
+            </div>
+        </section>
+
+        <section class="section" id="payment-section" hidden>
+            <div class="section-title">Payment</div>
+            <div class="meta-row">
+                <span class="meta-label">Paid with</span>
+                <span class="meta-value" id="payment-line">&mdash;</span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">Transaction ref</span>
+                <span class="meta-value"><code id="transaction-ref">&mdash;</code></span>
+            </div>
+        </section>
+
+        <div class="actions">
+            <a class="btn-secondary" href="/" id="keep-shopping">Keep shopping</a>
+        </div>
+
+        <p class="footer-note">
+            Receipts persist on this device for the session; logged-in shoppers
+            also get them in their profile.
+        </p>
+    </main>
+
+    <script>
+        const AUD = (n) => 'AUD ' + (Number(n) || 0).toFixed(2);
+
+        function clearNode(el) {
+            while (el.firstChild) el.removeChild(el.firstChild);
+        }
+
+        /** Extract the order id from the path. Handles both `/order/:id`
+         *  and a trailing slash; anything after a question mark / hash is
+         *  stripped because we only need the path component. */
+        function orderIdFromPath() {
+            const m = location.pathname.match(/^\/order\/([^/?#]+)/);
+            return m ? decodeURIComponent(m[1]) : null;
+        }
+
+        function showError(msg) {
+            const b = document.getElementById('error-banner');
+            b.textContent = msg;
+            b.hidden = false;
+        }
+
+        /** Format an epoch-ms approvedAt into "YYYY-MM-DD HH:mm UTC". Kept
+         *  deliberately simple — no locale-dependent date formatting so the
+         *  test fixture output is stable and the UX is unambiguous. */
+        function formatApprovedAt(ts) {
+            if (!ts) return '';
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '';
+            const pad = (n) => String(n).padStart(2, '0');
+            return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) +
+                   ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ' UTC';
+        }
+
+        function renderItems(items) {
+            const ul = document.getElementById('line-items');
+            clearNode(ul);
+            (items || []).forEach((i) => {
+                const li = document.createElement('li');
+                li.className = 'line-item';
+                const left = document.createElement('div');
+                left.className = 'line-item-left';
+                const icon = document.createElement('span');
+                icon.className = 'line-item-icon';
+                icon.textContent = i.imageUrl || '\u{1F37E}';
+                const name = document.createElement('span');
+                name.className = 'line-item-name';
+                name.textContent = i.title || i.productId;
+                const qty = document.createElement('span');
+                qty.className = 'line-item-qty';
+                qty.textContent = ' x' + i.qty;
+                const price = document.createElement('span');
+                price.className = 'line-item-price';
+                price.textContent = '@ ' + AUD(i.priceAud);
+                left.appendChild(icon);
+                left.appendChild(name);
+                left.appendChild(qty);
+                left.appendChild(price);
+                const total = document.createElement('span');
+                total.className = 'line-item-total';
+                total.textContent = AUD((i.priceAud || 0) * (i.qty || 0));
+                li.appendChild(left);
+                li.appendChild(total);
+                ul.appendChild(li);
+            });
+        }
+
+        function renderVerifiedBadge(vpDigest) {
+            if (!vpDigest) return;
+            const badge = document.getElementById('verified-badge');
+            // Show 8 leading + 8 trailing hex chars as a title-tooltip so an
+            // auditor can spot-check the digest without the page getting
+            // visually noisy. Full digest stays in the /api/orders response.
+            const short = String(vpDigest);
+            const display = short.length > 20
+                ? short.slice(0, 8) + '\u2026' + short.slice(-8)
+                : short;
+            badge.title = 'VP digest: ' + display;
+            badge.hidden = false;
+        }
+
+        function renderPaymentLine(order) {
+            const pm = order.pwaMeta || {};
+            const scheme = pm.scheme || 'Card';
+            const panLastFour = pm.panLastFour || '****';
+            const when = formatApprovedAt(order.approvedAt);
+            const line = document.getElementById('payment-line');
+            line.textContent = scheme + ' ****' + panLastFour + (when ? ' at ' + when : '');
+        }
+
+        async function loadOrder(id) {
+            const res = await fetch('/api/orders/' + encodeURIComponent(id), { credentials: 'include' });
+            if (res.status === 404) {
+                showError('Order not found.');
+                return null;
+            }
+            if (!res.ok) throw new Error('order fetch failed: ' + res.status);
+            return res.json();
+        }
+
+        (async () => {
+            const id = orderIdFromPath();
+            if (!id) {
+                showError('Missing order id.');
+                return;
+            }
+            document.getElementById('page-title').textContent = 'Order ' + id;
+            document.title = 'Order ' + id + ' \u2014 Oz Bottleshop';
+            let order;
+            try {
+                order = await loadOrder(id);
+            } catch (err) {
+                showError('Failed to load order.');
+                return;
+            }
+            if (!order) return;
+            document.getElementById('items-section').hidden = false;
+            document.getElementById('payment-section').hidden = false;
+            renderItems(order.items || []);
+            document.getElementById('total-amount').textContent = AUD(order.total);
+            document.getElementById('transaction-ref').textContent = order.transactionRef || order.id;
+            renderPaymentLine(order);
+            renderVerifiedBadge(order.vpDigest);
+        })();
+    </script>
+</body>
+</html>

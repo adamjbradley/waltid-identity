@@ -456,7 +456,21 @@ services:
       RP_DOMAIN: "rp.theaustraliahack.com"
       # Verifier API2 internal URL (for proxying wallet VP token responses)
       VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
+      # External PSP origin for the "Add payment method" / "Replace"
+      # buttons. The RP now redirects shoppers to the standalone mock-psp
+      # service (psp.theaustraliahack.com) for enrolment; see
+      # examples/mock-psp-demo.
+      PUBLIC_PSP_URL: "${PSP_EXTERNAL_URL:-https://psp.theaustraliahack.com}"
+      # Public base for the PWA capture + checkout webhooks that verifier-
+      # api2 calls back to. Must resolve from verifier-api2's network
+      # namespace (the Cloudflare-tunnelled origin, not localhost).
+      PUBLIC_URL: "${RP_EXTERNAL_URL:-https://rp.theaustraliahack.com}"
       PORT: 4000
+      # Persistent profile registry. Defaults to /app/data/users.json
+      # which the Dockerfile prepares. The rp-widget-data named volume
+      # below keeps it across container recreates — without this the
+      # admin console would only ever show the last session's logins.
+      USER_STORE_FILE: "/app/data/users.json"
       # OIDC RP login — unset RP_THEAUSTRALIAHACK_SECRET to disable.
       # Both OPs are configured simultaneously; the UI offers both buttons.
       KEYCLOAK_ISSUER: "${RP_KEYCLOAK_ISSUER:-}"
@@ -470,6 +484,47 @@ services:
       NODE_ENV: "${NODE_ENV:-production}"
     ports:
       - "${RP_WIDGET_PORT:-4000}:4000"
+    volumes:
+      # Persistent user registry — host-side bind mount so the operator
+      # can inspect / edit / back up users.json directly from the host
+      # filesystem. On the Windows docker host this resolves to
+      # C:\Users\sshuser\Projects\waltid-identity\docker-compose\rp-widget-demo\data\.
+      # Dockerfile creates /app/data as demoapp:nodejs — Docker Desktop's
+      # Windows bind mounts tolerate the uid mismatch so file writes work
+      # without a chown dance.
+      - ./rp-widget-demo/data:/app/data
+
+  # Mock PSP (Bank of Demo) — Payment Wallet Attestation issuer for the
+  # rp-widget-demo. Production-shaped: own process, own domain
+  # (psp.theaustraliahack.com), own deployment lifecycle. The RP redirects
+  # the shopper here for "Add payment method"; after enrolment the PSP
+  # bounces back to the RP (only domains in RP_RETURN_URL_ALLOWLIST).
+  mock-psp:
+    container_name: mock-psp-1
+    build:
+      context: ../examples/mock-psp-demo
+      dockerfile: Dockerfile
+    profiles:
+      - rp-widget-demo       # shipped alongside the RP demo
+      - all
+    depends_on:
+      issuer-api:
+        condition: service_started
+      verifier-api2:
+        condition: service_started
+      caddy:
+        condition: service_started
+    environment:
+      PORT: "7006"
+      ISSUER_API_URL: "http://issuer-api:${ISSUER_API_PORT:-7002}"
+      VERIFIER_API2_URL: "http://verifier-api2:${VERIFIER_API2_PORT:-7004}"
+      RP_ID: "${RP_THEAUSTRALIAHACK_ID:-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d}"
+      PSP_TENANT_ID: "${PSP_TENANT_ID:-a84e7c3a-b399-48e9-9345-2d8f062c614f}"
+      PUBLIC_URL: "${PSP_EXTERNAL_URL:-https://psp.theaustraliahack.com}"
+      RP_RETURN_URL_ALLOWLIST: "${RP_RETURN_URL_ALLOWLIST:-rp.theaustraliahack.com,localhost}"
+      NODE_ENV: "production"
+    ports:
+      - "7006:7006"
 
 # RP Next.js Demo - Full Next.js application
 # Shows server-side API integration patterns

@@ -69,6 +69,20 @@
         .top-bar-links {
             display: flex;
             gap: 20px;
+            align-items: center;
+        }
+        /* Admin menu entry. Only rendered when /api/me says isAdmin. */
+        .top-bar a.top-bar-admin {
+            color: #9ab8ff;
+            font-weight: 600;
+            padding: 2px 8px;
+            border: 1px solid rgba(154, 184, 255, 0.4);
+            border-radius: 999px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .top-bar a.top-bar-admin:hover {
+            background: rgba(154, 184, 255, 0.15);
+            color: #bcd2ff;
         }
 
         /* ===== HEADER ===== */
@@ -286,6 +300,533 @@
             padding: 8px 0;
             color: rgba(255, 255, 255, 0.4);
             font-style: italic;
+        }
+        /* Payment-method section in the profile hover — introduced by the
+           rp-cart-dpc PSP-enrollment flow (Task 14). Renders either a
+           card-ending summary + [Replace] link, or an [Add payment method]
+           CTA when no PWA has been captured yet. Styled to match the
+           existing framed sub-groups (.claim-group). */
+        #profile-claims .payment-method {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-left: 2px solid var(--primary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        #profile-claims .payment-method-title {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        #profile-claims .payment-method-info {
+            font-size: 12px;
+            color: var(--white);
+        }
+        #profile-claims .payment-method-info strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+        #profile-claims .payment-method-cta {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--primary);
+            color: var(--white);
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: filter 140ms ease;
+        }
+        #profile-claims .payment-method-cta:hover {
+            filter: brightness(1.1);
+        }
+        /* Small secondary "First time? Set up..." link under the payment
+           method row. Demotes enrolment from a CTA to a nudge — PWAs are
+           durable so most shoppers won't need to see it. */
+        #profile-claims .payment-method-first-time {
+            display: inline-block;
+            margin: 6px 12px 2px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.55);
+            text-decoration: none;
+            transition: color 140ms ease;
+        }
+        #profile-claims .payment-method-first-time:hover {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: underline;
+        }
+        #profile-claims .payment-method-replace {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.55);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        #profile-claims .payment-method-replace:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+        /* "Last order" row (Task 21). Matches the inline sizing of a claim
+           row so the hover still reads as a tight list. */
+        #profile-claims .last-order {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.78);
+        }
+        #profile-claims .last-order-label {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        #profile-claims .last-order-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+        }
+        #profile-claims .last-order-link:hover {
+            text-decoration: underline;
+        }
+        #profile-claims .last-order-total {
+            color: var(--white);
+            font-variant-numeric: tabular-nums;
+        }
+        /* Admin link — rendered only when /api/me.isAdmin is true. Sits
+           above the claims so the admin sees it first in the hover. */
+        #profile-claims .admin-link-row {
+            margin: 0 0 10px;
+            padding: 8px 12px;
+            background: rgba(105, 170, 255, 0.08);
+            border-left: 2px solid rgba(105, 170, 255, 0.6);
+            border-radius: 6px;
+        }
+        #profile-claims .admin-link {
+            color: #9ab8ff;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        #profile-claims .admin-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== CART ICON + BADGE ===== */
+        .cart-icon {
+            background: transparent;
+            border: none;
+            font: inherit;
+            padding: 0;
+            position: relative;
+        }
+        .cart-icon:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 4px;
+            border-radius: 4px;
+        }
+        .cart-icon-badge-wrap {
+            position: relative;
+            display: inline-flex;
+            line-height: 0;
+        }
+        .cart-badge {
+            position: absolute;
+            top: -6px;
+            right: -8px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: var(--primary);
+            color: var(--white);
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            box-shadow: 0 0 0 2px var(--header-bg);
+        }
+
+        /* ===== CART DRAWER ===== */
+        .cart-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            opacity: 0;
+            transition: opacity 180ms ease;
+            z-index: 500;
+        }
+        .cart-overlay.open {
+            opacity: 1;
+        }
+        .cart-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: min(420px, 100vw);
+            background: #111;
+            color: var(--white);
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: -12px 0 40px -8px rgba(0, 0, 0, 0.7);
+            transform: translateX(100%);
+            transition: transform 220ms ease;
+            display: flex;
+            flex-direction: column;
+            z-index: 510; /* above .cart-overlay (500) and #profile-claims (200) */
+        }
+        .cart-drawer.open {
+            transform: translateX(0);
+        }
+        .cart-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .cart-drawer-header h3 {
+            margin: 0;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .cart-drawer-close {
+            background: transparent;
+            border: none;
+            color: var(--white);
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 140ms ease, color 140ms ease;
+        }
+        .cart-drawer-close:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--primary);
+        }
+        .cart-drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+        .cart-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 48px 16px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .cart-empty-emoji {
+            font-size: 56px;
+            opacity: 0.7;
+        }
+        .cart-empty p {
+            margin: 0;
+            font-size: 14px;
+        }
+        .cart-keep-shopping {
+            margin-top: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+            transition: background 140ms ease, border-color 140ms ease;
+        }
+        .cart-keep-shopping:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: var(--primary);
+        }
+        .cart-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .cart-item {
+            display: grid;
+            grid-template-columns: 48px 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+        }
+        .cart-item-img {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+        .cart-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+        .cart-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cart-item-price {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+        }
+        .cart-item-qty {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .cart-qty-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            cursor: pointer;
+            font: inherit;
+            line-height: 1;
+            padding: 0;
+            transition: background 140ms ease;
+        }
+        .cart-qty-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: var(--primary);
+        }
+        .cart-qty-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .cart-qty-value {
+            min-width: 22px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+        }
+        .cart-item-remove {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 140ms ease, background 140ms ease;
+        }
+        .cart-item-remove:hover {
+            color: #ff9191;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .cart-drawer-footer {
+            padding: 16px 20px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .cart-subtotal {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .cart-subtotal strong {
+            color: var(--white);
+            font-size: 18px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-variant-numeric: tabular-nums;
+        }
+        .cart-checkout-btn {
+            width: 100%;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 140ms ease;
+        }
+        .cart-checkout-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .cart-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            max-width: 320px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: #111;
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+            font-size: 13px;
+            z-index: 600;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 160ms ease, transform 160ms ease;
+            pointer-events: none;
+        }
+        .cart-toast.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== AGE VERIFY MODAL ===== */
+        .age-verify-modal {
+            border: none;
+            padding: 0;
+            background: transparent;
+            color: var(--white);
+            max-width: 420px;
+            width: 90vw;
+        }
+        .age-verify-modal::backdrop {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+        .age-verify-form {
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8);
+            padding: 28px 24px 24px;
+            position: relative;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .age-verify-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 26px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .age-verify-close:hover {
+            color: var(--white);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .age-verify-modal h3 {
+            margin: 0;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .age-verify-subtitle {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+            max-width: 320px;
+        }
+        .age-verify-qr {
+            min-width: 220px;
+            min-height: 220px;
+            background: var(--white);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .age-verify-qr img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .age-verify-qr.is-error {
+            background: rgba(255, 145, 145, 0.12);
+            color: #ffc5c5;
+            padding: 24px;
+            font-size: 13px;
+            text-align: center;
+            min-height: auto;
+        }
+        .age-verify-link {
+            font-size: 12px;
+            color: var(--primary);
+            text-decoration: underline;
+        }
+        .age-verify-link:hover {
+            color: var(--white);
+        }
+        .age-verify-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            min-height: 18px;
+        }
+        .age-verify-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: age-verify-spin 0.9s linear infinite;
+        }
+        .age-verify-spinner.is-hidden {
+            display: none;
+        }
+        @keyframes age-verify-spin {
+            to { transform: rotate(360deg); }
         }
 
         .store-btn {
@@ -1612,6 +2153,7 @@
             <div class="top-bar-links">
                 <a href="#">Order Tracking</a>
                 <a href="#">Gift Vouchers</a>
+                <a id="admin-link" class="top-bar-admin" href="/admin" hidden>&#x26A1; Admin</a>
                 <span id="auth-status" aria-live="polite"></span>
             </div>
         </div>
@@ -1646,10 +2188,13 @@
                         </div>
                         <div id="profile-claims" role="tooltip" aria-label="All OIDC claims passed to this RP"></div>
                     </div>
-                    <a class="header-action" href="#">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                    <button id="cart-icon" class="header-action cart-icon" type="button" aria-label="Open cart" aria-haspopup="dialog" aria-controls="cart-drawer">
+                        <span class="cart-icon-badge-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                            <span id="cart-badge" class="cart-badge" style="display:none" aria-live="polite">0</span>
+                        </span>
                         Basket
-                    </a>
+                    </button>
                     <button class="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Toggle menu">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
@@ -1657,6 +2202,47 @@
             </div>
         </div>
     </header>
+
+    <!-- Cart drawer overlay (click to dismiss) -->
+    <div id="cart-overlay" class="cart-overlay" hidden></div>
+
+    <!-- Cart drawer -->
+    <aside id="cart-drawer" class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" aria-hidden="true">
+        <div class="cart-drawer-header">
+            <h3 id="cart-drawer-title">Cart</h3>
+            <button class="cart-drawer-close" type="button" aria-label="Close cart">&times;</button>
+        </div>
+        <div class="cart-drawer-body">
+            <div id="cart-empty" class="cart-empty">
+                <div class="cart-empty-emoji" aria-hidden="true">&#128722;</div>
+                <p>Your cart is empty</p>
+                <button id="cart-keep-shopping" class="cart-keep-shopping" type="button">Keep shopping</button>
+            </div>
+            <ul id="cart-items" class="cart-items" hidden></ul>
+        </div>
+        <div id="cart-footer" class="cart-drawer-footer" hidden>
+            <div class="cart-subtotal">
+                <span>Subtotal</span>
+                <strong id="cart-subtotal-amount">&pound;0.00</strong>
+            </div>
+            <button id="cart-checkout-btn" class="cart-checkout-btn" type="button">Checkout</button>
+        </div>
+    </aside>
+
+    <!-- Age verification modal (presentation QR) -->
+    <dialog id="age-verify-modal" class="age-verify-modal" aria-labelledby="age-verify-title">
+        <form method="dialog" class="age-verify-form">
+            <button class="age-verify-close" type="submit" value="cancel" aria-label="Close">&times;</button>
+            <h3 id="age-verify-title">Confirm you're 21+</h3>
+            <p class="age-verify-subtitle" id="age-verify-subtitle">This product is 21+. Present your wallet to verify.</p>
+            <div class="age-verify-qr" id="age-verify-qr" aria-live="polite"></div>
+            <a class="age-verify-link" id="age-verify-link" href="#" hidden>Open in wallet</a>
+            <div class="age-verify-status">
+                <span class="age-verify-spinner" id="age-verify-spinner" aria-hidden="true"></span>
+                <span class="age-verify-status-text" id="age-verify-status-text">Waiting for wallet&hellip;</span>
+            </div>
+        </form>
+    </dialog>
 
     <!-- Navigation -->
     <nav id="main-nav">
@@ -2053,7 +2639,12 @@
         // Configuration
         let config = {
             apiBaseUrl: 'http://localhost:7010',
-            rp: null
+            rp: null,
+            // External PSP origin. Populated from /api/config on load;
+            // consumed by the profile-hover "Add payment method" /
+            // "Replace" buttons to redirect to the standalone Bank of
+            // Demo service (see examples/mock-psp-demo).
+            publicPspUrl: 'https://psp.theaustraliahack.com'
         };
         let clientToken = null;
         let sdkReady = false;
@@ -2074,7 +2665,11 @@
                     config.rp = data.rp;
                     console.log('[Config] RP:', config.rp.clientId);
                 }
+                if (data.publicPspUrl) {
+                    config.publicPspUrl = data.publicPspUrl;
+                }
                 console.log('[Config] API URL:', config.apiBaseUrl);
+                console.log('[Config] PSP URL:', config.publicPspUrl);
             } catch (error) {
                 console.warn('[Config] Using default:', config.apiBaseUrl);
             }
@@ -2426,7 +3021,7 @@
         // When multiple OIDC providers are configured, show one link per
         // provider. On successful login the banner shows which provider
         // the user came in through.
-        function renderProfileCard(user) {
+        function renderProfileCard(user, lastOrder, isAdmin) {
             const card = document.getElementById('profile-card');
             if (!card) return;
             if (!user) { card.hidden = true; return; }
@@ -2454,7 +3049,7 @@
                 metaEl.textContent = user.email || '';
             }
             card.hidden = false;
-            renderClaimsPopover(user);
+            renderClaimsPopover(user, lastOrder, isAdmin);
         }
 
         /** Format a claim value for display. Objects render as nested
@@ -2505,7 +3100,104 @@
             parent.appendChild(group);
         }
 
-        function renderClaimsPopover(user) {
+        /** Append the payment-method row to the profile hover. Renders an
+         *  [Add payment method] CTA pointing at the external PSP at
+         *  `${publicPspUrl}/enroll?return=<cart>`.
+         *
+         *  The RP deliberately does not display any card metadata on the
+         *  hover. In a standards-compliant OID4VP flow the merchant does
+         *  not discover PAN-last-four / scheme between enrollment and
+         *  checkout — those claims surface on the checkout presentation
+         *  (see /order/:id receipt, which renders order.pwaMeta). Clicking
+         *  the CTA when the shopper already has a PWA is harmless — the
+         *  PSP short-circuits to "You already have a card enrolled". */
+        function pspEnrollUrl() {
+            const base = (config.publicPspUrl || '').replace(/\/$/, '') || '/';
+            // Round-trip the shopper back to whatever page they launched
+            // enrolment from — profile hover on the shop lands back on /,
+            // hover from /checkout lands back on /checkout, etc. The PSP's
+            // RP_RETURN_URL_ALLOWLIST is by hostname so every path on this
+            // origin passes.
+            const ret = encodeURIComponent(location.origin + location.pathname);
+            return `${base}/enroll?return=${ret}`;
+        }
+        function renderPaymentMethodSection(parent, user) {
+            // PWAs are durable (RFC007): one enrolment covers unlimited
+            // purchases across merchants. We don't claim anything about
+            // which card the shopper has — that would be PAN-on-file
+            // semantics which don't apply to wallet-bound credentials.
+            // So the hover just says "ready via your wallet" and demotes
+            // enrolment to a small secondary "first time?" link.
+            const block = document.createElement('div');
+            block.className = 'payment-method';
+
+            const left = document.createElement('div');
+            const t = document.createElement('div');
+            t.className = 'payment-method-title';
+            t.textContent = 'Payment method';
+            left.appendChild(t);
+
+            const info = document.createElement('div');
+            info.className = 'payment-method-info';
+            info.textContent = 'Presented from your EUDI Wallet at checkout.';
+            left.appendChild(info);
+            block.appendChild(left);
+
+            parent.appendChild(block);
+
+            // Unobtrusive first-time setup link beneath the payment-method
+            // row. No CTA styling — it's a nudge, not a primary action.
+            const firstTime = document.createElement('a');
+            firstTime.className = 'payment-method-first-time';
+            firstTime.href = pspEnrollUrl();
+            firstTime.textContent = 'First time? Set up with Bank of Demo \u2192';
+            parent.appendChild(firstTime);
+        }
+
+        /** Append the "Last order: ORDER-… — AUD 99.00" row to the hover
+         *  popover, linking to /order/:id. Silent no-op when the server
+         *  didn't return a lastOrder — by contract we never render a
+         *  "no orders yet" placeholder (keeps the popover quieter for
+         *  first-time shoppers). */
+        /** Admin-only link to /admin. Surfaced in the profile popover for
+         *  sessions that /api/me flagged `isAdmin`. The DOM structure is
+         *  intentionally the same shape as last-order so it picks up
+         *  popover styling without new CSS. */
+        function renderAdminSection(parent) {
+            const row = document.createElement('div');
+            row.className = 'admin-link-row';
+            const link = document.createElement('a');
+            link.className = 'admin-link';
+            link.href = '/admin';
+            link.textContent = '\u26a1 Admin console';
+            link.title = 'Manage user profiles';
+            row.appendChild(link);
+            parent.appendChild(row);
+        }
+
+        function renderLastOrderSection(parent, lastOrder) {
+            if (!lastOrder || !lastOrder.id) return;
+            const row = document.createElement('div');
+            row.className = 'last-order';
+            const label = document.createElement('span');
+            label.className = 'last-order-label';
+            label.textContent = 'Last order: ';
+            const link = document.createElement('a');
+            link.className = 'last-order-link';
+            link.href = '/order/' + encodeURIComponent(lastOrder.id);
+            link.textContent = lastOrder.id;
+            const total = document.createElement('span');
+            total.className = 'last-order-total';
+            const currency = lastOrder.currency || 'AUD';
+            const amount = (Number(lastOrder.total) || 0).toFixed(2);
+            total.textContent = ' \u2014 ' + currency + ' ' + amount;
+            row.appendChild(label);
+            row.appendChild(link);
+            row.appendChild(total);
+            parent.appendChild(row);
+        }
+
+        function renderClaimsPopover(user, lastOrder, isAdmin) {
             const pop = document.getElementById('profile-claims');
             if (!pop) return;
             while (pop.firstChild) pop.removeChild(pop.firstChild);
@@ -2514,6 +3206,11 @@
             title.textContent = 'Claims from OIDC provider';
             pop.appendChild(title);
 
+            // Admin link renders ABOVE the claims list so it's prominent
+            // for the one session that sees it (provider+email gated
+            // server-side; isAdmin is the mirror from /api/me).
+            if (isAdmin) renderAdminSection(pop);
+
             const claims = user.claims || {};
             const keys = Object.keys(claims);
             if (keys.length === 0) {
@@ -2521,6 +3218,10 @@
                 empty.className = 'claim-empty';
                 empty.textContent = 'No claims in session.';
                 pop.appendChild(empty);
+                // Still offer the Add/Replace CTA even when there are no OIDC
+                // claims — the PSP flow doesn't depend on any particular claim.
+                renderPaymentMethodSection(pop, user);
+                renderLastOrderSection(pop, lastOrder);
                 return;
             }
 
@@ -2554,6 +3255,14 @@
                     if (!known.has(k)) appendClaimRow(pop, 'preferences.' + k, v);
                 });
             }
+
+            // Payment method Add/Replace row comes last so the primary OIDC
+            // claims stay above the fold when scrolling the popover.
+            renderPaymentMethodSection(pop, user);
+            // "Last order" row — Task 21. Appended after the payment-method
+            // block so the hover reads top-to-bottom as identity → funding
+            // instrument → most recent purchase.
+            renderLastOrderSection(pop, lastOrder);
         }
 
         // ----------------------------------------------------------------
@@ -2571,20 +3280,12 @@
         // we set it via textContent, not innerHTML, so every DOM write in
         // renderProductCard is XSS-safe even if the catalogue ever grew
         // user-sourced fields.
-        const PRODUCT_CATALOGUE = [
-            { id: 'hibiki-harmony',  name: 'Hibiki Japanese Harmony',                     meta: 'Japan · Blended Japanese Whisky · 70cl · 43% ABV', icon: '\uD83E\uDD43', priceMix: 79.05,  priceSingle: 89.00,  was: 99.00,  ratingStars: 5, ratingCount: 412, minAge: 21, savePct: 10, tags: ['japanese', 'japanese whisky', 'whisky', 'blended'] },
-            { id: 'yamazaki-12',     name: 'Yamazaki 12 Year Old Single Malt',            meta: 'Japan · Single Malt · 70cl · 43% ABV',              icon: '\uD83E\uDD43', priceMix: 175.50, priceSingle: 195.00, was: 219.00, ratingStars: 5, ratingCount: 288, minAge: 21, savePct: 11, tags: ['japanese', 'japanese whisky', 'single malt', 'whisky'] },
-            { id: 'laphroaig-10',    name: 'Laphroaig 10 Year Old',                       meta: 'Islay, Scotland · Peated Single Malt · 70cl · 40% ABV', icon: '\uD83E\uDD43', priceMix: 44.55, priceSingle: 49.50, ratingStars: 5, ratingCount: 624, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
-            { id: 'ardbeg-10',       name: 'Ardbeg 10 Year Old',                          meta: 'Islay, Scotland · Peated Single Malt · 70cl · 46% ABV', icon: '\uD83E\uDD43', priceMix: 48.00, priceSingle: 53.00, ratingStars: 5, ratingCount: 504, minAge: 21, tags: ['islay', 'islay scotch', 'scotch', 'single malt', 'peated', 'whisky'] },
-            { id: 'bookers-bourbon', name: "Booker's Bourbon Small Batch",                meta: 'Kentucky, USA · Bourbon · 75cl · 62.6% ABV',         icon: '\uD83E\uDD43', priceMix: 80.10, priceSingle: 89.00, was: 99.00, ratingStars: 5, ratingCount: 196, minAge: 21, savePct: 10, tags: ['bourbon', 'american whiskey', 'whisky'] },
-            { id: 'maker-46',        name: "Maker's Mark 46",                             meta: 'Kentucky, USA · Bourbon · 70cl · 47% ABV',            icon: '\uD83E\uDD43', priceMix: 40.05, priceSingle: 44.50, ratingStars: 4, ratingCount: 332, minAge: 21, tags: ['bourbon', 'american whiskey', 'whisky'] },
-            { id: 'redbreast-18',    name: 'Redbreast 18 Year Old Single Pot Still',      meta: 'Ireland · Single Pot Still Irish Whiskey · 70cl · 46% ABV', icon: '\uD83E\uDD47', priceMix: 160.65, priceSingle: 169.00, was: 189.00, ratingStars: 4, ratingCount: 87, minAge: 21, savePct: 15, tags: ['irish', 'irish whiskey', 'single pot still', 'whisky'] },
-            { id: 'famous-grouse',   name: 'The Famous Grouse',                           meta: 'Scotland · Blended Scotch Whisky · 70cl · 40% ABV',   icon: '\uD83E\uDD43', priceMix: 18.00, priceSingle: 20.00, ratingStars: 3, ratingCount: 812, minAge: 21, tags: ['scotch', 'blended', 'blended whisky', 'whisky'] },
-            { id: 'haigs-gold',      name: 'Haig Club Clubman',                           meta: 'Scotland · Single Grain Scotch · 70cl · 40% ABV',    icon: '\uD83E\uDD43', priceMix: 25.20, priceSingle: 28.00, ratingStars: 3, ratingCount: 241, minAge: 21, tags: ['scotch', 'grain whisky', 'single grain', 'whisky'] },
-            { id: 'chateau-margaux', name: 'Château Margaux 2015',                        meta: 'Bordeaux, France · Red · 75cl',                       icon: '\uD83C\uDF77', priceMix: 224.25, priceSingle: 249.00, was: 299.00, ratingStars: 5, ratingCount: 142, minAge: 18, savePct: 25, tags: ['wine', 'red', 'bordeaux'] },
-            { id: 'louis-roederer',  name: 'Louis Roederer Collection Brut NV',           meta: 'Champagne, France · Sparkling · 75cl',                icon: '\uD83C\uDF7E', priceMix: 38.25, priceSingle: 42.99, ratingStars: 5, ratingCount: 203, minAge: 18, tags: ['wine', 'champagne', 'sparkling'] },
-            { id: 'tanqueray-ten',   name: 'Tanqueray No. Ten',                           meta: 'England · London Dry Gin · 70cl · 47.3% ABV',         icon: '\uD83C\uDF77', priceMix: 31.50, priceSingle: 35.00, ratingStars: 4, ratingCount: 278, minAge: 18, tags: ['gin'] },
-        ];
+        let PRODUCT_CATALOGUE = [];
+        async function loadCatalogue() {
+            const res = await fetch('/api/catalogue');
+            if (!res.ok) throw new Error('Catalogue load failed: ' + res.status);
+            PRODUCT_CATALOGUE = await res.json();
+        }
 
         /** Normalise free-form preference text to a set of comparable tokens. */
         function prefTokens(raw) {
@@ -2689,7 +3390,9 @@
             const qty = document.createElement('select'); qty.className = 'qty-select'; qty.setAttribute('aria-label', 'Quantity');
             [1, 2, 3, 6, 12].forEach(n => { const o = document.createElement('option'); o.textContent = String(n); qty.appendChild(o); });
             const btn = document.createElement('button'); btn.className = 'btn-add'; btn.textContent = 'ADD';
-            btn.addEventListener('click', () => showAgeVerification(p.minAge, 'modal'));
+            btn.type = 'button';
+            btn.setAttribute('data-add', p.id);
+            btn.addEventListener('click', () => addToCart(p.id));
             addRow.appendChild(qty); addRow.appendChild(btn);
             info.appendChild(addRow);
 
@@ -2737,8 +3440,13 @@
                 const data = await res.json();
                 while (el.firstChild) el.removeChild(el.firstChild);
                 if (!data.oidcEnabled) { renderProfileCard(null); renderProductShelf(null); return; }
-                renderProfileCard(data.user || null);
+                renderProfileCard(data.user || null, data.lastOrder || null, data.isAdmin === true);
                 renderProductShelf(data.user || null);
+                // Top-bar admin menu entry — toggled by the /api/me.isAdmin
+                // flag. Hidden for everyone else (the server-side gate still
+                // 403s non-admins that try /admin directly).
+                const adminLink = document.getElementById('admin-link');
+                if (adminLink) adminLink.hidden = data.isAdmin !== true;
                 if (data.user) {
                     const fullName = [data.user.given_name, data.user.family_name].filter(Boolean).join(' ').trim();
                     const isAuthop = data.user.provider === 'authop' || (
@@ -2783,15 +3491,489 @@
             }
         }
 
+        /* ============================================================
+         *  Cart drawer: open/close chrome
+         *
+         *  The drawer slides in by toggling `.open` on the aside; overlay
+         *  fades in via the same class. We push `aria-hidden` state and
+         *  flip the body to non-scrollable while the drawer is open.
+         *  Items-rendering + CRUD wiring comes next (Task 9); this commit
+         *  is chrome only.
+         * ============================================================ */
+        function openCartDrawer() {
+            const drawer = document.getElementById('cart-drawer');
+            const overlay = document.getElementById('cart-overlay');
+            if (!drawer || !overlay) return;
+            overlay.hidden = false;
+            // Force a reflow so the CSS transition kicks in on the class toggle
+            // (otherwise `hidden=false` + `.open` would paint in the final state).
+            void overlay.offsetWidth;
+            drawer.classList.add('open');
+            overlay.classList.add('open');
+            drawer.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeCartDrawer() {
+            const drawer = document.getElementById('cart-drawer');
+            const overlay = document.getElementById('cart-overlay');
+            if (!drawer || !overlay) return;
+            drawer.classList.remove('open');
+            overlay.classList.remove('open');
+            drawer.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            // Hide overlay after the transition finishes — keeps pointer events
+            // off it and the backdrop filter cost zero while the drawer's shut.
+            setTimeout(() => {
+                if (!drawer.classList.contains('open')) overlay.hidden = true;
+            }, 220);
+        }
+        function setupCartDrawer() {
+            const icon = document.getElementById('cart-icon');
+            const overlay = document.getElementById('cart-overlay');
+            const closeBtn = document.querySelector('#cart-drawer .cart-drawer-close');
+            const keepShopping = document.getElementById('cart-keep-shopping');
+            if (icon) icon.addEventListener('click', openCartDrawer);
+            if (overlay) overlay.addEventListener('click', closeCartDrawer);
+            if (closeBtn) closeBtn.addEventListener('click', closeCartDrawer);
+            if (keepShopping) keepShopping.addEventListener('click', closeCartDrawer);
+            // Drawer's "Checkout" CTA → dedicated review page. /checkout
+            // itself 302s back to / when the cart is empty so this doesn't
+            // need to guard (but we still close the drawer first so the
+            // destination page isn't layered behind an open drawer).
+            const checkoutBtn = document.getElementById('cart-checkout-btn');
+            if (checkoutBtn) checkoutBtn.addEventListener('click', () => {
+                closeCartDrawer();
+                location.href = '/checkout';
+            });
+            document.addEventListener('keydown', (e) => {
+                const drawer = document.getElementById('cart-drawer');
+                if (e.key === 'Escape' && drawer && drawer.classList.contains('open')) closeCartDrawer();
+            });
+        }
+
+        /* ============================================================
+         *  Cart rendering + CRUD wiring
+         *
+         *  `refreshCart()` pulls the authoritative summary from the server
+         *  and rewrites the drawer. We never trust client totals — every
+         *  mutation round-trips through /api/cart/* and we re-render from
+         *  the response. Optimistic badge updates happen before the fetch
+         *  so the click feels instant; the server response is authoritative
+         *  (so a server-side qty clamp wouldn't get lost).
+         *
+         *  DOM is built with document.createElement / textContent only so
+         *  every field in the catalogue stays XSS-safe, matching the
+         *  pattern in renderProductCard.
+         * ============================================================ */
+        function setBadge(count) {
+            const badge = document.getElementById('cart-badge');
+            if (!badge) return;
+            badge.textContent = String(count);
+            badge.style.display = count > 0 ? '' : 'none';
+        }
+        function formatPrice(n) {
+            return '\u00A3' + Number(n || 0).toFixed(2);
+        }
+        function renderCartSummary(summary) {
+            const empty = document.getElementById('cart-empty');
+            const list = document.getElementById('cart-items');
+            const footer = document.getElementById('cart-footer');
+            const subtotalEl = document.getElementById('cart-subtotal-amount');
+            if (!empty || !list || !footer) return;
+
+            const items = summary.items || [];
+            setBadge(summary.count || 0);
+
+            if (items.length === 0) {
+                empty.hidden = false;
+                list.hidden = true;
+                footer.hidden = true;
+                while (list.firstChild) list.removeChild(list.firstChild);
+                return;
+            }
+
+            empty.hidden = true;
+            list.hidden = false;
+            footer.hidden = false;
+            if (subtotalEl) subtotalEl.textContent = formatPrice(summary.subtotal);
+
+            while (list.firstChild) list.removeChild(list.firstChild);
+            items.forEach(item => list.appendChild(renderCartItem(item)));
+        }
+        function renderCartItem(item) {
+            const li = document.createElement('li');
+            li.className = 'cart-item';
+            li.dataset.productId = item.productId;
+
+            const img = document.createElement('div');
+            img.className = 'cart-item-img';
+            img.textContent = item.imageUrl || '\uD83C\uDF77'; // fallback glass emoji
+            li.appendChild(img);
+
+            const info = document.createElement('div');
+            info.className = 'cart-item-info';
+            const title = document.createElement('span');
+            title.className = 'cart-item-title';
+            title.textContent = item.title || item.productId;
+            info.appendChild(title);
+            const price = document.createElement('span');
+            price.className = 'cart-item-price';
+            price.textContent = formatPrice(item.priceAud) + ' each';
+            info.appendChild(price);
+
+            const qtyRow = document.createElement('div');
+            qtyRow.className = 'cart-item-qty';
+            const minus = document.createElement('button');
+            minus.type = 'button';
+            minus.className = 'cart-qty-btn';
+            minus.setAttribute('aria-label', 'Decrease quantity');
+            minus.textContent = '\u2212'; // minus sign
+            minus.disabled = item.qty <= 1;
+            minus.addEventListener('click', () => patchCartQty(item.productId, item.qty - 1));
+            const val = document.createElement('span');
+            val.className = 'cart-qty-value';
+            val.textContent = String(item.qty);
+            const plus = document.createElement('button');
+            plus.type = 'button';
+            plus.className = 'cart-qty-btn';
+            plus.setAttribute('aria-label', 'Increase quantity');
+            plus.textContent = '+';
+            plus.addEventListener('click', () => patchCartQty(item.productId, item.qty + 1));
+            qtyRow.appendChild(minus);
+            qtyRow.appendChild(val);
+            qtyRow.appendChild(plus);
+            info.appendChild(qtyRow);
+
+            li.appendChild(info);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'cart-item-remove';
+            remove.setAttribute('aria-label', 'Remove ' + (item.title || 'item'));
+            remove.textContent = '\u00D7';
+            remove.addEventListener('click', () => removeCartItem(item.productId));
+            li.appendChild(remove);
+
+            return li;
+        }
+
+        async function refreshCart() {
+            try {
+                const r = await fetch('/api/cart', { credentials: 'same-origin' });
+                if (!r.ok) return;
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] refresh failed:', err);
+            }
+        }
+        async function addToCart(productId) {
+            try {
+                const r = await fetch('/api/cart/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ productId, qty: 1 }),
+                });
+                if (r.status === 403) {
+                    const body = await r.json().catch(() => ({}));
+                    if (body && body.error === 'age_verification_required') {
+                        // startAgeVerify lands in Task 10; guard so this commit
+                        // is standalone-buildable (just logs + toast if missing).
+                        if (typeof startAgeVerify === 'function') {
+                            startAgeVerify(productId, body.minAge);
+                        } else {
+                            console.warn('[cart] age gate triggered; modal not wired yet');
+                            showCartToast('Age verification required (21+).');
+                        }
+                        return;
+                    }
+                }
+                if (!r.ok) {
+                    const body = await r.json().catch(() => ({}));
+                    console.warn('[cart] add failed:', r.status, body);
+                    showCartToast((body && body.error) ? ('Could not add: ' + body.error) : 'Could not add to cart');
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+                // Opening the drawer on add gives a visible confirmation of the
+                // server-accepted state, mirroring shopify-style "side-cart" UX.
+                openCartDrawer();
+            } catch (err) {
+                console.warn('[cart] add error:', err);
+                showCartToast('Network error adding to cart');
+            }
+        }
+        async function patchCartQty(productId, qty) {
+            // Optimistic badge tweak so the click feels immediate; the fetch
+            // response overwrites with server truth.
+            const current = Number(document.getElementById('cart-badge').textContent || '0');
+            const existingLi = document.querySelector('.cart-item[data-product-id="' + CSS.escape(productId) + '"]');
+            const prevQty = existingLi ? Number(existingLi.querySelector('.cart-qty-value').textContent) || 0 : 0;
+            const delta = Math.max(qty, 0) - prevQty;
+            setBadge(Math.max(0, current + delta));
+            try {
+                const r = await fetch('/api/cart/items/' + encodeURIComponent(productId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ qty }),
+                });
+                if (r.status === 403) {
+                    const body = await r.json().catch(() => ({}));
+                    await refreshCart();
+                    if (body && body.error === 'age_verification_required' && typeof startAgeVerify === 'function') {
+                        startAgeVerify(productId, body.minAge);
+                    }
+                    return;
+                }
+                if (!r.ok) {
+                    await refreshCart();
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] patch error:', err);
+                refreshCart();
+            }
+        }
+        async function removeCartItem(productId) {
+            try {
+                const r = await fetch('/api/cart/items/' + encodeURIComponent(productId), {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                });
+                if (!r.ok) {
+                    await refreshCart();
+                    return;
+                }
+                const summary = await r.json();
+                renderCartSummary(summary);
+            } catch (err) {
+                console.warn('[cart] delete error:', err);
+                refreshCart();
+            }
+        }
+        let cartToastTimer = null;
+        function showCartToast(msg, durationMs) {
+            let toast = document.getElementById('cart-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'cart-toast';
+                toast.className = 'cart-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            requestAnimationFrame(() => toast.classList.add('is-visible'));
+            if (cartToastTimer) clearTimeout(cartToastTimer);
+            const ms = typeof durationMs === 'number' ? durationMs : 2400;
+            cartToastTimer = setTimeout(() => toast.classList.remove('is-visible'), ms);
+        }
+
+        /* ============================================================
+         *  Age-verify modal
+         *
+         *  When /api/cart/items returns 403 age_verification_required, we
+         *  open the <dialog>, POST /api/age-check/start to get a QR payload
+         *  (bootstrapAuthorizationRequestUrl from verifier-api2), render it
+         *  as an <img> via a public QR data-URL service — YAGNI, no library
+         *  dep; the payload is the same OID4VP bootstrap URL wallets scan.
+         *  We poll /api/age-check/status every 1500 ms; on verified=true we
+         *  close + retry the add that triggered the gate, on verified=false
+         *  we surface "Sorry, 21+ only" inside the modal.
+         *
+         *  This replaces the earlier per-product WaltVerify shortcut — cart
+         *  enforcement now lives server-side, and this modal exists only to
+         *  fulfil the gate when the server asks for it.
+         * ============================================================ */
+        const AGE_VERIFY_POLL_MS = 1500;
+        const AGE_VERIFY_STILL_WAITING_MS = 60000;
+        let ageVerifyPollTimer = null;
+        let ageVerifyStillWaitingTimer = null;
+        let ageVerifyActive = false;
+        let ageVerifyRetryProductId = null;
+
+        function buildQrImage(qrPayload) {
+            const img = document.createElement('img');
+            img.alt = 'Scan with your wallet to present age-over-21';
+            img.width = 220;
+            img.height = 220;
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(qrPayload);
+            return img;
+        }
+
+        function stopAgeVerifyPolling() {
+            if (ageVerifyPollTimer) { clearInterval(ageVerifyPollTimer); ageVerifyPollTimer = null; }
+            if (ageVerifyStillWaitingTimer) { clearTimeout(ageVerifyStillWaitingTimer); ageVerifyStillWaitingTimer = null; }
+        }
+
+        function setAgeVerifyStatus(text, { spinning = true } = {}) {
+            const statusText = document.getElementById('age-verify-status-text');
+            const spinner = document.getElementById('age-verify-spinner');
+            if (statusText) statusText.textContent = text;
+            if (spinner) spinner.classList.toggle('is-hidden', !spinning);
+        }
+
+        function closeAgeVerify() {
+            stopAgeVerifyPolling();
+            ageVerifyActive = false;
+            ageVerifyRetryProductId = null;
+            const modal = document.getElementById('age-verify-modal');
+            if (modal && modal.open) modal.close();
+        }
+
+        function showAgeVerifyFailure() {
+            const qr = document.getElementById('age-verify-qr');
+            const link = document.getElementById('age-verify-link');
+            if (qr) {
+                while (qr.firstChild) qr.removeChild(qr.firstChild);
+                qr.classList.add('is-error');
+                const msg = document.createElement('div');
+                msg.textContent = 'Sorry, this is a 21+ store.';
+                qr.appendChild(msg);
+                const back = document.createElement('button');
+                back.type = 'button';
+                back.className = 'cart-keep-shopping';
+                back.style.marginTop = '12px';
+                back.textContent = 'Back to shop';
+                back.addEventListener('click', closeAgeVerify);
+                qr.appendChild(back);
+            }
+            if (link) link.hidden = true;
+            setAgeVerifyStatus('Verification declined', { spinning: false });
+        }
+
+        function onAgeVerifyClosed() {
+            // Fires on ESC, the form-dialog close button, and any other path
+            // out of the dialog. We tear down polling + retry state so the
+            // user can re-open cleanly on the next 403.
+            stopAgeVerifyPolling();
+            ageVerifyActive = false;
+            ageVerifyRetryProductId = null;
+        }
+
+        async function startAgeVerify(retryProductId, minAge) {
+            if (ageVerifyActive) {
+                const modal = document.getElementById('age-verify-modal');
+                if (modal && !modal.open && typeof modal.showModal === 'function') modal.showModal();
+                return;
+            }
+            ageVerifyActive = true;
+            ageVerifyRetryProductId = retryProductId || null;
+
+            const modal = document.getElementById('age-verify-modal');
+            const qr = document.getElementById('age-verify-qr');
+            const link = document.getElementById('age-verify-link');
+            const subtitle = document.getElementById('age-verify-subtitle');
+            const title = document.getElementById('age-verify-title');
+
+            if (title) title.textContent = "Confirm you're " + (minAge || 21) + '+';
+            if (subtitle) subtitle.textContent = 'This product is ' + (minAge || 21) + '+. Present your wallet to verify.';
+            if (qr) { while (qr.firstChild) qr.removeChild(qr.firstChild); qr.classList.remove('is-error'); }
+            if (link) { link.hidden = true; link.removeAttribute('href'); }
+            setAgeVerifyStatus('Requesting verification\u2026', { spinning: true });
+
+            if (modal && typeof modal.showModal === 'function' && !modal.open) {
+                modal.showModal();
+                // `close` fires on ESC, the in-form submit-close button, AND
+                // programmatic modal.close(), so one teardown path covers all.
+                modal.addEventListener('close', onAgeVerifyClosed, { once: true });
+            }
+
+            try {
+                const r = await fetch('/api/age-check/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({}),
+                });
+                if (!r.ok) {
+                    setAgeVerifyStatus('Could not start verification.', { spinning: false });
+                    return;
+                }
+                const data = await r.json();
+                const payload = data.qrCode;
+                if (!payload) {
+                    setAgeVerifyStatus('Verification unavailable.', { spinning: false });
+                    return;
+                }
+                if (qr) qr.appendChild(buildQrImage(payload));
+                if (link) { link.href = payload; link.hidden = false; }
+                setAgeVerifyStatus('Waiting for wallet\u2026', { spinning: true });
+
+                ageVerifyPollTimer = setInterval(pollAgeVerifyStatus, AGE_VERIFY_POLL_MS);
+                ageVerifyStillWaitingTimer = setTimeout(() => {
+                    setAgeVerifyStatus('Still waiting\u2026 you can close this and try again.', { spinning: true });
+                }, AGE_VERIFY_STILL_WAITING_MS);
+            } catch (err) {
+                console.warn('[age-verify] start error:', err);
+                setAgeVerifyStatus('Network error. Close and try again.', { spinning: false });
+            }
+        }
+
+        async function pollAgeVerifyStatus() {
+            try {
+                const r = await fetch('/api/age-check/status', { credentials: 'same-origin' });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data.verified === true) {
+                    stopAgeVerifyPolling();
+                    const retry = ageVerifyRetryProductId;
+                    closeAgeVerify();
+                    if (retry) {
+                        // session.ageVerified is now true; addToCart's POST
+                        // will clear the gate and add the item without a
+                        // re-visit to the modal.
+                        addToCart(retry);
+                    }
+                } else if (data.verified === false) {
+                    stopAgeVerifyPolling();
+                    showAgeVerifyFailure();
+                }
+            } catch (err) {
+                console.warn('[age-verify] poll error:', err);
+            }
+        }
+
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             handleResize();
             initializeSDK();
+            setupCartDrawer();
+            // Fetch the catalogue from the server before any code consumes
+            // PRODUCT_CATALOGUE. renderProductShelf reads the global, so
+            // this await must resolve before the first render.
+            try {
+                await loadCatalogue();
+            } catch (err) {
+                console.warn('[catalogue] load failed:', err);
+            }
             // Populate the shelf immediately (unauthenticated view) so the
             // grid isn't empty while /api/me is in flight. renderAuthStatus
             // will re-render it with preferences if the user is signed in.
             renderProductShelf(null);
             renderAuthStatus();
+            // Reflect the session's existing cart state (a revisit within the
+            // session TTL should see its items already populated).
+            refreshCart();
+            // PSP return flow: the PSP bounces the shopper to
+            // /cart?pwa=1 after issuing their PaymentWalletAttestation.
+            // There's no metadata round-trip (the merchant only sees card
+            // details at checkout presentation time); we just flash a
+            // reassurance toast and strip the query param so a page
+            // reload doesn't re-toast.
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('pwa') === '1') {
+                    const clean = window.location.pathname + window.location.hash;
+                    window.history.replaceState({}, '', clean);
+                    showCartToast('Payment method added. It lives in your wallet.', 3500);
+                }
+            } catch (err) {
+                console.warn('[pwa-return] init error:', err);
+            }
         });
     </script>
 </body>

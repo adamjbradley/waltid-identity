@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout — Oz Bottleshop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #1f6feb;
+            --accent-dark: #1a5bc4;
+            --bg-gradient: radial-gradient(circle at 20% 10%, #1c2a4a 0%, #0a1024 60%, #060916 100%);
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text: #f3f5ff;
+            --text-dim: rgba(243, 245, 255, 0.65);
+            --muted: rgba(243, 245, 255, 0.4);
+            --ok: #72d887;
+            --danger: #ff9191;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Source Sans 3', -apple-system, sans-serif;
+            color: var(--text);
+            background: var(--bg-gradient);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 16px;
+        }
+        .card {
+            width: 100%;
+            max-width: 620px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.55);
+            padding: 32px 28px 28px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent) 0%, #67a3ff 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text);
+            box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
+        }
+        .brand-name {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        h1 {
+            margin: 14px 0 6px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 26px;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .section {
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .section-title {
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+        .line-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .line-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+            font-size: 14px;
+        }
+        .line-item:last-child { border-bottom: 0; }
+        .line-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .line-item-icon {
+            font-size: 22px;
+            line-height: 1;
+            width: 30px;
+            text-align: center;
+        }
+        .line-item-name {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .line-item-qty {
+            color: var(--text-dim);
+            margin-left: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+        .line-item-total {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+        .totals {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+        }
+        .totals-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+        }
+        .totals-amount {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 28px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .payment-method {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .pm-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pm-icon {
+            width: 44px;
+            height: 28px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, #1f6feb 0%, #67a3ff 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(31, 111, 235, 0.3);
+        }
+        .pm-label {
+            font-weight: 600;
+        }
+        .pm-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .pm-missing {
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+        .pm-cta {
+            display: inline-block;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            transition: background 160ms ease;
+        }
+        .pm-cta:hover { background: rgba(255, 255, 255, 0.08); }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 22px;
+        }
+        .btn-primary, .btn-secondary {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: background 160ms ease, transform 80ms ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #67a3ff 100%);
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(31, 111, 235, 0.35);
+        }
+        .btn-primary:hover { transform: translateY(-1px); }
+        .btn-primary:disabled {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); }
+        .footer-note {
+            margin-top: 18px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+        .qr-box {
+            margin-top: 18px;
+            padding: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            text-align: center;
+        }
+        .qr-box[hidden] { display: none; }
+        .qr-box p {
+            margin: 0 0 10px;
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+        .qr-link {
+            display: inline-block;
+            word-break: break-all;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 11px;
+            color: #67a3ff;
+        }
+        /* QR slot + "Open in wallet" fallback link, mirrored from the PSP
+           enrolment page so the Pay experience is identical in shape —
+           scan the QR from another device, or tap the deep-link if
+           already on mobile. */
+        .qr-slot {
+            width: 180px;
+            height: 180px;
+            margin: 8px auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+        }
+        .qr-slot img { width: 100%; height: 100%; display: block; }
+        .qr-slot.is-placeholder {
+            color: var(--muted);
+            font-size: 12px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .qr-open-link {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: rgba(114, 216, 135, 0.18);
+            border: 1px solid rgba(114, 216, 135, 0.3);
+            color: var(--ok);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .qr-open-link:hover {
+            background: rgba(114, 216, 135, 0.28);
+        }
+        .banner {
+            margin: -8px 0 16px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: rgba(255, 145, 145, 0.08);
+            border: 1px solid rgba(255, 145, 145, 0.25);
+            color: #ffc9c9;
+        }
+        .banner[hidden] { display: none; }
+        /* Secondary first-time setup link under the payment-method panel.
+           Small, quiet, unobtrusive — PWAs are durable so this affordance
+           is rarely needed after the first enrolment. */
+        .pm-first-time {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-decoration: none;
+            opacity: 0.75;
+            transition: opacity 140ms ease;
+        }
+        .pm-first-time:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+        .pm-first-time[hidden] { display: none; }
+        /* Green pill shown briefly when the shopper returns from PSP
+           enrolment via ?pwa=1. Separate class from the red .banner
+           above so states don't bleed. */
+        .pwa-added-pill {
+            margin: -8px 0 16px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            background: rgba(114, 216, 135, 0.10);
+            border: 1px solid rgba(114, 216, 135, 0.35);
+            color: var(--ok);
+            font-weight: 600;
+            transition: opacity 320ms ease;
+        }
+        .pwa-added-pill[hidden] { display: none; }
+        .pwa-added-pill.is-fading { opacity: 0; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="brand">
+            <div class="brand-mark">OZ</div>
+            <div class="brand-name">Oz Bottleshop</div>
+        </div>
+        <h1>Checkout</h1>
+        <p class="subtitle">Review your order and confirm with your EUDI wallet.</p>
+
+        <div id="error-banner" class="banner" hidden></div>
+        <div id="pwa-added-pill" class="pwa-added-pill" hidden role="status">
+            &#x2713; Payment method added &mdash; scan to pay.
+        </div>
+
+        <section class="section" id="order-summary-section">
+            <div class="section-title">Order summary</div>
+            <ul id="line-items" class="line-items"></ul>
+            <div class="totals">
+                <span class="totals-label">Total</span>
+                <span class="totals-amount" id="total-amount">AUD 0.00</span>
+            </div>
+        </section>
+
+        <section class="section" id="payment-method-section">
+            <div class="section-title">Payment method</div>
+            <div class="payment-method" id="payment-method">
+                <span class="pm-missing">Loading&hellip;</span>
+            </div>
+            <a id="first-time-link" class="pm-first-time" href="#" hidden>First time? Set up payment with Bank of Demo &rarr;</a>
+        </section>
+
+        <div class="actions">
+            <button class="btn-secondary" type="button" id="back-btn">Back to cart</button>
+            <button class="btn-primary" type="button" id="pay-btn" disabled>Pay with EUDI Wallet</button>
+        </div>
+
+        <div class="qr-box" id="qr-box" hidden>
+            <p>Scan with your EUDI Wallet to authorize payment.</p>
+            <div class="qr-slot is-placeholder" id="pay-qr">Preparing&hellip;</div>
+            <a id="pay-link" class="qr-open-link" href="#" rel="noopener" hidden>Open in wallet</a>
+        </div>
+
+        <p class="footer-note">
+            Transaction binding is provided by OpenID4VP presentation session.
+            Amount + merchant shown on this page are displayed server-side;
+            RFC008 <code>transaction_data</code> wallet rendering is pending
+            verifier-api2 support.
+        </p>
+    </main>
+
+    <script>
+        const AUD = (n) => 'AUD ' + (Number(n) || 0).toFixed(2);
+
+        // External PSP origin; populated from /api/config on load. See
+        // index.html's renderPaymentMethodSection() for the same pattern.
+        // The `/checkout` return target is used for the in-flow Replace /
+        // Add-payment-method affordances so the shopper lands back here
+        // after enrolment (via /cart?pwa=1 first for the capture).
+        let publicPspUrl = 'https://psp.theaustraliahack.com';
+        async function loadConfig() {
+            try {
+                const r = await fetch('/api/config');
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data && data.publicPspUrl) publicPspUrl = data.publicPspUrl;
+            } catch (_) { /* fall back to default */ }
+        }
+        function pspEnrollUrl() {
+            const base = (publicPspUrl || '').replace(/\/$/, '') || '/';
+            // Land back here on /checkout so the shopper can pay right
+            // after enrolment instead of being dumped at / and having to
+            // re-walk the cart. The PSP appends ?pwa=1 to whatever return
+            // URL we pass; the handler below listens for that and shows a
+            // "Payment method added" toast before the Pay button.
+            const ret = encodeURIComponent(location.origin + location.pathname);
+            return `${base}/enroll?return=${ret}`;
+        }
+
+        // Remove every child from a node without touching innerHTML. Safer than
+        // `el.innerHTML = ''` per the security review hook and lets us stay
+        // strict about XSS-safe DOM construction throughout the page.
+        function clearNode(el) {
+            while (el.firstChild) el.removeChild(el.firstChild);
+        }
+
+        // QR helpers. Mirror the pattern used by examples/mock-psp-demo's
+        // enrolment page so scanning-to-authorise-payment looks identical
+        // to scanning-to-enrol. The external QR-serving API is the same
+        // zero-dep shortcut (api.qrserver.com) both pages already use.
+        function qrImg(payload) {
+            const img = document.createElement('img');
+            img.alt = 'QR code';
+            img.width = 176;
+            img.height = 176;
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(payload);
+            return img;
+        }
+        function renderQr(slotId, linkId, payload) {
+            const slot = document.getElementById(slotId);
+            const link = document.getElementById(linkId);
+            if (slot) {
+                clearNode(slot);
+                slot.classList.remove('is-placeholder');
+                slot.appendChild(qrImg(payload));
+            }
+            if (link) { link.href = payload; link.hidden = false; }
+        }
+
+        async function loadMe() {
+            const res = await fetch('/api/me', { credentials: 'include' });
+            if (!res.ok) throw new Error('me fetch failed: ' + res.status);
+            return res.json();
+        }
+
+        function renderItems(items) {
+            const ul = document.getElementById('line-items');
+            clearNode(ul);
+            (items || []).forEach((i) => {
+                const li = document.createElement('li');
+                li.className = 'line-item';
+                const left = document.createElement('div');
+                left.className = 'line-item-left';
+                const icon = document.createElement('span');
+                icon.className = 'line-item-icon';
+                icon.textContent = i.imageUrl || '\u{1F37E}';
+                const name = document.createElement('span');
+                name.className = 'line-item-name';
+                name.textContent = i.title || i.productId;
+                const qty = document.createElement('span');
+                qty.className = 'line-item-qty';
+                qty.textContent = ' x' + i.qty;
+                left.appendChild(icon);
+                left.appendChild(name);
+                left.appendChild(qty);
+                const total = document.createElement('span');
+                total.className = 'line-item-total';
+                total.textContent = AUD(i.qty * i.priceAud);
+                li.appendChild(left);
+                li.appendChild(total);
+                ul.appendChild(li);
+            });
+        }
+
+        /**
+         * The checkout page deliberately does not render any card
+         * metadata. The merchant does not know which PaymentWalletAttestation
+         * the shopper will present — that's discovered at OID4VP
+         * presentation time (the order receipt at /order/:id echoes back
+         * the scheme + PAN-last-four the wallet actually disclosed).
+         *
+         * So we surface a neutral "Pay with your EUDI Wallet" line and
+         * keep the [Add payment method] link available for shoppers who
+         * don't have a PWA enrolled yet. The Pay button is always enabled:
+         * if the wallet has no PWA the OID4VP presentation will reject and
+         * the status poll surfaces the decline.
+         */
+        function renderPaymentMethod() {
+            const box = document.getElementById('payment-method');
+            const payBtn = document.getElementById('pay-btn');
+            clearNode(box);
+
+            // PWAs (RFC007) are durable across purchases and merchants — one
+            // enrolment with the shopper's PSP covers unlimited payments.
+            // So we render a neutral "ready to pay" panel as the default
+            // state and demote the "set up" affordance to a small secondary
+            // link beneath, for first-time shoppers.
+            const left = document.createElement('div');
+            left.className = 'pm-left';
+            const icon = document.createElement('span');
+            icon.className = 'pm-icon';
+            icon.textContent = 'EUDI';
+            const meta = document.createElement('div');
+            const label = document.createElement('div');
+            label.className = 'pm-label';
+            label.textContent = 'Ready to pay with your EUDI Wallet';
+            const sub = document.createElement('div');
+            sub.className = 'pm-sub';
+            sub.textContent = 'Tap Pay — your wallet will present the credential.';
+            meta.appendChild(label);
+            meta.appendChild(sub);
+            left.appendChild(icon);
+            left.appendChild(meta);
+            box.appendChild(left);
+            payBtn.disabled = false;
+
+            // Secondary first-time setup link, placed just under the panel.
+            // The PSP short-circuits if the wallet already holds a PWA, so
+            // clicking this when you've already enrolled is harmless.
+            const hint = document.getElementById('first-time-link');
+            if (hint) {
+                hint.href = pspEnrollUrl();
+                hint.hidden = false;
+            }
+        }
+
+        function showError(msg) {
+            const b = document.getElementById('error-banner');
+            b.textContent = msg;
+            b.hidden = false;
+        }
+
+        async function pay() {
+            const payBtn = document.getElementById('pay-btn');
+            payBtn.disabled = true;
+            payBtn.textContent = 'Starting session\u2026';
+            try {
+                const res = await fetch('/api/checkout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (!res.ok) {
+                    showError('Unable to start checkout session. Try again.');
+                    payBtn.textContent = 'Pay with EUDI Wallet';
+                    payBtn.disabled = false;
+                    return;
+                }
+                const body = await res.json();
+                const qrBox = document.getElementById('qr-box');
+                if (body.qrCode) {
+                    renderQr('pay-qr', 'pay-link', body.qrCode);
+                    qrBox.hidden = false;
+                }
+                payBtn.textContent = 'Waiting for wallet\u2026';
+                pollStatus(body.orderId);
+            } catch (err) {
+                showError('Network error starting checkout.');
+                payBtn.textContent = 'Pay with EUDI Wallet';
+                payBtn.disabled = false;
+            }
+        }
+
+        async function pollStatus(orderId) {
+            const tick = async () => {
+                try {
+                    const res = await fetch('/api/checkout/status', { credentials: 'include' });
+                    if (!res.ok) return;
+                    const body = await res.json();
+                    if (body.status === 'completed' && body.orderId) {
+                        location.href = '/order/' + encodeURIComponent(body.orderId);
+                        return;
+                    }
+                } catch (_) { /* retry */ }
+                setTimeout(tick, 1500);
+            };
+            tick();
+        }
+
+        document.getElementById('back-btn').addEventListener('click', () => {
+            if (document.referrer && document.referrer.indexOf(location.origin) === 0) history.back();
+            else location.href = '/';
+        });
+        document.getElementById('pay-btn').addEventListener('click', pay);
+
+        /** If the shopper just returned from PSP enrolment (?pwa=1 breadcrumb),
+         *  strip the query and flash a green pill acknowledging it. Pay
+         *  button gets focus so tapping Enter triggers the OID4VP session
+         *  immediately. Nothing server-side — enrolment is a wallet-side
+         *  event and this is display-only. */
+        function handlePwaBreadcrumb() {
+            const params = new URLSearchParams(location.search);
+            if (params.get('pwa') !== '1') return;
+            const clean = location.pathname + location.hash;
+            history.replaceState({}, '', clean);
+            const pill = document.getElementById('pwa-added-pill');
+            if (pill) {
+                pill.hidden = false;
+                setTimeout(() => pill.classList.add('is-fading'), 2600);
+                setTimeout(() => { pill.hidden = true; pill.classList.remove('is-fading'); }, 3100);
+            }
+            // Defer the focus so the Pay button has finished rendering
+            // after renderPaymentMethod runs below.
+            setTimeout(() => {
+                const payBtn = document.getElementById('pay-btn');
+                if (payBtn && !payBtn.disabled) payBtn.focus();
+            }, 60);
+        }
+
+        (async () => {
+            try {
+                // Fire config + me in parallel. We need publicPspUrl before
+                // renderPaymentMethod runs (it composes the Add-payment-method
+                // CTA href), and /api/me for the cart data.
+                const [, me] = await Promise.all([loadConfig(), loadMe()]);
+                if (!me.cart || !me.cart.items || !me.cart.items.length) {
+                    location.href = '/';
+                    return;
+                }
+                renderItems(me.cart.items);
+                document.getElementById('total-amount').textContent = AUD(me.cart.subtotal);
+                renderPaymentMethod();
+                handlePwaBreadcrumb();
+            } catch (err) {
+                showError('Failed to load checkout.');
+            }
+        })();
+    </script>
+</body>
+</html>
