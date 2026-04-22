@@ -12,8 +12,7 @@
         "d": "8mEfklMSxjnSFc4Gg6Gy0aNKwDnnzvMGPMb3IR-tRsc"
     },
     "x5Chain": [
-        "MIIB0DCCAXagAwIBAgIVAKS21u95zfKxc7udSWPzDS9FsqKsMAoGCCqGSM49BAMCMC4xHzAdBgNVBAMMFlRyYW5zcG9ydCBmb3IgTlNXIElBQ0ExCzAJBgNVBAYTAkFVMB4XDTI2MDIyMDAxMTkxN1oXDTI3MDIyMDAxMTkxN1owOTEqMCgGA1UEAwwhVHJhbnNwb3J0IGZvciBOU1cgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJBVTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABG8md0++9m6i4BvsHox3jRne1l8C+OeH20RmIhyaiMp/p6/lv8mjaVxXWT6cq6EUNpwxeaU1B5F+vcsPxD7vwl2jZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBStL7OoFuKdzMlomu38Ux5Fkow53DAfBgNVHSMEGDAWgBTbcKya9YTQzMhPv3I21Jf0fYZawTAKBggqhkjOPQQDAgNIADBFAiAC0Bj9/RQRftN4Z/4RODxWhS6NvY4XTdW4tl/UJrKLnwIhAMWCBg+5jwxP0VKNaGKbOOxkJv5Ecj1/dnEtFshdlwqY",
-        "MIIBwjCCAWegAwIBAgIUEf47YU68d/om5RmYxIAPelqOb6YwCgYIKoZIzj0EAwIwLjEfMB0GA1UEAwwWVHJhbnNwb3J0IGZvciBOU1cgSUFDQTELMAkGA1UEBhMCQVUwHhcNMjYwMjIwMDExOTE3WhcNMzEwMjE5MDExOTE3WjAuMR8wHQYDVQQDDBZUcmFuc3BvcnQgZm9yIE5TVyBJQUNBMQswCQYDVQQGEwJBVTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGCyKndZE9ncLbsb1gfAlPT8m1PEGdxvUYdVlgXuni/OjcLNiVjuPFvBYtld4Pjhkze04pPiHJ+CVtrIzSslMzmjYzBhMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBTbcKya9YTQzMhPv3I21Jf0fYZawTAfBgNVHSMEGDAWgBTbcKya9YTQzMhPv3I21Jf0fYZawTAKBggqhkjOPQQDAgNJADBGAiEAgvogwKfLt+/2GlXd8hrgbKEQGA3gURzv0Jb/YJW4jrACIQCK76CgjmpxVMxy4S00P4TZ+fMkIDk/JfLZFjWG4vTMgw=="
+        "MIIB0DCCAXagAwIBAgIVAKS21u95zfKxc7udSWPzDS9FsqKsMAoGCCqGSM49BAMCMC4xHzAdBgNVBAMMFlRyYW5zcG9ydCBmb3IgTlNXIElBQ0ExCzAJBgNVBAYTAkFVMB4XDTI2MDIyMDAxMTkxN1oXDTI3MDIyMDAxMTkxN1owOTEqMCgGA1UEAwwhVHJhbnNwb3J0IGZvciBOU1cgRG9jdW1lbnQgU2lnbmVyMQswCQYDVQQGEwJBVTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABG8md0++9m6i4BvsHox3jRne1l8C+OeH20RmIhyaiMp/p6/lv8mjaVxXWT6cq6EUNpwxeaU1B5F+vcsPxD7vwl2jZjBkMA4GA1UdDwEB/wQEAwIHgDASBgNVHSUECzAJBgcogYxdBQECMB0GA1UdDgQWBBStL7OoFuKdzMlomu38Ux5Fkow53DAfBgNVHSMEGDAWgBTbcKya9YTQzMhPv3I21Jf0fYZawTAKBggqhkjOPQQDAgNIADBFAiAC0Bj9/RQRftN4Z/4RODxWhS6NvY4XTdW4tl/UJrKLnwIhAMWCBg+5jwxP0VKNaGKbOOxkJv5Ecj1/dnEtFshdlwqY"
     ],
     "iacaCertificate": {
         "subject": "C=AU,CN=Transport for NSW IACA",
@@ -33,15 +32,83 @@
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EmAAGYY1WWZjr3FatfKCl_eYHl7HYMc09wrXQj2ikyA\",\"y\":\"BqMRYE66wGlnuQ5VDcILrQcjL24Guvk5muRX4-XqO2g\",\"d\":\"UTXoy2iYNojcaGKeW8g87P9chZcfUXJ6j6JZ5o240f0\"}}",
     "credentialConfigurations": {
-        "urn:au:gov:dl:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:dl:1",
+        "org.iso.18013.5.1.mDL": {
+            "format": "mso_mdoc",
+            "doctype": "org.iso.18013.5.1.mDL",
             "display": [
                 {
-                    "name": "urn:au:gov:dl:1",
+                    "name": "NSW Driver Licence (mDL)",
                     "locale": "en"
                 }
-            ]
+            ],
+            "claims": {
+                "org.iso.18013.5.1": {
+                    "family_name": {
+                        "display": [
+                            {
+                                "name": "Family Name",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "given_name": {
+                        "display": [
+                            {
+                                "name": "Given Name",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "birth_date": {
+                        "display": [
+                            {
+                                "name": "Date of Birth",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issue_date": {
+                        "display": [
+                            {
+                                "name": "Issue Date",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "expiry_date": {
+                        "display": [
+                            {
+                                "name": "Expiry Date",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issuing_country": {
+                        "display": [
+                            {
+                                "name": "Issuing Country",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issuing_authority": {
+                        "display": [
+                            {
+                                "name": "Issuing Authority",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "document_number": {
+                        "display": [
+                            {
+                                "name": "Document Number",
+                                "locale": "en"
+                            }
+                        ]
+                    }
+                }
+            }
         }
     },
     "createdAt": "2026-02-19T04:41:14.466021130Z",

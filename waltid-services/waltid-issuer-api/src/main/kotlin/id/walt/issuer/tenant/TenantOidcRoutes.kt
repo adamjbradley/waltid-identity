@@ -116,36 +116,116 @@ fun Application.tenantOidcRoutes() {
                                 // explicitly in the tenant config.
                                 val format = config["format"]?.jsonPrimitive?.contentOrNull
                                 val isSdJwtLike = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                val isMdocLike = format == "mso_mdoc"
+                                // Auto-advertise a claim set matching what
+                                // IssuerTenantRegistry.buildDefaultSdJwtData /
+                                // buildDefaultMdocData emit, so DCQL selectors
+                                // written against any of these claim names
+                                // find the claim in the issued credential.
+                                // Operators can override by declaring `claims`
+                                // explicitly in the tenant config.
+                                fun claimDisplay(label: String) = buildJsonObject {
+                                    putJsonArray("display") {
+                                        add(buildJsonObject {
+                                            put("name", JsonPrimitive(label))
+                                            put("locale", JsonPrimitive("en"))
+                                        })
+                                    }
+                                }
+                                val defaultClaimLabels = listOf(
+                                    "given_name" to "Given Name",
+                                    "family_name" to "Family Name",
+                                    "birth_date" to "Date of Birth",
+                                    "age_over_18" to "Age over 18",
+                                    "age_over_21" to "Age over 21",
+                                    "age_in_years" to "Age",
+                                    "sex" to "Sex",
+                                    "nationality" to "Nationality",
+                                    "document_number" to "Document Number",
+                                    "expiry_date" to "Expiry Date",
+                                    "issuing_country" to "Issuing Country",
+                                    "issuing_authority" to "Issuing Authority"
+                                )
                                 if (isSdJwtLike && config["claims"] == null) {
                                     patched["claims"] = buildJsonObject {
-                                        putJsonObject("given_name") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Given Name"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
-                                            }
-                                        }
-                                        putJsonObject("family_name") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Family Name"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
-                                            }
-                                        }
-                                        putJsonObject("birth_date") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Date of Birth"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
+                                        defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
+                                        // EUDI PID uses issuance_date
+                                        put("issuance_date", claimDisplay("Issuance Date"))
+                                    }
+                                }
+                                if (isMdocLike && config["claims"] == null) {
+                                    // mdoc claims are namespaced. Branch on docType:
+                                    // EUDI PID mdoc → eu.europa.ec.eudi.pid.1 + issuance_date
+                                    // ISO mDL       → org.iso.18013.5.1 + issue_date + driving_privileges + un_distinguishing_sign
+                                    // Unknown docType → namespace = docType, generic set.
+                                    val docType = config["doctype"]?.jsonPrimitive?.contentOrNull ?: configId
+                                    val namespace = when {
+                                        docType.contains("pid") -> "eu.europa.ec.eudi.pid.1"
+                                        docType.contains("mDL") || docType.contains("mdl") -> "org.iso.18013.5.1"
+                                        else -> docType
+                                    }
+                                    val isIsoMdl = namespace == "org.iso.18013.5.1"
+                                    patched["claims"] = buildJsonObject {
+                                        putJsonObject(namespace) {
+                                            defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
+                                            if (isIsoMdl) {
+                                                put("issue_date", claimDisplay("Issue Date"))
+                                                put("un_distinguishing_sign", claimDisplay("UN Country Code"))
+                                                put("driving_privileges", claimDisplay("Driving Privileges"))
+                                            } else {
+                                                put("issuance_date", claimDisplay("Issuance Date"))
                                             }
                                         }
                                     }
                                 }
                                 if (config["scope"] == null) {
                                     patched["scope"] = JsonPrimitive(configId)
+                                }
+                                // Synthesize OID4VCI draft 15+ `credential_metadata` from
+                                // the existing top-level `display` and `claims`. Both
+                                // iOS wallet-kit (MsoMdocFormat.CredentialConfiguration
+                                // .credentialMetadata) and Android wallet-core (same field
+                                // via eudi-lib-jvm-openid4vci-kt) now read from this nested
+                                // object, so without it the wallets see no display name and
+                                // fall back to doctype placeholders (e.g. "mdl_doctype_name").
+                                // Top-level `display` and `claims` stay in place for any
+                                // client still on draft 13.
+                                //
+                                // Re-shape claims from the draft-13 object form
+                                //   SD-JWT: { key: { display: [...] } }
+                                //   mdoc:   { ns:  { key: { display: [...] } } }
+                                // to the draft-15 array form
+                                //   [ { path: [...], display: [...] }, ... ]
+                                val isMdoc2 = format == "mso_mdoc"
+                                val isSdJwt2 = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                val displayArr = patched["display"]?.jsonArray
+                                val claimsObj = patched["claims"]?.jsonObject
+                                if ((displayArr != null || claimsObj != null) && (isMdoc2 || isSdJwt2)) {
+                                    patched["credential_metadata"] = buildJsonObject {
+                                        if (displayArr != null) put("display", displayArr)
+                                        if (claimsObj != null) put("claims", buildJsonArray {
+                                            if (isMdoc2) {
+                                                claimsObj.forEach { (ns, nsEntry) ->
+                                                    (nsEntry as? JsonObject)?.forEach { (field, meta) ->
+                                                        add(buildJsonObject {
+                                                            put("path", buildJsonArray {
+                                                                add(JsonPrimitive(ns))
+                                                                add(JsonPrimitive(field))
+                                                            })
+                                                            (meta as? JsonObject)?.get("display")?.let { put("display", it) }
+                                                        })
+                                                    }
+                                                }
+                                            } else {
+                                                claimsObj.forEach { (field, meta) ->
+                                                    add(buildJsonObject {
+                                                        put("path", buildJsonArray { add(JsonPrimitive(field)) })
+                                                        (meta as? JsonObject)?.get("display")?.let { put("display", it) }
+                                                    })
+                                                }
+                                            }
+                                        })
+                                    }
                                 }
                                 if (patched.size != config.size || patched["scope"] != config["scope"]) {
                                     JsonObject(patched)
@@ -563,10 +643,25 @@ fun Application.tenantOidcRoutes() {
                         )
 
                         // For "Add document from list" flow: no credential offer, so issuanceRequests is empty.
-                        // Build default requests from authorization_details + tenant config.
-                        if (issuanceSession.issuanceRequests.isEmpty() && effectiveAuthReq.authorizationDetails != null) {
-                            val configIds = effectiveAuthReq.authorizationDetails!!
-                                .mapNotNull { it.credentialConfigurationId }
+                        // Build default requests from authorization_details (Android) or scope
+                        // (iOS EudiWalletKit sends `scope=<vct> openid` and no authorization_details).
+                        if (issuanceSession.issuanceRequests.isEmpty()) {
+                            val detailsConfigIds = effectiveAuthReq.authorizationDetails
+                                ?.mapNotNull { it.credentialConfigurationId }
+                                ?: emptyList()
+
+                            val scopeConfigIds = effectiveAuthReq.scope
+                                .filter { it != "openid" }
+                                .mapNotNull { scopeValue ->
+                                    val configs = provider.metadata.credentialConfigurationsSupported ?: return@mapNotNull null
+                                    // Prefer an explicit scope match; otherwise fall back to a configId match
+                                    // because tenant configs often omit `scope` (the /.well-known endpoint patches
+                                    // it to equal configId on the fly, but the in-memory metadata still has null).
+                                    configs.entries.firstOrNull { (_, cfg) -> cfg.scope == scopeValue }?.key
+                                        ?: scopeValue.takeIf { configs.containsKey(it) }
+                                }
+
+                            val configIds = (detailsConfigIds + scopeConfigIds).distinct()
                             if (configIds.isNotEmpty()) {
                                 val defaultRequests = IssuerTenantRegistry.buildDefaultIssuanceRequests(tenant, configIds)
                                 issuanceSession = issuanceSession.copy(issuanceRequests = defaultRequests)

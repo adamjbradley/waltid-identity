@@ -12,8 +12,7 @@
         "d": "uUUF0jwj-nhh-ufI0KrhM22Oq71k0kPW9-zHRPDTnmg"
     },
     "x5Chain": [
-        "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"
+        "MIIB8zCCAZigAwIBAgIVAJUwavOmuZfab0H1BYzD0fE9upccMAoGCCqGSM49BAMCMD8xMDAuBgNVBAMMJ0F1c3RyYWxpYW4gRGlnaXRhbCBJZGVudGl0eSBPZmZpY2UgSUFDQTELMAkGA1UEBhMCQVUwHhcNMjYwMjEzMDQ1NzIyWhcNMjcwMjEzMDQ1NzIyWjBKMTswOQYDVQQDDDJBdXN0cmFsaWFuIERpZ2l0YWwgSWRlbnRpdHkgT2ZmaWNlIERvY3VtZW50IFNpZ25lcjELMAkGA1UEBhMCQVUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQEup2X6QVnuwO3qnLg6mpw/6aFdED9KX/qGHfI8C4q0kdlfC7y3z/e8nL0qkCnXtmT0R+CMiYE0Yhi3r34XHz0o2YwZDAOBgNVHQ8BAf8EBAMCB4AwEgYDVR0lBAswCQYHKIGMXQUBAjAdBgNVHQ4EFgQUL/7qwboQ+xaBvVUycdajKbV3HhYwHwYDVR0jBBgwFoAU4pS2VzAUAcqaS/nzceSvQRvIeRwwCgYIKoZIzj0EAwIDSQAwRgIhAJ0pqosEdSa3NGTDV7jO5v/x92hAD9ZUKFsMdXZDYPQ6AiEAmLomOvmSOX5nwQ9pAtDREBXNu3gha5X3AEwNqpzwCnA="
     ],
     "iacaCertificate": {
         "subject": "C=AU,CN=Australian Digital Identity Office IACA",
@@ -43,22 +42,12 @@
                 }
             ]
         },
-        "urn:au:gov:dl:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:dl:1",
+        "au.gov.mygovid.pid.1": {
+            "format": "mso_mdoc",
+            "doctype": "au.gov.mygovid.pid.1",
             "display": [
                 {
-                    "name": "Driving Licence (Australia)",
-                    "locale": "en"
-                }
-            ]
-        },
-        "urn:au:gov:medicare:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:medicare:1",
-            "display": [
-                {
-                    "name": "Medicare Card",
+                    "name": "myGovID (mDoc)",
                     "locale": "en"
                 }
             ]

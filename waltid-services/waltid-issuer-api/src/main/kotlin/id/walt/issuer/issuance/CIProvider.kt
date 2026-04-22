@@ -569,11 +569,22 @@ open class CIProvider(
             }
 
             builder.sign( // TODO: expiration date!
-                validityInfo = ValidityInfo(
-                    signed = Clock.System.now(),
-                    validFrom = Clock.System.now(),
-                    validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
-                ),
+                validityInfo = run {
+                    // Back-date both `signed` and `validFrom` by 1 minute so:
+                    //   iOS:     validFrom <= Date.now                (past OK)
+                    //   Android: validFrom >= signed                  (equal OK)
+                    // The previous version kept `signed` at now and only
+                    // back-dated validFrom, which satisfied iOS but made
+                    // Android fail with "validFrom timestamp should be equal
+                    // or later than the signed timestamp".
+                    val skew = 1.minutes
+                    val issuedAt = Clock.System.now() - skew
+                    ValidityInfo(
+                        signed = issuedAt,
+                        validFrom = issuedAt,
+                        validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
+                    )
+                },
                 deviceKeyInfo = DeviceKeyInfo(
                     deviceKey = DataElement.fromCBOR(
                         OneKey(
