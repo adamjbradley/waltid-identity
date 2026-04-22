@@ -226,6 +226,11 @@ object IssuerTenantRegistry {
         return buildJsonObject {
             put("family_name", "Demo")
             put("given_name", "User")
+            // Emit both spellings: EUDI/ISO (birth_date) used by DCQL queries
+            // for EUDI PID, and OIDC (birthdate) expected by SD-JWT VC / OIDC
+            // consumers. Without birth_date the wallet can't satisfy DCQL
+            // `claim [birth_date]` selectors and presentation fails.
+            put("birth_date", "1990-01-01")
             put("birthdate", "1990-01-01")
             put("issuing_country", tenant.country)
             put("issuing_authority", tenant.legalName)
