@@ -563,10 +563,25 @@ fun Application.tenantOidcRoutes() {
                         )
 
                         // For "Add document from list" flow: no credential offer, so issuanceRequests is empty.
-                        // Build default requests from authorization_details + tenant config.
-                        if (issuanceSession.issuanceRequests.isEmpty() && effectiveAuthReq.authorizationDetails != null) {
-                            val configIds = effectiveAuthReq.authorizationDetails!!
-                                .mapNotNull { it.credentialConfigurationId }
+                        // Build default requests from authorization_details (Android) or scope
+                        // (iOS EudiWalletKit sends `scope=<vct> openid` and no authorization_details).
+                        if (issuanceSession.issuanceRequests.isEmpty()) {
+                            val detailsConfigIds = effectiveAuthReq.authorizationDetails
+                                ?.mapNotNull { it.credentialConfigurationId }
+                                ?: emptyList()
+
+                            val scopeConfigIds = effectiveAuthReq.scope
+                                .filter { it != "openid" }
+                                .mapNotNull { scopeValue ->
+                                    val configs = provider.metadata.credentialConfigurationsSupported ?: return@mapNotNull null
+                                    // Prefer an explicit scope match; otherwise fall back to a configId match
+                                    // because tenant configs often omit `scope` (the /.well-known endpoint patches
+                                    // it to equal configId on the fly, but the in-memory metadata still has null).
+                                    configs.entries.firstOrNull { (_, cfg) -> cfg.scope == scopeValue }?.key
+                                        ?: scopeValue.takeIf { configs.containsKey(it) }
+                                }
+
+                            val configIds = (detailsConfigIds + scopeConfigIds).distinct()
                             if (configIds.isNotEmpty()) {
                                 val defaultRequests = IssuerTenantRegistry.buildDefaultIssuanceRequests(tenant, configIds)
                                 issuanceSession = issuanceSession.copy(issuanceRequests = defaultRequests)
