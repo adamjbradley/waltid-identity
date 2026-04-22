@@ -563,10 +563,23 @@ fun Application.tenantOidcRoutes() {
                         )
 
                         // For "Add document from list" flow: no credential offer, so issuanceRequests is empty.
-                        // Build default requests from authorization_details + tenant config.
-                        if (issuanceSession.issuanceRequests.isEmpty() && effectiveAuthReq.authorizationDetails != null) {
-                            val configIds = effectiveAuthReq.authorizationDetails!!
-                                .mapNotNull { it.credentialConfigurationId }
+                        // Build default requests from authorization_details (Android) or scope
+                        // (iOS EudiWalletKit sends `scope=<vct> openid` and no authorization_details).
+                        if (issuanceSession.issuanceRequests.isEmpty()) {
+                            val detailsConfigIds = effectiveAuthReq.authorizationDetails
+                                ?.mapNotNull { it.credentialConfigurationId }
+                                ?: emptyList()
+
+                            val scopeConfigIds = effectiveAuthReq.scope
+                                .filter { it != "openid" }
+                                .mapNotNull { scopeValue ->
+                                    provider.metadata.credentialConfigurationsSupported
+                                        ?.entries
+                                        ?.firstOrNull { (_, cfg) -> cfg.scope == scopeValue }
+                                        ?.key
+                                }
+
+                            val configIds = (detailsConfigIds + scopeConfigIds).distinct()
                             if (configIds.isNotEmpty()) {
                                 val defaultRequests = IssuerTenantRegistry.buildDefaultIssuanceRequests(tenant, configIds)
                                 issuanceSession = issuanceSession.copy(issuanceRequests = defaultRequests)
