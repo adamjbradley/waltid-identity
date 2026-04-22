@@ -573,10 +573,12 @@ fun Application.tenantOidcRoutes() {
                             val scopeConfigIds = effectiveAuthReq.scope
                                 .filter { it != "openid" }
                                 .mapNotNull { scopeValue ->
-                                    provider.metadata.credentialConfigurationsSupported
-                                        ?.entries
-                                        ?.firstOrNull { (_, cfg) -> cfg.scope == scopeValue }
-                                        ?.key
+                                    val configs = provider.metadata.credentialConfigurationsSupported ?: return@mapNotNull null
+                                    // Prefer an explicit scope match; otherwise fall back to a configId match
+                                    // because tenant configs often omit `scope` (the /.well-known endpoint patches
+                                    // it to equal configId on the fly, but the in-memory metadata still has null).
+                                    configs.entries.firstOrNull { (_, cfg) -> cfg.scope == scopeValue }?.key
+                                        ?: scopeValue.takeIf { configs.containsKey(it) }
                                 }
 
                             val configIds = (detailsConfigIds + scopeConfigIds).distinct()
