@@ -569,11 +569,18 @@ open class CIProvider(
             }
 
             builder.sign( // TODO: expiration date!
-                validityInfo = ValidityInfo(
-                    signed = Clock.System.now(),
-                    validFrom = Clock.System.now(),
-                    validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
-                ),
+                validityInfo = run {
+                    val now = Clock.System.now()
+                    // Back-date validFrom by 1 minute to absorb clock skew between
+                    // the issuer and the wallet device. iOS MsoValidation.swift:62
+                    // rejects any credential whose validFrom > device-now, which
+                    // otherwise fails on millisecond-level jitter right after mint.
+                    ValidityInfo(
+                        signed = now,
+                        validFrom = now - 1.minutes,
+                        validUntil = now.plus(365 * 24, DateTimeUnit.HOUR)
+                    )
+                },
                 deviceKeyInfo = DeviceKeyInfo(
                     deviceKey = DataElement.fromCBOR(
                         OneKey(
