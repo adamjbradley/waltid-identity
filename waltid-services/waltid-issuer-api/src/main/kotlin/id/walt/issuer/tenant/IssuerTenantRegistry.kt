@@ -204,20 +204,51 @@ object IssuerTenantRegistry {
         }
     }
 
+    // Default claim set emitted into every hackathon-issued credential. Names
+    // follow the EUDI PID Rule Book and ISO 18013-5 mDL — the two schemas every
+    // VCT in this deployment derives from. The OIDC spellings (birthdate,
+    // gender) are intentionally not used; there is no spec that auto-maps
+    // between OIDC and EUDI claim names, and every VCT here is EUDI-shaped.
     private fun buildDefaultMdocData(docType: String, tenant: IssuerTenant): Map<String, JsonObject> {
         val namespace = when {
             docType.contains("pid") -> "eu.europa.ec.eudi.pid.1"
             docType.contains("mDL") || docType.contains("mdl") -> "org.iso.18013.5.1"
             else -> docType
         }
+        val isIsoMdl = namespace == "org.iso.18013.5.1"
         val fields = buildJsonObject {
             put("family_name", "Demo")
             put("given_name", "User")
             put("birth_date", "1990-01-01")
-            put("issue_date", "2026-01-01")
-            put("expiry_date", "2027-01-01")
+            put("age_over_18", true)
+            put("age_over_21", true)
+            put("age_in_years", 35)
+            // ISO 5218 / ISO 18013-5: 0=unknown 1=male 2=female 9=N/A.
+            // EUDI PID mdoc uses the same encoding. OIDC's `gender` is a
+            // different claim name and a different type (string) — not used.
+            put("sex", 1)
+            put("nationality", tenant.country)
+            put("document_number", "DEMO-${tenant.id.take(8).uppercase()}")
             put("issuing_country", tenant.country)
             put("issuing_authority", tenant.legalName)
+            put("expiry_date", "2031-01-01")
+            // Issuance date: EUDI PID names the claim `issuance_date` (ARF);
+            // ISO mDL names it `issue_date`. Emit the right one per namespace
+            // so DCQL selectors written against either schema find the field.
+            if (isIsoMdl) put("issue_date", "2026-01-01") else put("issuance_date", "2026-01-01")
+            if (isIsoMdl) {
+                // mDL-specific enrichments: UN country code + a default
+                // driving privilege so verifiers that read the mDL schema
+                // actually see the fields they expect.
+                put("un_distinguishing_sign", tenant.country)
+                put("driving_privileges", buildJsonArray {
+                    add(buildJsonObject {
+                        put("vehicle_category_code", "B")
+                        put("issue_date", "2026-01-01")
+                        put("expiry_date", "2031-01-01")
+                    })
+                })
+            }
         }
         return mapOf(namespace to fields)
     }
@@ -226,16 +257,17 @@ object IssuerTenantRegistry {
         return buildJsonObject {
             put("family_name", "Demo")
             put("given_name", "User")
-            // Emit both spellings: EUDI/ISO (birth_date) used by DCQL queries
-            // for EUDI PID, and OIDC (birthdate) expected by SD-JWT VC / OIDC
-            // consumers. Without birth_date the wallet can't satisfy DCQL
-            // `claim [birth_date]` selectors and presentation fails.
             put("birth_date", "1990-01-01")
-            put("birthdate", "1990-01-01")
-            put("issuing_country", tenant.country)
-            put("issuing_authority", tenant.legalName)
             put("age_over_18", true)
             put("age_over_21", true)
+            put("age_in_years", 35)
+            put("sex", 1)
+            put("nationality", tenant.country)
+            put("document_number", "DEMO-${tenant.id.take(8).uppercase()}")
+            put("issuance_date", "2026-01-01")
+            put("expiry_date", "2031-01-01")
+            put("issuing_country", tenant.country)
+            put("issuing_authority", tenant.legalName)
         }
     }
 
