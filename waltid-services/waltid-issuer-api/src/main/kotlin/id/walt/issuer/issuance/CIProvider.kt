@@ -570,15 +570,19 @@ open class CIProvider(
 
             builder.sign( // TODO: expiration date!
                 validityInfo = run {
-                    val now = Clock.System.now()
-                    // Back-date validFrom by 1 minute to absorb clock skew between
-                    // the issuer and the wallet device. iOS MsoValidation.swift:62
-                    // rejects any credential whose validFrom > device-now, which
-                    // otherwise fails on millisecond-level jitter right after mint.
+                    // Back-date both `signed` and `validFrom` by 1 minute so:
+                    //   iOS:     validFrom <= Date.now                (past OK)
+                    //   Android: validFrom >= signed                  (equal OK)
+                    // The previous version kept `signed` at now and only
+                    // back-dated validFrom, which satisfied iOS but made
+                    // Android fail with "validFrom timestamp should be equal
+                    // or later than the signed timestamp".
+                    val skew = 1.minutes
+                    val issuedAt = Clock.System.now() - skew
                     ValidityInfo(
-                        signed = now,
-                        validFrom = now - 1.minutes,
-                        validUntil = now.plus(365 * 24, DateTimeUnit.HOUR)
+                        signed = issuedAt,
+                        validFrom = issuedAt,
+                        validUntil = Clock.System.now().plus(365 * 24, DateTimeUnit.HOUR)
                     )
                 },
                 deviceKeyInfo = DeviceKeyInfo(
