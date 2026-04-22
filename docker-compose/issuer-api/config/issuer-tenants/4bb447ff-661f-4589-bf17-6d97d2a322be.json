@@ -62,6 +62,16 @@
                     "locale": "en"
                 }
             ]
+        },
+        "au.gov.mygovid.pid.1": {
+            "format": "mso_mdoc",
+            "doctype": "au.gov.mygovid.pid.1",
+            "display": [
+                {
+                    "name": "myGovID (mDoc)",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-13T04:57:21.952948218Z",
