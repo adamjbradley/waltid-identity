@@ -118,6 +118,16 @@ export const EudiCredentials: AvailableCredential[] = [
     defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['birth_date'] }],
   },
   {
+    id: 'au.gov.mygovid.pid.1',
+    title: 'myGovID (mDoc)',
+    offer: { 'eu.europa.ec.eudi.pid.1': { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'AU' } },
+    defaultClaims: [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ],
+  },
+  {
     id: 'urn:au:gov:dl:1',
     title: 'Driving Licence (Australia)',
     offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', document_number: 'DL000000', issuing_country: 'AU' } },
@@ -129,12 +139,32 @@ export const EudiCredentials: AvailableCredential[] = [
     offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', medicare_number: '0000 00000 0', issuing_country: 'AU' } },
     defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['medicare_number'] }],
   },
+  {
+    id: 'au.gov.medicare.1',
+    title: 'Medicare Card (mDoc)',
+    offer: { 'au.gov.medicare.1': { family_name: 'Doe', given_name: 'John', medicare_number: '0000 00000 0', issuing_country: 'AU' } },
+    defaultClaims: [
+      { path: ['au.gov.medicare.1', 'family_name'] },
+      { path: ['au.gov.medicare.1', 'given_name'] },
+      { path: ['au.gov.medicare.1', 'medicare_number'] },
+    ],
+  },
   // India
   {
     id: 'urn:in:gov:aadhaar:pid:1',
     title: 'Aadhaar Identity',
     offer: { credentialSubject: { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'IN' } },
     defaultClaims: [{ path: ['family_name'] }, { path: ['given_name'] }, { path: ['birth_date'] }],
+  },
+  {
+    id: 'in.gov.aadhaar.pid.1',
+    title: 'Aadhaar (mDoc)',
+    offer: { 'eu.europa.ec.eudi.pid.1': { family_name: 'Doe', given_name: 'John', birth_date: '1990-01-15', issuing_country: 'IN' } },
+    defaultClaims: [
+      { path: ['eu.europa.ec.eudi.pid.1', 'family_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'given_name'] },
+      { path: ['eu.europa.ec.eudi.pid.1', 'birth_date'] },
+    ],
   },
   {
     id: 'urn:in:gov:dl:1',
@@ -809,9 +839,12 @@ const CREDENTIAL_FORMAT_MAP: Record<string, string[]> = {
   'PaymentWalletAttestation': ['DC+SD-JWT (EUDI)'],
   // Country-specific (non-EU)
   'urn:au:gov:mygovid:pid:1': ['DC+SD-JWT (EUDI)'],
+  'au.gov.mygovid.pid.1': ['mDoc (ISO 18013-5)'],
   'urn:au:gov:dl:1': ['DC+SD-JWT (EUDI)'],
   'urn:au:gov:medicare:1': ['DC+SD-JWT (EUDI)'],
+  'au.gov.medicare.1': ['mDoc (ISO 18013-5)'],
   'urn:in:gov:aadhaar:pid:1': ['DC+SD-JWT (EUDI)'],
+  'in.gov.aadhaar.pid.1': ['mDoc (ISO 18013-5)'],
   'urn:in:gov:dl:1': ['DC+SD-JWT (EUDI)'],
   'urn:in:gov:pan:1': ['DC+SD-JWT (EUDI)'],
   'urn:uk:gov:govuk-one-login:pid:1': ['DC+SD-JWT (EUDI)'],
