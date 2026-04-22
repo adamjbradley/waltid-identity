@@ -33,12 +33,12 @@
     },
     "ciTokenKey": "{\"type\":\"jwk\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EmAAGYY1WWZjr3FatfKCl_eYHl7HYMc09wrXQj2ikyA\",\"y\":\"BqMRYE66wGlnuQ5VDcILrQcjL24Guvk5muRX4-XqO2g\",\"d\":\"UTXoy2iYNojcaGKeW8g87P9chZcfUXJ6j6JZ5o240f0\"}}",
     "credentialConfigurations": {
-        "urn:au:gov:dl:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:dl:1",
+        "org.iso.18013.5.1.mDL": {
+            "format": "mso_mdoc",
+            "doctype": "org.iso.18013.5.1.mDL",
             "display": [
                 {
-                    "name": "urn:au:gov:dl:1",
+                    "name": "NSW Driver Licence (mDL)",
                     "locale": "en"
                 }
             ]

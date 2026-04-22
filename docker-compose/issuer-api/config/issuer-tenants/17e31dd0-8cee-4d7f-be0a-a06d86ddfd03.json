@@ -42,6 +42,16 @@
                     "locale": "en"
                 }
             ]
+        },
+        "au.gov.medicare.1": {
+            "format": "mso_mdoc",
+            "doctype": "au.gov.medicare.1",
+            "display": [
+                {
+                    "name": "Medicare Card (mDoc)",
+                    "locale": "en"
+                }
+            ]
         }
     },
     "createdAt": "2026-02-19T04:41:22.158226425Z",

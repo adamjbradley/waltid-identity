@@ -43,22 +43,12 @@
                 }
             ]
         },
-        "urn:au:gov:dl:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:dl:1",
+        "au.gov.mygovid.pid.1": {
+            "format": "mso_mdoc",
+            "doctype": "au.gov.mygovid.pid.1",
             "display": [
                 {
-                    "name": "Driving Licence (Australia)",
-                    "locale": "en"
-                }
-            ]
-        },
-        "urn:au:gov:medicare:1": {
-            "format": "dc+sd-jwt",
-            "vct": "urn:au:gov:medicare:1",
-            "display": [
-                {
-                    "name": "Medicare Card",
+                    "name": "myGovID (mDoc)",
                     "locale": "en"
                 }
             ]
