@@ -40,7 +40,75 @@
                     "name": "NSW Driver Licence (mDL)",
                     "locale": "en"
                 }
-            ]
+            ],
+            "claims": {
+                "org.iso.18013.5.1": {
+                    "family_name": {
+                        "display": [
+                            {
+                                "name": "Family Name",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "given_name": {
+                        "display": [
+                            {
+                                "name": "Given Name",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "birth_date": {
+                        "display": [
+                            {
+                                "name": "Date of Birth",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issue_date": {
+                        "display": [
+                            {
+                                "name": "Issue Date",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "expiry_date": {
+                        "display": [
+                            {
+                                "name": "Expiry Date",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issuing_country": {
+                        "display": [
+                            {
+                                "name": "Issuing Country",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "issuing_authority": {
+                        "display": [
+                            {
+                                "name": "Issuing Authority",
+                                "locale": "en"
+                            }
+                        ]
+                    },
+                    "document_number": {
+                        "display": [
+                            {
+                                "name": "Document Number",
+                                "locale": "en"
+                            }
+                        ]
+                    }
+                }
+            }
         }
     },
     "createdAt": "2026-02-19T04:41:14.466021130Z",
