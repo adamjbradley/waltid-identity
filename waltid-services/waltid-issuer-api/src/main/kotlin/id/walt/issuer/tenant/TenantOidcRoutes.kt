@@ -147,6 +147,52 @@ fun Application.tenantOidcRoutes() {
                                 if (config["scope"] == null) {
                                     patched["scope"] = JsonPrimitive(configId)
                                 }
+                                // Synthesize OID4VCI draft 15+ `credential_metadata` from
+                                // the existing top-level `display` and `claims`. Both
+                                // iOS wallet-kit (MsoMdocFormat.CredentialConfiguration
+                                // .credentialMetadata) and Android wallet-core (same field
+                                // via eudi-lib-jvm-openid4vci-kt) now read from this nested
+                                // object, so without it the wallets see no display name and
+                                // fall back to doctype placeholders (e.g. "mdl_doctype_name").
+                                // Top-level `display` and `claims` stay in place for any
+                                // client still on draft 13.
+                                //
+                                // Re-shape claims from the draft-13 object form
+                                //   SD-JWT: { key: { display: [...] } }
+                                //   mdoc:   { ns:  { key: { display: [...] } } }
+                                // to the draft-15 array form
+                                //   [ { path: [...], display: [...] }, ... ]
+                                val isMdoc2 = format == "mso_mdoc"
+                                val isSdJwt2 = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                val displayArr = patched["display"]?.jsonArray
+                                val claimsObj = patched["claims"]?.jsonObject
+                                if ((displayArr != null || claimsObj != null) && (isMdoc2 || isSdJwt2)) {
+                                    patched["credential_metadata"] = buildJsonObject {
+                                        if (displayArr != null) put("display", displayArr)
+                                        if (claimsObj != null) put("claims", buildJsonArray {
+                                            if (isMdoc2) {
+                                                claimsObj.forEach { (ns, nsEntry) ->
+                                                    (nsEntry as? JsonObject)?.forEach { (field, meta) ->
+                                                        add(buildJsonObject {
+                                                            put("path", buildJsonArray {
+                                                                add(JsonPrimitive(ns))
+                                                                add(JsonPrimitive(field))
+                                                            })
+                                                            (meta as? JsonObject)?.get("display")?.let { put("display", it) }
+                                                        })
+                                                    }
+                                                }
+                                            } else {
+                                                claimsObj.forEach { (field, meta) ->
+                                                    add(buildJsonObject {
+                                                        put("path", buildJsonArray { add(JsonPrimitive(field)) })
+                                                        (meta as? JsonObject)?.get("display")?.let { put("display", it) }
+                                                    })
+                                                }
+                                            }
+                                        })
+                                    }
+                                }
                                 if (patched.size != config.size || patched["scope"] != config["scope"]) {
                                     JsonObject(patched)
                                 } else {
