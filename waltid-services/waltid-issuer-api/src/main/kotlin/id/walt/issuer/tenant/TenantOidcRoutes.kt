@@ -116,30 +116,64 @@ fun Application.tenantOidcRoutes() {
                                 // explicitly in the tenant config.
                                 val format = config["format"]?.jsonPrimitive?.contentOrNull
                                 val isSdJwtLike = format == "dc+sd-jwt" || format == "vc+sd-jwt"
+                                val isMdocLike = format == "mso_mdoc"
+                                // Auto-advertise a claim set matching what
+                                // IssuerTenantRegistry.buildDefaultSdJwtData /
+                                // buildDefaultMdocData emit, so DCQL selectors
+                                // written against any of these claim names
+                                // find the claim in the issued credential.
+                                // Operators can override by declaring `claims`
+                                // explicitly in the tenant config.
+                                fun claimDisplay(label: String) = buildJsonObject {
+                                    putJsonArray("display") {
+                                        add(buildJsonObject {
+                                            put("name", JsonPrimitive(label))
+                                            put("locale", JsonPrimitive("en"))
+                                        })
+                                    }
+                                }
+                                val defaultClaimLabels = listOf(
+                                    "given_name" to "Given Name",
+                                    "family_name" to "Family Name",
+                                    "birth_date" to "Date of Birth",
+                                    "age_over_18" to "Age over 18",
+                                    "age_over_21" to "Age over 21",
+                                    "age_in_years" to "Age",
+                                    "sex" to "Sex",
+                                    "nationality" to "Nationality",
+                                    "document_number" to "Document Number",
+                                    "expiry_date" to "Expiry Date",
+                                    "issuing_country" to "Issuing Country",
+                                    "issuing_authority" to "Issuing Authority"
+                                )
                                 if (isSdJwtLike && config["claims"] == null) {
                                     patched["claims"] = buildJsonObject {
-                                        putJsonObject("given_name") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Given Name"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
-                                            }
-                                        }
-                                        putJsonObject("family_name") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Family Name"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
-                                            }
-                                        }
-                                        putJsonObject("birth_date") {
-                                            putJsonArray("display") {
-                                                add(buildJsonObject {
-                                                    put("name", JsonPrimitive("Date of Birth"))
-                                                    put("locale", JsonPrimitive("en"))
-                                                })
+                                        defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
+                                        // EUDI PID uses issuance_date
+                                        put("issuance_date", claimDisplay("Issuance Date"))
+                                    }
+                                }
+                                if (isMdocLike && config["claims"] == null) {
+                                    // mdoc claims are namespaced. Branch on docType:
+                                    // EUDI PID mdoc → eu.europa.ec.eudi.pid.1 + issuance_date
+                                    // ISO mDL       → org.iso.18013.5.1 + issue_date + driving_privileges + un_distinguishing_sign
+                                    // Unknown docType → namespace = docType, generic set.
+                                    val docType = config["doctype"]?.jsonPrimitive?.contentOrNull ?: configId
+                                    val namespace = when {
+                                        docType.contains("pid") -> "eu.europa.ec.eudi.pid.1"
+                                        docType.contains("mDL") || docType.contains("mdl") -> "org.iso.18013.5.1"
+                                        else -> docType
+                                    }
+                                    val isIsoMdl = namespace == "org.iso.18013.5.1"
+                                    patched["claims"] = buildJsonObject {
+                                        putJsonObject(namespace) {
+                                            defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
+                                            if (isIsoMdl) {
+                                                put("issue_date", claimDisplay("Issue Date"))
+                                                put("un_distinguishing_sign", claimDisplay("UN Country Code"))
+                                                put("driving_privileges", claimDisplay("Driving Privileges"))
+                                            } else {
+                                                put("issuance_date", claimDisplay("Issuance Date"))
                                             }
                                         }
                                     }
