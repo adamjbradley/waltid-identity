@@ -38,7 +38,7 @@
             "vct": "PaymentWalletAttestation",
             "display": [
                 {
-                    "name": "PaymentWalletAttestation",
+                    "name": "Payment Wallet Attestation",
                     "locale": "en"
                 }
             ]

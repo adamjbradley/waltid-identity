@@ -76,13 +76,15 @@ function buildAgeOnlyDcql() {
 
 /**
  * PaymentWalletAttestation DCQL used at /checkout pay time. Single VCT,
- * single credential; claims [panLastFour, scheme] are what the receipt
- * page echoes back on the order confirmation.
+ * single credential. Per RFC007 §8, card metadata lives under the
+ * `fundingSource` nested object, so the claim paths are
+ * `["fundingSource","panLastFour"]` and `["fundingSource","scheme"]` —
+ * what the receipt page echoes back on the order confirmation.
  */
 function buildPwaCheckoutDcql() {
   return buildSingletonDcql(
     ['PaymentWalletAttestation'],
-    [['panLastFour'], ['scheme']],
+    [['fundingSource', 'panLastFour'], ['fundingSource', 'scheme']],
     'dc+sd-jwt',
     'pwa',
   );
@@ -918,11 +920,17 @@ function createApp() {
       return res.json({ ok: true });
     }
     const creds = session.presentedCredentials || {};
+    // RFC007 §8: card metadata is nested under `fundingSource`. Read it from
+    // there; fall back to a flat shape for legacy credentials still in wallets.
     let pwaMeta = { panLastFour: null, scheme: null };
     for (const arr of Object.values(creds)) {
       if (Array.isArray(arr) && arr.length && arr[0] && arr[0].credentialData) {
         const cd = arr[0].credentialData;
-        pwaMeta = { panLastFour: cd.panLastFour, scheme: cd.scheme };
+        const fs = cd.fundingSource || {};
+        pwaMeta = {
+          panLastFour: fs.panLastFour ?? cd.panLastFour ?? null,
+          scheme:      fs.scheme      ?? cd.scheme      ?? null,
+        };
         break;
       }
     }

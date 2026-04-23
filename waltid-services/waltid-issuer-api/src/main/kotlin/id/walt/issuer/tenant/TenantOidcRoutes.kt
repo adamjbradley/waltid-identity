@@ -147,10 +147,33 @@ fun Application.tenantOidcRoutes() {
                                     "issuing_authority" to "Issuing Authority"
                                 )
                                 if (isSdJwtLike && config["claims"] == null) {
+                                    val vct = config["vct"]?.jsonPrimitive?.contentOrNull ?: ""
+                                    val isPwa = vct == "PaymentWalletAttestation"
                                     patched["claims"] = buildJsonObject {
-                                        defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
-                                        // EUDI PID uses issuance_date
-                                        put("issuance_date", claimDisplay("Issuance Date"))
+                                        if (isPwa) {
+                                            // RFC007 §8 payment-wallet-attestation claim set
+                                            // (nested under fundingSource). Advertised as flat
+                                            // dotted keys so the wallet UI can surface each
+                                            // sub-field label; the actual credential payload
+                                            // emitted by the PSP is a nested fundingSource
+                                            // object per the spec.
+                                            put("fundingSource",             claimDisplay("Funding Source"))
+                                            put("fundingSource.type",        claimDisplay("Type"))
+                                            put("fundingSource.panLastFour", claimDisplay("Card last 4"))
+                                            put("fundingSource.iin",         claimDisplay("IIN"))
+                                            put("fundingSource.parLastFour", claimDisplay("PAR last 4"))
+                                            put("fundingSource.ibanLastFour",claimDisplay("IBAN last 4"))
+                                            put("fundingSource.bic",         claimDisplay("BIC"))
+                                            put("fundingSource.sortCode",    claimDisplay("Sort Code"))
+                                            put("fundingSource.scheme",      claimDisplay("Scheme"))
+                                            put("fundingSource.currency",    claimDisplay("Currency"))
+                                            put("fundingSource.icon",        claimDisplay("Icon"))
+                                            put("fundingSource.aliasId",     claimDisplay("Alias"))
+                                        } else {
+                                            defaultClaimLabels.forEach { (key, label) -> put(key, claimDisplay(label)) }
+                                            // EUDI PID uses issuance_date
+                                            put("issuance_date", claimDisplay("Issuance Date"))
+                                        }
                                     }
                                 }
                                 if (isMdocLike && config["claims"] == null) {
@@ -217,9 +240,16 @@ fun Application.tenantOidcRoutes() {
                                                     }
                                                 }
                                             } else {
+                                                // SD-JWT flat claims. A dotted key like
+                                                // `fundingSource.panLastFour` expands to the
+                                                // multi-segment path ["fundingSource","panLastFour"]
+                                                // so DCQL selectors resolve against the nested
+                                                // credential payload produced by the issuer.
                                                 claimsObj.forEach { (field, meta) ->
                                                     add(buildJsonObject {
-                                                        put("path", buildJsonArray { add(JsonPrimitive(field)) })
+                                                        put("path", buildJsonArray {
+                                                            field.split('.').forEach { seg -> add(JsonPrimitive(seg)) }
+                                                        })
                                                         (meta as? JsonObject)?.get("display")?.let { put("display", it) }
                                                     })
                                                 }
