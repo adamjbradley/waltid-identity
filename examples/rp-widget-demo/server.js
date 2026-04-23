@@ -856,12 +856,15 @@ function createApp() {
       core_flow: {
         dcql_query: buildPwaCheckoutDcql(),
         signed_request: true,
-        // RFC008 `transaction_data` intentionally not sent: the EUDI wallets
-        // (iOS + Android) default `supportedTransactionDataTypes` to only
-        // `{type: "authorization"}` and will reject `{type: "payment_data"}`
-        // before the user can confirm. Re-enable once the wallet forks
-        // accept payment_data (see docs/plans/rfc008-wallet-support.md).
-        // `checkoutByToken` continues to bind orderId → VP out-of-band.
+        // EWC RFC008 `transaction_data` — verifier-api2 base64url-encodes each
+        // object and places it in the OID4VP authorization request. The wallet
+        // must emit SHA-256 base64url hashes of each encoded string in the
+        // KB-JWT's `transaction_data_hashes` claim (OID4VP §5.7); the
+        // verifier-side enforcement in DcSdJwtPresentation.presentationVerification
+        // rejects the presentation if any expected hash is missing. Requires
+        // wallets on v0.19.4-waltid.2 (iOS) / 0.24.0-waltid.1 (Android) or
+        // later — older builds reject `payment_data` at isSupported().
+        transaction_data: [txData],
         notifications: {
           webhook: { url: webhookUrl, bearer_token: webhookSecret },
         },
