@@ -22,17 +22,39 @@ class KeyBindingJwt(jwt: String, header: JsonObject, payload: SDPayload) : SDJwt
     val sdHash
         get() = fullPayload["sd_hash"]!!.jsonPrimitive.content
 
+    /** EWC RFC008 / OID4VP §5.1 transaction_data_hashes claim. */
+    val transactionDataHashes: List<String>?
+        get() = fullPayload["transaction_data_hashes"]?.jsonArray?.map { it.jsonPrimitive.content }
+
     // TODO: make use of Key interface from waltid-crypto lib instead or also?
     fun verifyKB(
         jwtCryptoProvider: JWTCryptoProvider,
         reqAudience: String,
         reqNonce: String,
         sdJwt: SDJwt,
-        keyId: String? = null
+        keyId: String? = null,
+        /**
+         * Optional RFC008 commitment check. When the verifier issued the
+         * authorization request with a `transaction_data` array, pass the
+         * same base64url-encoded strings here and this method verifies the
+         * KB-JWT's `transaction_data_hashes` claim commits to every one of
+         * them (SHA-256 base64url-encoded, per OID4VP §5.1 and draft-ietf-
+         * oauth-sd-jwt-vc appendix B).
+         */
+        reqTransactionData: List<String>? = null
     ): Boolean {
-        return type == KB_JWT_TYPE && audience == reqAudience && nonce == reqNonce && sdJwt.isPresentation &&
+        val baseChecks = type == KB_JWT_TYPE && audience == reqAudience && nonce == reqNonce && sdJwt.isPresentation &&
                 getSdHash(sdJwt.toString(formatForPresentation = true, withKBJwt = false)) == sdHash &&
                 verify(jwtCryptoProvider, keyId).verified
+
+        if (!baseChecks) return false
+
+        if (reqTransactionData.isNullOrEmpty()) return true
+
+        val presented = transactionDataHashes ?: return false
+        val expected = reqTransactionData.map { encoded -> getTransactionDataHash(encoded) }
+        // All verifier-supplied transaction_data entries must be acknowledged.
+        return expected.all { it in presented }
     }
 
     companion object {
@@ -70,5 +92,13 @@ class KeyBindingJwt(jwt: String, header: JsonObject, payload: SDPayload) : SDJwt
         )
 
         fun getSdHash(presentedSdJwt: String) = SHA256.digest(ASCII.encode(presentedSdJwt)).base64Url
+
+        /**
+         * SHA-256 hash of the (base64url-encoded) transaction_data entry, base64url
+         * encoded without padding. Matches OID4VP §5.1 and what a spec-compliant
+         * wallet writes into `transaction_data_hashes`.
+         */
+        fun getTransactionDataHash(encodedTransactionData: String) =
+            SHA256.digest(ASCII.encode(encodedTransactionData)).base64Url
     }
 }

@@ -201,11 +201,19 @@ object VerificationSessionCreator {
 
 
             /*
-             * OPTIONAL. Array of strings, where each string is a base64url encoded JSON object
-             * containing details about the transaction the Verifier is requesting the End-User to authorize.
-             * The decoded JSON object structure is represented by [TransactionDataItem].
+             * EWC RFC008 (Payment Data Confirmation) transaction_data.
+             * Each RP-supplied JSON object is base64url-encoded (no padding) per the
+             * OID4VP spec. The wallet hashes each encoded string and includes the
+             * hash in its Key-Binding JWT's `transaction_data_hashes` claim,
+             * cryptographically committing the wallet holder to this specific
+             * transaction (payee, amount, currency, etc.).
              */
-            //val transactionData : List < String >? = null, // List of base64url encoded JSON strings
+            transactionData = setup.core.transactionData?.map { obj ->
+                @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+                kotlin.io.encoding.Base64.UrlSafe
+                    .withPadding(kotlin.io.encoding.Base64.PaddingOption.ABSENT_OPTIONAL)
+                    .encode(obj.toString().encodeToByteArray())
+            },
 
             /*
              * OPTIONAL. An array of attestations about the Verifier relevant to the Credential Request.
