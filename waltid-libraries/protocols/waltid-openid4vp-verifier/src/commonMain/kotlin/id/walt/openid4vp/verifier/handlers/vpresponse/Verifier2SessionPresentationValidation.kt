@@ -79,7 +79,11 @@ object Verifier2SessionPresentationValidation {
                     isDcApi = isDcApi == true,
                     isEncrypted = isEncrypted,
                     verifierOrigin = expectedOrigin, // Raw origin needed for mdoc,
-                    jwkThumbprint = jwkThumbprint
+                    jwkThumbprint = jwkThumbprint,
+                    // EWC RFC008 cryptographic commitment: enforce KB-JWT's
+                    // transaction_data_hashes covers every entry the verifier
+                    // sent in the authorization request.
+                    expectedTransactionData = authorizationRequest.transactionData,
                 )
 
                 if (validationOutcome.isSuccess) {
