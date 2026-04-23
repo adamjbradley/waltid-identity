@@ -28,7 +28,14 @@ object Verifier2PresentationValidator {
         isDcApi: Boolean,
         isEncrypted: Boolean,
         verifierOrigin: String?,
-        jwkThumbprint: String?
+        jwkThumbprint: String?,
+        /**
+         * EWC RFC008 / OID4VP §5.7 commitment check. Only consulted by the
+         * SD-JWT VC path; other formats ignore. Each entry must be the
+         * base64url-encoded transaction_data string the verifier sent in
+         * the authorization request.
+         */
+        expectedTransactionData: List<String>? = null,
     ): Result<PresentationValidationResult> {
         return when (expectedFormat) {
             CredentialFormat.JWT_VC_JSON -> W3CPresentationValidator.validateW3cVpJwt(
@@ -41,7 +48,8 @@ object Verifier2PresentationValidator {
                 sdJwtPresentationString = presentationString,
                 expectedAudience = expectedAudience,
                 expectedNonce = expectedNonce,
-                originalClaimsQuery = originalClaimsQuery
+                originalClaimsQuery = originalClaimsQuery,
+                expectedTransactionData = expectedTransactionData,
             )
 
             CredentialFormat.MSO_MDOC -> MdocPresentationValidator.validateMsoMdocPresentation(

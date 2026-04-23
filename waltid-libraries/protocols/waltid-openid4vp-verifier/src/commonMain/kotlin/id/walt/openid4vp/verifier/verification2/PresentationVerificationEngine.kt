@@ -166,7 +166,11 @@ object PresentationVerificationEngine {
             isDcApi = isDcApi,
             isEncrypted = isEncrypted,
             verifierOrigin = expectedOrigin, // Raw origin needed for mdoc,
-            jwkThumbprint = jwkThumbprint
+            jwkThumbprint = jwkThumbprint,
+            // EWC RFC008: the verifier's own `transaction_data` entries; the
+            // SD-JWT VC validator will enforce the wallet committed via
+            // `transaction_data_hashes` in the KB-JWT.
+            expectedTransactionData = authorizationRequest.transactionData,
         )
 
         if (validationOutcome.isSuccess) {

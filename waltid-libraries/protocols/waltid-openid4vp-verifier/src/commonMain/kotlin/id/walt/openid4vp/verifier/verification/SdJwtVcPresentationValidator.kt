@@ -13,14 +13,21 @@ object SdJwtVcPresentationValidator {
         sdJwtPresentationString: String,
         expectedAudience: String?,
         expectedNonce: String,
-        originalClaimsQuery: List<ClaimsQuery>?
+        originalClaimsQuery: List<ClaimsQuery>?,
+        /**
+         * EWC RFC008 / OID4VP §5.7 commitment check. When non-null + non-empty,
+         * the KB-JWT's `transaction_data_hashes` must cover every entry's
+         * SHA-256 hash. `null` skips the check.
+         */
+        expectedTransactionData: List<String>? = null,
     ): Result<PresentationValidationResult> {
         val presentation = DcSdJwtPresentation.parse(sdJwtPresentationString)
             .getOrThrow()
         presentation.presentationVerification(
-            expectedAudience,
-            expectedNonce,
-            originalClaimsQuery
+            expectedAudience = expectedAudience,
+            expectedNonce = expectedNonce,
+            originalClaimsQuery = originalClaimsQuery,
+            expectedTransactionData = expectedTransactionData,
         )
 
         return Result.success(

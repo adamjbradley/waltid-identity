@@ -16,7 +16,9 @@ import id.walt.dcql.models.ClaimsQuery
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -47,12 +49,29 @@ data class DcSdJwtPresentation(
     val sdHash: String?,
     val presentationStringHashable: String, // If only the single hash variant is allowed
     //val hashablePresentationStringVariants: List<String> // If multiple hash variants would be allowed
+
+    /**
+     * EWC RFC008 / OID4VP §5.7 `transaction_data_hashes` array as decoded from
+     * the KB-JWT payload. Each entry is the base64url-encoded SHA-256 hash of
+     * the matching base64url-encoded `transaction_data` string that the
+     * verifier supplied in the authorization request. `null` when the wallet
+     * omitted the claim entirely; empty list when it emitted an empty array.
+     */
+    val transactionDataHashes: List<String>? = null,
 ) : VerifiablePresentation(format = PresentationFormat.`dc+sd-jwt`) {
 
     suspend fun presentationVerification(
         expectedAudience: String?,
         expectedNonce: String,
-        originalClaimsQuery: List<ClaimsQuery>?
+        originalClaimsQuery: List<ClaimsQuery>?,
+        /**
+         * EWC RFC008 / OID4VP §5.7: the verifier's `transaction_data` entries
+         * as sent in the authorization request (already base64url-encoded).
+         * When non-null + non-empty, every entry's SHA-256 hash must appear
+         * in the KB-JWT's `transaction_data_hashes` array. Pass `null` to
+         * skip this check.
+         */
+        expectedTransactionData: List<String>? = null,
     ) {
         // Validate Key Binding JWT
 
@@ -110,6 +129,30 @@ data class DcSdJwtPresentation(
         log.trace { "KB-JWT validated successfully. sd_hash matches." }
 
 
+        // EWC RFC008 / OID4VP §5.7: when the verifier sent `transaction_data`
+        // in the authorization request, every encoded entry's SHA-256 base64url
+        // hash MUST appear in the KB-JWT's `transaction_data_hashes` array.
+        // This is what cryptographically commits the presentation to the
+        // specific transaction (payee, amount, currency). If the wallet omits
+        // the claim, or misses any expected hash, the presentation is invalid.
+        if (!expectedTransactionData.isNullOrEmpty()) {
+            val presented = transactionDataHashes
+            presentationRequireNotNull(
+                presented,
+                DcSdJwtPresentationValidationError.TRANSACTION_DATA_HASHES_MISSING
+            )
+            val expectedHashes = expectedTransactionData.map { encoded ->
+                ShaUtils.calculateSha256Base64Url(encoded)
+            }
+            val allMatched = expectedHashes.all { it in presented!! }
+            presentationRequire(
+                allMatched,
+                DcSdJwtPresentationValidationError.TRANSACTION_DATA_HASHES_MISMATCH
+            ) { "Expected $expectedHashes, got $presented" }
+            log.trace { "transaction_data_hashes validated: ${expectedHashes.size} entries all committed to." }
+        }
+
+
         // (Optional but Recommended) Validate that the claims presented match what was requested
         if (originalClaimsQuery != null) {
             val claimsValidationResult = validateClaimsAgainstCredential(credential, originalClaimsQuery)
@@ -146,6 +189,13 @@ data class DcSdJwtPresentation(
             val aud = kbJwtPayload["aud"]?.jsonPrimitive?.contentOrNull
             val nonce = kbJwtPayload["nonce"]?.jsonPrimitive?.contentOrNull
             val sdHash = kbJwtPayload["sd_hash"]?.jsonPrimitive?.contentOrNull
+            // EWC RFC008 / OID4VP §5.7 — the wallet commits to each
+            // verifier-supplied transaction_data entry via its SHA-256 hash
+            // in this claim. Absence means the wallet didn't commit.
+            val transactionDataHashes: List<String>? =
+                (kbJwtPayload["transaction_data_hashes"] as? JsonArray)?.map {
+                    it.jsonPrimitive.content
+                }
 
             val presentedDisclosureString =
                 if (presentedDisclosures.isNotEmpty())
@@ -190,7 +240,8 @@ data class DcSdJwtPresentation(
                     nonce = nonce,
                     sdHash = sdHash,
                     //hashablePresentationStringVariants = hashablePresentationStringVariants
-                    presentationStringHashable = hashableString
+                    presentationStringHashable = hashableString,
+                    transactionDataHashes = transactionDataHashes,
                 )
             )
         }
