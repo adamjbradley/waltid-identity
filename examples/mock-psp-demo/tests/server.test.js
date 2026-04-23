@@ -269,6 +269,7 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
       fundingSource: expect.objectContaining({
         type: 'card',
         panLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
+        parLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
         iin: '453201',
         scheme: 'Visa',
         currency: 'AUD',

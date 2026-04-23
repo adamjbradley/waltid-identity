@@ -355,6 +355,11 @@ function createApp() {
     //   issuer metadata `display`. Stripped here.
     const pseudoPsuId = `psu_${hash.slice(0, 24)}`;
     const panLastFour = hash.slice(0, 4);
+    // RFC007 §8 RECOMMENDED claim: last 4 chars of the EMV Payment Account
+    // Reference. Derived deterministically from the same PSU hash so repeat
+    // enrolments for the same holder reproduce the same value. Real PSPs
+    // would source this from their EMV tokenisation vendor.
+    const parLastFour = hash.slice(4, 8);
     const scheme = 'Visa';
     const iin = '453201';
     const currency = 'AUD';
@@ -369,6 +374,7 @@ function createApp() {
         fundingSource: {
           type: 'card',
           panLastFour,
+          parLastFour,
           iin,
           scheme,
           currency,
