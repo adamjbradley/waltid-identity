@@ -167,8 +167,8 @@ private fun seedSystemTemplates() {
             displayName = "Payment Authorization",
             description = "Verify payment wallet attestation for transaction binding",
             templateType = "payment",
-            dcqlQuery = """{"credentials":[{"id":"pwa","format":"dc+sd-jwt","meta":{"vct_values":["PaymentWalletAttestation"]},"claims":[{"path":["funding_source"]},{"path":["funding_source","type"]},{"path":["funding_source","panLastFour"]}]}]}""",
-            claimMappings = """{"funding_source.type":"payment_method","funding_source.panLastFour":"card_last_four"}""",
+            dcqlQuery = """{"credentials":[{"id":"pwa","format":"dc+sd-jwt","meta":{"vct_values":["PaymentWalletAttestation"]},"claims":[{"path":["fundingSource"]},{"path":["fundingSource","type"]},{"path":["fundingSource","panLastFour"]}]}]}""",
+            claimMappings = """{"fundingSource.type":"payment_method","fundingSource.panLastFour":"card_last_four"}""",
             validCredentialTypes = """["PaymentWalletAttestation"]""",
         ),
         SystemTemplate(

@@ -212,17 +212,27 @@ data class CredentialTypeConfig(
                     ProofType.jwt to ProofTypeMetadata(setOf("ES256"))
                 ),
                 vct = "PaymentWalletAttestation",
+                // RFC007 §8 claim layout:
+                //   fundingSource (REQUIRED, object) with type ∈ {card, account, any}.
+                //   When type = card: panLastFour (REQ), iin (REQ), parLastFour (REC).
+                //   When type = account: ibanLastFour (REQ), bic (REQ), sortCode (OPT).
+                //   Optional across card/account: scheme, currency, icon, aliasId.
+                // Field names are camelCase per the spec (fundingSource, panLastFour,
+                // ibanLastFour, aliasId, …). Spec whitelist for scheme: Visa, Mastercard,
+                // American Express, Discover, JCB, UnionPay, SEPA, SEPA SCT, SEPA SCT Inst.
                 credentialSubject = mapOf(
-                    "funding_source" to ClaimDescriptor(mandatory = true),
-                    "funding_source.type" to ClaimDescriptor(mandatory = true),
-                    "funding_source.pan_last_four" to ClaimDescriptor(),
-                    "funding_source.iin" to ClaimDescriptor(),
-                    "funding_source.iban_last_four" to ClaimDescriptor(),
-                    "funding_source.bic" to ClaimDescriptor(),
-                    "funding_source.scheme" to ClaimDescriptor(),
-                    "funding_source.currency" to ClaimDescriptor(),
-                    "funding_source.icon" to ClaimDescriptor(),
-                    "funding_source.alias_id" to ClaimDescriptor()
+                    "fundingSource" to ClaimDescriptor(mandatory = true),
+                    "fundingSource.type" to ClaimDescriptor(mandatory = true),
+                    "fundingSource.panLastFour" to ClaimDescriptor(),
+                    "fundingSource.iin" to ClaimDescriptor(),
+                    "fundingSource.parLastFour" to ClaimDescriptor(),
+                    "fundingSource.ibanLastFour" to ClaimDescriptor(),
+                    "fundingSource.bic" to ClaimDescriptor(),
+                    "fundingSource.sortCode" to ClaimDescriptor(),
+                    "fundingSource.scheme" to ClaimDescriptor(),
+                    "fundingSource.currency" to ClaimDescriptor(),
+                    "fundingSource.icon" to ClaimDescriptor(),
+                    "fundingSource.aliasId" to ClaimDescriptor(),
                 ),
                 display = listOf(
                     DisplayProperties(
