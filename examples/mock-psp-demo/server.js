@@ -392,6 +392,37 @@ function createApp() {
           aliasId: `pwa_${scheme.toLowerCase()}_${panLastFour}`,
         },
       },
+      // Nested-children selective disclosure: each fundingSource.* field is its
+      // own SD-JWT disclosure. Critical for DCQL matching — the EUDI iOS wallet
+      // walks `disclosuresPerClaimPath` (not cleartext claims) when evaluating
+      // DCQL paths like ["fundingSource","panLastFour"]. Without per-field
+      // disclosures the wallet's matcher sees no claim at that path and
+      // responds with "The requested document is not available".
+      //
+      // fundingSource itself stays in cleartext (sd:false) so the nested _sd
+      // digests sit INSIDE the fundingSource object — preserving the nested
+      // shape. sub + jti are also SD'd so the holder isn't forced to reveal
+      // their pseudo-PSU-ID on presentation.
+      selectiveDisclosure: {
+        fields: {
+          sub: { sd: true },
+          jti: { sd: true },
+          fundingSource: {
+            sd: false,
+            children: {
+              fields: {
+                type: { sd: true },
+                panLastFour: { sd: true },
+                parLastFour: { sd: true },
+                iin: { sd: true },
+                scheme: { sd: true },
+                currency: { sd: true },
+                aliasId: { sd: true },
+              },
+            },
+          },
+        },
+      },
       authenticationMethod: 'PRE_AUTHORIZED',
     };
 
