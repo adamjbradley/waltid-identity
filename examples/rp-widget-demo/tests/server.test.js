@@ -809,12 +809,13 @@ describe('POST /api/checkout/webhook/:token + GET /api/checkout/status', () => {
   }
 
   function successfulWebhookBody() {
+    // RFC007 §8 shape — card metadata under fundingSource nested object.
     return {
       event: 'policy_results_available',
       session: {
         status: 'SUCCESSFUL',
         presentedCredentials: {
-          pwa_0: [{ credentialData: { panLastFour: '4242', scheme: 'Visa' } }],
+          pwa_0: [{ credentialData: { fundingSource: { type: 'card', panLastFour: '4242', scheme: 'Visa' } } }],
         },
       },
     };

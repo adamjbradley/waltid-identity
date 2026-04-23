@@ -254,7 +254,30 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
     expect(res.body.offerUri).toMatch(/^openid-credential-offer:/);
     expect(res.body.scheme).toBe('Visa');
     expect(res.body.panLastFour).toMatch(/^[0-9a-f]{4}$/);
-    expect(res.body.payeeName).toBe('Bank of Demo');
+    // payeeName was dropped — RFC007 says PSP identity comes from `iss` + issuer metadata.
+
+    // Verify the credential payload sent to issuer-api follows RFC007 §8:
+    // card metadata nested under fundingSource with required `type` field, plus
+    // top-level `sub` (PSU-ID analogue) and `jti`. Identity fields (given_name,
+    // family_name) and PSP display name (payeeName) are NOT in the PWA.
+    const issueCall = global.fetch.mock.calls.find(([u]) => String(u).includes('/openid4vc/sdjwt/issue'));
+    expect(issueCall).toBeTruthy();
+    const sentBody = JSON.parse(issueCall[1].body);
+    expect(sentBody.credentialData).toEqual(expect.objectContaining({
+      sub: expect.stringMatching(/^psu_[0-9a-f]{24}$/),
+      jti: expect.stringMatching(/^urn:uuid:/),
+      fundingSource: expect.objectContaining({
+        type: 'card',
+        panLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
+        iin: '453201',
+        scheme: 'Visa',
+        currency: 'AUD',
+      }),
+    }));
+    expect(sentBody.credentialData.given_name).toBeUndefined();
+    expect(sentBody.credentialData.family_name).toBeUndefined();
+    expect(sentBody.credentialData.payeeName).toBeUndefined();
+    expect(sentBody.credentialData.panLastFour).toBeUndefined();
   });
 
   it('/api/psp/issue 403s when PID not yet verified', async () => {

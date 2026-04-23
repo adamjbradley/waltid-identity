@@ -342,23 +342,38 @@ function createApp() {
     if (!req.session.pspPidVerified) return res.status(403).json({ error: 'pid_required' });
     const holderSub = req.session.pspPidVerified.sub || 'anonymous';
     const hash = crypto.createHash('sha256').update(String(holderSub)).digest('hex');
+    // RFC007 §8 claim layout:
+    // - `sub` is a PSP-assigned non-sensitive identifier (PSU-ID analogue), not the holder's
+    //   wallet subject. Derive a stable pseudo-PSU-ID from sha256(holderSub) so the same
+    //   enrolment path keeps a stable ID without leaking the wallet's sub upstream.
+    // - `jti` is per-credential unique (RFC007 §8, OPTIONAL but recommended for revocation).
+    // - All payment metadata MUST live under the `fundingSource` nested object with a
+    //   required `type` field ("card"/"account"/"any"). Top-level card fields are
+    //   spec-noncompliant and rejected by strict verifiers.
+    // - `given_name`/`family_name`/`payeeName` are NOT part of PWA. Identity is carried
+    //   by the PID presented at enrolment; the issuer's legal name comes from `iss` +
+    //   issuer metadata `display`. Stripped here.
+    const pseudoPsuId = `psu_${hash.slice(0, 24)}`;
     const panLastFour = hash.slice(0, 4);
     const scheme = 'Visa';
     const iin = '453201';
     const currency = 'AUD';
-    const payeeName = 'Bank of Demo';
+    const jti = `urn:uuid:${crypto.randomUUID()}`;
 
     const offerReq = {
       credentialConfigurationId: PSP_VCT,
       vct: PSP_VCT,
       credentialData: {
-        panLastFour,
-        scheme,
-        iin,
-        currency,
-        payeeName,
-        given_name: req.session.pspPidVerified.given_name,
-        family_name: req.session.pspPidVerified.family_name,
+        sub: pseudoPsuId,
+        jti,
+        fundingSource: {
+          type: 'card',
+          panLastFour,
+          iin,
+          scheme,
+          currency,
+          aliasId: `pwa_${scheme.toLowerCase()}_${panLastFour}`,
+        },
       },
       authenticationMethod: 'PRE_AUTHORIZED',
     };
@@ -381,7 +396,11 @@ function createApp() {
         if (typeof parsed === 'string') offerUri = parsed;
         else if (parsed && typeof parsed === 'object') offerUri = parsed.offerUri || parsed.uri || raw;
       } catch (_) { /* plain string body */ }
-      res.json({ offerUri, panLastFour, scheme, payeeName });
+      // Return display-only metadata for the enrolment page (NOT the credential content).
+      // panLastFour + scheme are echoed so the page can show "Visa ending …" while the
+      // wallet consumes the offer. payeeName is dropped — PSP identity is inferred from
+      // the issuer metadata (`iss` + `display.name`) per RFC007.
+      res.json({ offerUri, panLastFour, scheme });
     } catch (err) {
       console.warn('[psp] offer error', err.message || err);
       res.status(502).json({ error: 'issuer_unavailable' });
