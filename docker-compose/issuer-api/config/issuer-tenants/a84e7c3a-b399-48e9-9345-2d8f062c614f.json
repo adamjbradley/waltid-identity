@@ -38,10 +38,108 @@
             "vct": "PaymentWalletAttestation",
             "display": [
                 {
-                    "name": "PaymentWalletAttestation",
+                    "name": "Payment Wallet Attestation",
                     "locale": "en"
                 }
-            ]
+            ],
+            "claims": {
+                "fundingSource": {
+                    "display": [
+                        {
+                            "name": "Funding Source",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.type": {
+                    "display": [
+                        {
+                            "name": "Type",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.panLastFour": {
+                    "display": [
+                        {
+                            "name": "Card last 4",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.iin": {
+                    "display": [
+                        {
+                            "name": "IIN",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.parLastFour": {
+                    "display": [
+                        {
+                            "name": "PAR last 4",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.ibanLastFour": {
+                    "display": [
+                        {
+                            "name": "IBAN last 4",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.bic": {
+                    "display": [
+                        {
+                            "name": "BIC",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.sortCode": {
+                    "display": [
+                        {
+                            "name": "Sort Code",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.scheme": {
+                    "display": [
+                        {
+                            "name": "Scheme",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.currency": {
+                    "display": [
+                        {
+                            "name": "Currency",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.icon": {
+                    "display": [
+                        {
+                            "name": "Icon",
+                            "locale": "en"
+                        }
+                    ]
+                },
+                "fundingSource.aliasId": {
+                    "display": [
+                        {
+                            "name": "Alias",
+                            "locale": "en"
+                        }
+                    ]
+                }
+            }
         }
     },
     "createdAt": "2026-02-19T04:43:42.724219171Z",
