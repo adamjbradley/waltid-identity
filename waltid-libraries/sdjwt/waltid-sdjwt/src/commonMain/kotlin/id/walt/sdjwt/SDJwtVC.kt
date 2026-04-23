@@ -239,12 +239,19 @@ class SDJwtVC(sdJwt: SDJwt) :
             notBefore: Long? = null,
             expirationDate: Long? = null,
             status: JsonObject? = null,
-            subject: String? = null
+            subject: String? = null,
+            issuedAt: Long? = null,
         ) = buildJsonObject {
             put("_sd_alg", "sha-256")
             put("iss", JsonPrimitive(issuerId))
             put("cnf", cnf)
             put("vct", JsonPrimitive(vct))
+            // `iat` is REQUIRED by SD-JWT VC (draft-ietf-oauth-sd-jwt-vc §3.2.1) and by
+            // EWC RFC007 §8 for Payment Wallet Attestation. Default to the current
+            // instant when the caller doesn't supply one so every minted credential
+            // carries it — verifiers that enforce the SD-JWT VC registered-claim set
+            // previously rejected walt.id-minted credentials for missing `iat`.
+            put("iat", JsonPrimitive(issuedAt ?: (Clock.System.now().toEpochMilliseconds() / 1000)))
             notBefore?.let { put("nbf", JsonPrimitive(it)) }
             expirationDate?.let { put("exp", JsonPrimitive(it)) }
             status?.let { put("status", it) }
