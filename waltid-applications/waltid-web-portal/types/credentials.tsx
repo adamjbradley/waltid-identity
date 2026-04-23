@@ -91,11 +91,11 @@ export const EudiCredentials: AvailableCredential[] = [
     title: 'Payment Wallet Attestation',
     offer: {
       credentialSubject: {
-        funding_source: {
-          type: 'CARD',
+        fundingSource: {
+          type: 'card',
           panLastFour: '1234',
           iin: '411111',
-          scheme: 'visa',
+          scheme: 'Visa',
           currency: 'EUR',
           icon: 'https://example.com/visa-icon.png',
           aliasId: 'pwa_visa_1234',
@@ -104,10 +104,10 @@ export const EudiCredentials: AvailableCredential[] = [
       vct: 'PaymentWalletAttestation',
     },
     defaultClaims: [
-      { path: ['funding_source'] },
-      { path: ['funding_source', 'type'] },
-      { path: ['funding_source', 'panLastFour'] },
-      { path: ['funding_source', 'scheme'] },
+      { path: ['fundingSource'] },
+      { path: ['fundingSource', 'type'] },
+      { path: ['fundingSource', 'panLastFour'] },
+      { path: ['fundingSource', 'scheme'] },
     ]
   },
   // Australia
@@ -306,8 +306,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '4321',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -319,10 +319,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -413,8 +413,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '5678',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -426,10 +426,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -520,8 +520,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '7890',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -533,10 +533,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -579,8 +579,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '8888',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -592,10 +592,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -691,8 +691,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '2345',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -704,10 +704,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -778,8 +778,8 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
         data: {
           offer: {
             credentialSubject: {
-              funding_source: {
-                type: 'CARD',
+              fundingSource: {
+                type: 'card',
                 panLastFour: '6789',
                 iin: '512345',
                 scheme: 'mastercard',
@@ -791,10 +791,10 @@ const COUNTRY_CLAIM_DATA: Record<string, CountryEntry> = {
             vct: 'PaymentWalletAttestation',
           },
           defaultClaims: [
-            { path: ['funding_source'] },
-            { path: ['funding_source', 'type'] },
-            { path: ['funding_source', 'panLastFour'] },
-            { path: ['funding_source', 'scheme'] },
+            { path: ['fundingSource'] },
+            { path: ['fundingSource', 'type'] },
+            { path: ['fundingSource', 'panLastFour'] },
+            { path: ['fundingSource', 'scheme'] },
           ],
         },
       },
@@ -962,10 +962,10 @@ function getDefaultClaimsForCredential(credentialId: string, format: string): { 
       { path: ['birth_date'] },
     ],
     'PaymentWalletAttestation': [
-      { path: ['funding_source'] },
-      { path: ['funding_source', 'type'] },
-      { path: ['funding_source', 'panLastFour'] },
-      { path: ['funding_source', 'scheme'] },
+      { path: ['fundingSource'] },
+      { path: ['fundingSource', 'type'] },
+      { path: ['fundingSource', 'panLastFour'] },
+      { path: ['fundingSource', 'scheme'] },
     ],
   };
 
