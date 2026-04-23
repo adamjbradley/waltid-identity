@@ -382,14 +382,38 @@ function createApp() {
         // so this value is preserved at the top level of the SD-JWT rather than
         // being made selectively-disclosable.
         exp,
-        fundingSource: {
-          type: 'card',
-          panLastFour,
-          parLastFour,
-          iin,
-          scheme,
-          currency,
-          aliasId: `pwa_${scheme.toLowerCase()}_${panLastFour}`,
+        // Flat top-level payment fields. Ideally these would nest under
+        // `fundingSource` per RFC007 §8, but the EUDI iOS wallet's sdjwt-swift
+        // version ships without working nested-disclosure recreation — the
+        // DCQL matcher / UI display don't traverse into nested `_sd` inside
+        // cleartext objects, so nested paths like ["fundingSource","panLastFour"]
+        // never satisfy a DCQL query. Keep top-level here; RP's DCQL queries
+        // the same flat paths. Re-nest when the wallets update their SD-JWT
+        // recreator.
+        type: 'card',
+        panLastFour,
+        parLastFour,
+        iin,
+        scheme,
+        currency,
+        aliasId: `pwa_${scheme.toLowerCase()}_${panLastFour}`,
+      },
+      // Per-field selective disclosure for every payment attribute. The iOS
+      // wallet-kit indexes `disclosuresPerClaimPath` to decide what a credential
+      // can satisfy; without disclosures those claims don't exist from the
+      // matcher's perspective. sub + jti are also SD'd so the holder isn't
+      // forced to reveal their pseudo-PSU-ID on presentation.
+      selectiveDisclosure: {
+        fields: {
+          sub: { sd: true },
+          jti: { sd: true },
+          type: { sd: true },
+          panLastFour: { sd: true },
+          parLastFour: { sd: true },
+          iin: { sd: true },
+          scheme: { sd: true },
+          currency: { sd: true },
+          aliasId: { sd: true },
         },
       },
       // Nested-children selective disclosure: each fundingSource.* field is its

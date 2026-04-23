@@ -76,15 +76,16 @@ function buildAgeOnlyDcql() {
 
 /**
  * PaymentWalletAttestation DCQL used at /checkout pay time. Single VCT,
- * single credential. Per RFC007 §8, card metadata lives under the
- * `fundingSource` nested object, so the claim paths are
- * `["fundingSource","panLastFour"]` and `["fundingSource","scheme"]` —
- * what the receipt page echoes back on the order confirmation.
+ * single credential. Claim paths are flat (`["panLastFour"]`,
+ * `["scheme"]`) to match the flat credential shape mock-psp currently
+ * issues — the EUDI iOS wallet's sdjwt-swift recreator doesn't traverse
+ * nested `_sd` in cleartext parents, so RFC007 §8's `fundingSource.*`
+ * layout fails DCQL matching. Re-nest when wallets update.
  */
 function buildPwaCheckoutDcql() {
   return buildSingletonDcql(
     ['PaymentWalletAttestation'],
-    [['fundingSource', 'panLastFour'], ['fundingSource', 'scheme']],
+    [['panLastFour'], ['scheme']],
     'dc+sd-jwt',
     'pwa',
   );
