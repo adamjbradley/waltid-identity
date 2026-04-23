@@ -364,6 +364,12 @@ function createApp() {
     const iin = '453201';
     const currency = 'AUD';
     const jti = `urn:uuid:${crypto.randomUUID()}`;
+    // RFC007 §8 RECOMMENDS aligning `exp` with the card's expiry. Real PSPs
+    // read the card's actual expiry from their tokenisation vendor; the demo
+    // picks a stable 5-year window — longer than walt.id's default 365 days
+    // so the PWA outlives a typical card rotation cycle without re-enrol.
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + 5 * 365 * 24 * 60 * 60;
 
     const offerReq = {
       credentialConfigurationId: PSP_VCT,
@@ -371,6 +377,11 @@ function createApp() {
       credentialData: {
         sub: pseudoPsuId,
         jti,
+        // exp is a registered claim; walt.id's defaultPayloadProperties only
+        // sets exp when its `expirationDate` arg is passed (CIProvider doesn't),
+        // so this value is preserved at the top level of the SD-JWT rather than
+        // being made selectively-disclosable.
+        exp,
         fundingSource: {
           type: 'card',
           panLastFour,
