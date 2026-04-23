@@ -843,7 +843,7 @@ function createApp() {
     // the field names aligned makes a future upgrade a one-line swap.
     const txData = {
       type: 'payment_data',
-      credential_ids: ['pwa'],
+      credential_ids: ['pwa_0'],
       payee: 'Oz Bottleshop Pty Ltd',
       amount: String(total),
       currency: 'AUD',
