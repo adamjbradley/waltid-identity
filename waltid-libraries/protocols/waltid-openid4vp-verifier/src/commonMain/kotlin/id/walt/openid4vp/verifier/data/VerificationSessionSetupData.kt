@@ -47,7 +47,20 @@ data class GeneralFlowConfig(
     /** request signing key */
     val key: DirectSerializedKey? = null,
     /** certificate chain for signed request */
-    val x5c: List<String>? = null
+    val x5c: List<String>? = null,
+
+    /**
+     * EWC RFC008 (Payment Data Confirmation) — `transaction_data` parameter.
+     * Each entry is a free-form JSON object with at least `type` and
+     * `credential_ids`; RFC007-derived payment requests also carry `payee`,
+     * `amount`, `currency`, `transaction_ref`. Each object is base64url-
+     * encoded per the spec before being placed in the OID4VP authorization
+     * request, and the wallet is required to return the hash of each one
+     * in its Key-Binding JWT's `transaction_data_hashes` claim — binding
+     * the presentation cryptographically to the specific transaction.
+     */
+    @SerialName("transaction_data")
+    val transactionData: List<kotlinx.serialization.json.JsonObject>? = null
 ) {
     init {
         // Verify if DCQL Query is correct

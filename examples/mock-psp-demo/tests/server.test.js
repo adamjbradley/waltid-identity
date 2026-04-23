@@ -266,14 +266,19 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
     expect(sentBody.credentialData).toEqual(expect.objectContaining({
       sub: expect.stringMatching(/^psu_[0-9a-f]{24}$/),
       jti: expect.stringMatching(/^urn:uuid:/),
+      exp: expect.any(Number),
       fundingSource: expect.objectContaining({
         type: 'card',
         panLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
+        parLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
         iin: '453201',
         scheme: 'Visa',
         currency: 'AUD',
       }),
     }));
+    // exp ~5y out (RFC007 recommendation to align with card expiry)
+    const nowSec = Math.floor(Date.now() / 1000);
+    expect(sentBody.credentialData.exp).toBeGreaterThan(nowSec + 4 * 365 * 24 * 60 * 60);
     expect(sentBody.credentialData.given_name).toBeUndefined();
     expect(sentBody.credentialData.family_name).toBeUndefined();
     expect(sentBody.credentialData.payeeName).toBeUndefined();

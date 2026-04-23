@@ -856,6 +856,16 @@ function createApp() {
       core_flow: {
         dcql_query: buildPwaCheckoutDcql(),
         signed_request: true,
+        // EWC RFC008 — `transaction_data` parameter. verifier-api2 base64url-
+        // encodes each object and places it in the OID4VP authorization
+        // request. The wallet is required to hash each encoded string
+        // (SHA-256, base64url) and include the hashes in the KB-JWT's
+        // `transaction_data_hashes` claim, cryptographically binding the
+        // presentation to *this* order. Library support for threading the
+        // hash-check into SdJwtVcPresentationValidator is a follow-up; in
+        // the meantime `checkoutByToken` still cross-references orderId
+        // out-of-band.
+        transaction_data: [txData],
         notifications: {
           webhook: { url: webhookUrl, bearer_token: webhookSecret },
         },
