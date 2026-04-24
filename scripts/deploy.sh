@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # scripts/deploy.sh — Mac-driven deploy to the remote Windows docker host.
 #
-# Design: Mac builds (it has Java, Gradle, Node). Image ships to the
-# remote daemon via `docker save | docker load`. The remote compose-up
-# runs via a sidecar container that bind-mounts the Windows repo at a
-# path the daemon can resolve — this is the "path-alignment trick"
-# needed because compose resolves bind mounts on the client, and the
-# remote daemon can't see Mac's filesystem.
+# Design: Mac is the orchestrator. Source lives on Mac; gradle + docker
+# compose are invoked from here with DOCKER_CONTEXT pointing at the
+# remote daemon, so the build context tar-streams to Windows and lands
+# as a local image on that daemon. No save/load when the build context
+# is the same as the recreate context (the default). The remote
+# compose-up then runs inside a transient sidecar with the
+# path-alignment bind mount so compose's client-side bind-mount
+# resolution produces paths the daemon can actually mount.
 #
 # Nothing is installed on the Windows host beyond what was already
-# there (Docker Desktop). No runners, no JDK, no git for windows —
-# the host is a docker runtime, not a build machine.
+# there (Docker Desktop). No runners, no JDK, no git-for-windows — the
+# host is a docker runtime, not a build machine.
 #
 # Usage:
 #   scripts/deploy.sh <service>
@@ -19,10 +21,12 @@
 #   scripts/deploy.sh --dry-run <service>
 #
 # Environment (override as needed):
-#   DOCKER_LOCAL_CONTEXT   — docker context for builds. Default desktop-linux.
-#   DOCKER_REMOTE_CONTEXT  — docker context for recreate. Default windows-docker-dev.
-#                            Set to the SAME value as LOCAL to do an all-local deploy
-#                            (useful for Mac-only dev without a remote daemon).
+#   DOCKER_BUILD_CONTEXT   — context the build writes to. Default windows-docker-dev.
+#                            Set to desktop-linux if you want to build in Mac's local
+#                            daemon and then ship via save/load (transfer activates
+#                            automatically when BUILD_CONTEXT ≠ REMOTE_CONTEXT).
+#   DOCKER_REMOTE_CONTEXT  — context that runs the recreated container.
+#                            Default windows-docker-dev.
 #   REMOTE_REPO_MOUNT      — absolute path INSIDE the remote daemon where the Windows
 #                            repo is visible. Default /run/desktop/mnt/host/c/Users/sshuser/Projects/waltid-identity
 #   COMPOSE_PROFILE        — default "all" (matches the live demo stack).
@@ -39,7 +43,7 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 # shellcheck source=deploy-lib.sh
 source "$SCRIPT_DIR/deploy-lib.sh"
 
-DOCKER_LOCAL_CONTEXT=${DOCKER_LOCAL_CONTEXT:-desktop-linux}
+DOCKER_BUILD_CONTEXT=${DOCKER_BUILD_CONTEXT:-windows-docker-dev}
 DOCKER_REMOTE_CONTEXT=${DOCKER_REMOTE_CONTEXT:-windows-docker-dev}
 REMOTE_REPO_MOUNT=${REMOTE_REPO_MOUNT:-/run/desktop/mnt/host/c/Users/sshuser/Projects/waltid-identity}
 COMPOSE_PROFILE=${COMPOSE_PROFILE:-all}
@@ -69,7 +73,7 @@ usage: $0 [--dry-run|--list] <service|all>
 known services:
 $(svc_list | sed 's/^/  /')
 
-remote=$DOCKER_REMOTE_CONTEXT  local=$DOCKER_LOCAL_CONTEXT  mount=$REMOTE_REPO_MOUNT
+remote=$DOCKER_REMOTE_CONTEXT  local=$DOCKER_BUILD_CONTEXT  mount=$REMOTE_REPO_MOUNT
 EOF
     exit 64
 fi
@@ -122,11 +126,11 @@ preflight() {
     command -v docker >/dev/null || die "docker not on PATH"
     command -v git >/dev/null    || die "git not on PATH"
 
-    # Local context: must resolve. Remote: must resolve (unless it's the
-    # same as local, in which case no remote ops happen).
-    docker context inspect "$DOCKER_LOCAL_CONTEXT" >/dev/null 2>&1 \
-        || die "local docker context '$DOCKER_LOCAL_CONTEXT' not found (docker context ls)"
-    if [ "$DOCKER_REMOTE_CONTEXT" != "$DOCKER_LOCAL_CONTEXT" ]; then
+    # Build context: must resolve. Remote: must resolve (unless it's the
+    # same as build, in which case no transfer op happens).
+    docker context inspect "$DOCKER_BUILD_CONTEXT" >/dev/null 2>&1 \
+        || die "build docker context '$DOCKER_BUILD_CONTEXT' not found (docker context ls)"
+    if [ "$DOCKER_REMOTE_CONTEXT" != "$DOCKER_BUILD_CONTEXT" ]; then
         docker context inspect "$DOCKER_REMOTE_CONTEXT" >/dev/null 2>&1 \
             || die "remote docker context '$DOCKER_REMOTE_CONTEXT' not found (docker context ls)"
     fi
@@ -140,64 +144,113 @@ preflight() {
         warn "working tree has $dirty uncommitted/untracked changes; proceeding anyway"
     fi
     log "git HEAD:        $(cd "$REPO_ROOT" && git rev-parse --short HEAD) ($(cd "$REPO_ROOT" && git log -1 --format='%s' | head -c 80))"
-    log "local context:   $DOCKER_LOCAL_CONTEXT"
+    log "build context:   $DOCKER_BUILD_CONTEXT"
     log "remote context:  $DOCKER_REMOTE_CONTEXT"
     log "remote mount:    $REMOTE_REPO_MOUNT"
 }
 
-# remote_op — true when we actually cross docker contexts. Lets the
-# script also be used for all-local deploys on a dev machine.
-remote_op() { [ "$DOCKER_REMOTE_CONTEXT" != "$DOCKER_LOCAL_CONTEXT" ]; }
+# remote_op — true when the build context differs from the remote
+# context (i.e. a save|load transfer is required).
+remote_op() { [ "$DOCKER_REMOTE_CONTEXT" != "$DOCKER_BUILD_CONTEXT" ]; }
+
+# needs_sidecar — true when the remote daemon cannot see this client's
+# filesystem, so `docker compose up` would resolve bind mounts to paths
+# the daemon can't mount. Detected by inspecting the remote context's
+# endpoint: ssh:// or tcp:// → cross-machine → sidecar needed; unix:// /
+# npipe:// → same machine → direct compose up works.
+#
+# The sidecar workaround runs compose inside a transient docker:cli
+# container on the remote daemon, with a path-aligned bind mount so
+# compose's client-side resolution produces daemon-valid paths.
+needs_sidecar() {
+    local endpoint
+    endpoint=$(docker context inspect "$DOCKER_REMOTE_CONTEXT" \
+        --format '{{.Endpoints.docker.Host}}' 2>/dev/null || echo "")
+    case "$endpoint" in
+        ssh://*|tcp://*) return 0 ;;
+        *)               return 1 ;;
+    esac
+}
 
 # ---------------------------------------------------------------------
-# Build — always against LOCAL context
+# Build — against DOCKER_BUILD_CONTEXT (default: remote Windows daemon)
 # ---------------------------------------------------------------------
 build_jib() {
     local svc="$1" gradle_path="$2" image="$3"
     (
         cd "$REPO_ROOT"
-        # jib reads the current docker context. Set it explicitly via the
-        # DOCKER_CONTEXT env var so the build lands in the local daemon.
+        # jib reads DOCKER_CONTEXT for its target daemon. Default config
+        # points it at the remote Windows daemon, so the layers stream
+        # over SSH — no Mac docker daemon required.
         # shellcheck disable=SC2086  # GRADLE_EXTRA is intentionally word-split
-        run env DOCKER_CONTEXT="$DOCKER_LOCAL_CONTEXT" ./gradlew "${gradle_path}:jibDockerBuild" $GRADLE_EXTRA
+        run env DOCKER_CONTEXT="$DOCKER_BUILD_CONTEXT" ./gradlew "${gradle_path}:jibDockerBuild" $GRADLE_EXTRA
     )
     # Normalise to :stable — matches compose's VERSION_TAG=stable default.
-    run docker --context "$DOCKER_LOCAL_CONTEXT" tag "${image}:latest" "${image}:stable"
+    run docker --context "$DOCKER_BUILD_CONTEXT" tag "${image}:latest" "${image}:stable"
 }
 
 build_compose() {
     local svc="$1" image="$2"
     (
         cd "$COMPOSE_DIR"
-        run docker --context "$DOCKER_LOCAL_CONTEXT" compose --profile "$COMPOSE_PROFILE" build "$svc"
+        # docker compose build streams the build-context tarball to the
+        # daemon specified by --context. The compose file + context
+        # directories are read on this machine; the actual docker build
+        # runs on the daemon.
+        run docker --context "$DOCKER_BUILD_CONTEXT" compose --profile "$COMPOSE_PROFILE" build "$svc"
     )
-    # Compose build tags :latest — normalise to :stable so the transfer +
-    # compose-up on the remote can pull from a single canonical tag.
-    run docker --context "$DOCKER_LOCAL_CONTEXT" tag "${image}:latest" "${image}:stable"
+    # Both tags so both the `image: ${VERSION_TAG:-latest}` lookup in
+    # compose and any downstream `:stable` reference resolve.
+    run docker --context "$DOCKER_BUILD_CONTEXT" tag "${image}:latest" "${image}:stable"
 }
 
 # ---------------------------------------------------------------------
 # Transfer — docker save | docker load
 # ---------------------------------------------------------------------
-# Ship the freshly built image from LOCAL to REMOTE daemon.
-# Skipped when LOCAL == REMOTE. Both build_jib and build_compose are
-# responsible for producing "${image}:stable" in the local daemon
-# before we get here.
+# Ship the freshly built image from LOCAL to REMOTE daemon. Save both
+# :latest and :stable tags so both lookups resolve on the remote:
+#   - Services with `image: waltid/x:${VERSION_TAG}` expect :stable
+#     (Windows .env sets VERSION_TAG=stable)
+#   - Compose services without an `image:` directive auto-name as
+#     `docker-compose-<svc>:latest` and expect :latest.
+# Both tags point at the same image ID; save preserves both in one stream.
+# Skipped when LOCAL == REMOTE.
 transfer_image() {
     local image="$1"
     if ! remote_op; then
         log "skip transfer (local == remote)"
         return 0
     fi
-    local label="save ${image}:stable on $DOCKER_LOCAL_CONTEXT → load on $DOCKER_REMOTE_CONTEXT"
+    local label="save ${image}:{latest,stable} on $DOCKER_BUILD_CONTEXT → load on $DOCKER_REMOTE_CONTEXT"
     run_pipe "$label" \
-        docker --context "$DOCKER_LOCAL_CONTEXT" save "${image}:stable" \
+        docker --context "$DOCKER_BUILD_CONTEXT" save "${image}:latest" "${image}:stable" \
         "|" docker --context "$DOCKER_REMOTE_CONTEXT" load
 }
 
 # ---------------------------------------------------------------------
 # Recreate — remote compose up via sidecar with path alignment
 # ---------------------------------------------------------------------
+# The sidecar runs `docker compose up` inside a transient container on
+# the remote daemon, reading the compose file from the Windows repo
+# bind-mounted at a daemon-visible path. But the Windows git clone may
+# be behind — its compose file can lack services (e.g. `mock-psp:` not
+# present at Windows HEAD `2bc62e888`). We sync *just* docker-compose.yaml
+# from Mac to Windows before every deploy so the sidecar always reads the
+# current authoritative file. We intentionally DON'T touch `.env`, the
+# relying-parties JSONs, or anything else the Windows side mutates — only
+# the structural compose manifest.
+sync_remote_compose_file() {
+    if $DRY_RUN; then
+        log "DRY-RUN  (would sync docker-compose.yaml Mac → $DOCKER_REMOTE_CONTEXT)"
+        return 0
+    fi
+    log "+ sync docker-compose.yaml Mac → $DOCKER_REMOTE_CONTEXT"
+    docker --context "$DOCKER_REMOTE_CONTEXT" run --rm -i \
+        -v "$REMOTE_COMPOSE_DIR:/target" \
+        alpine sh -c 'cat > /target/docker-compose.yaml' \
+        < "$COMPOSE_DIR/docker-compose.yaml"
+}
+
 # The remote daemon can't resolve Mac-side bind-mount paths. Trick: run
 # `docker compose up` inside a sidecar container that bind-mounts the
 # Windows repo at a path the daemon DOES know, and is the same path as
@@ -225,16 +278,34 @@ local_compose_up() {
     (
         cd "$COMPOSE_DIR"
         if [ -n "$svc_arg" ]; then
-            run docker --context "$DOCKER_LOCAL_CONTEXT" compose --profile "$COMPOSE_PROFILE" up -d --force-recreate --no-deps "$svc_arg"
+            run docker --context "$DOCKER_BUILD_CONTEXT" compose --profile "$COMPOSE_PROFILE" up -d --force-recreate --no-deps "$svc_arg"
         else
-            run docker --context "$DOCKER_LOCAL_CONTEXT" compose --profile "$COMPOSE_PROFILE" up -d
+            run docker --context "$DOCKER_BUILD_CONTEXT" compose --profile "$COMPOSE_PROFILE" up -d
         fi
     )
 }
 
 recreate_service() {
     local svc="$1"
-    if remote_op; then
+    local container
+    container=$(svc_container "$svc")
+    # Services use explicit `container_name:` in docker-compose.yaml.
+    # If the existing container was created by a compose invocation with
+    # a different project label (e.g. historic ad-hoc runs), the new
+    # compose up will fail with "container name already in use" — even
+    # with --force-recreate, because compose only recreates containers
+    # it recognises as belonging to its own project. Force-remove the
+    # container first so the up step creates it fresh.
+    if [ -n "$container" ]; then
+        if $DRY_RUN; then
+            log "DRY-RUN  (would force-remove stale container $container if present)"
+        else
+            log "+ force-remove stale container $container (if any)"
+            docker --context "$DOCKER_REMOTE_CONTEXT" rm -f "$container" >/dev/null 2>&1 || true
+        fi
+    fi
+    if needs_sidecar; then
+        sync_remote_compose_file
         sidecar_compose_up "$svc"
     else
         local_compose_up "$svc"
@@ -242,7 +313,8 @@ recreate_service() {
 }
 
 recreate_full_stack() {
-    if remote_op; then
+    if needs_sidecar; then
+        sync_remote_compose_file
         sidecar_compose_up ""
     else
         local_compose_up ""
