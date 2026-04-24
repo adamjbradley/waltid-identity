@@ -87,6 +87,11 @@
         "profile",
         "email",
         "web-origins"
+      ],
+      "optionalClientScopes": [
+        "kyc",
+        "age_over_18",
+        "age_over_21"
       ]
     },
     {
@@ -233,6 +238,81 @@
           "config": {
             "user.attribute": "emailVerified",
             "claim.name": "email_verified",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "kyc",
+      "description": "Emits boolean kyc_verified. Mirrors auth-op's kyc scope.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Share your KYC status"
+      },
+      "protocolMappers": [
+        {
+          "name": "kyc_verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "kyc_verified",
+            "claim.name": "kyc_verified",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "age_over_18",
+      "description": "Age-gate 18+. Boolean user attribute (pre-computed; no compute-from-birthdate mapper in Keycloak 26 core).",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Share whether you are 18 or older"
+      },
+      "protocolMappers": [
+        {
+          "name": "age_over_18",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "age_over_18",
+            "claim.name": "age_over_18",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "age_over_21",
+      "description": "Age-gate 21+. Same pre-computed boolean design as age_over_18.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Share whether you are 21 or older"
+      },
+      "protocolMappers": [
+        {
+          "name": "age_over_21",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "age_over_21",
+            "claim.name": "age_over_21",
             "id.token.claim": "true",
             "access.token.claim": "true",
             "userinfo.token.claim": "true",
@@ -389,7 +469,10 @@
         "resident_postal_code": ["2000"],
         "resident_country": ["AU"],
         "gender": ["male"],
-        "document_number": ["AU-PID-00001"]
+        "document_number": ["AU-PID-00001"],
+        "kyc_verified": ["true"],
+        "age_over_18": ["true"],
+        "age_over_21": ["true"]
       },
       "credentials": [
         {
@@ -414,7 +497,10 @@
         "resident_postal_code": ["2000"],
         "resident_country": ["AU"],
         "gender": ["male"],
-        "document_number": ["AU-PID-00002"]
+        "document_number": ["AU-PID-00002"],
+        "kyc_verified": ["true"],
+        "age_over_18": ["true"],
+        "age_over_21": ["true"]
       },
       "credentials": [
         {
@@ -439,7 +525,10 @@
         "resident_postal_code": ["400001"],
         "resident_country": ["IN"],
         "gender": ["female"],
-        "document_number": ["IN-PID-00001"]
+        "document_number": ["IN-PID-00001"],
+        "kyc_verified": ["true"],
+        "age_over_18": ["true"],
+        "age_over_21": ["true"]
       },
       "credentials": [
         {

@@ -608,8 +608,13 @@ services:
       KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    # Host port 8180 is held by an unrelated sdm-caddy container on the
+    # demo host. Default the published port to 8182 to match the
+    # Cloudflare tunnel's `host.docker.internal:8182` ingress route. The
+    # container-side port remains KEYCLOAK_PORT (8180) — other services
+    # reach Keycloak over the docker network as `http://keycloak:8180`.
     ports:
-      - "${KEYCLOAK_PORT:-8180}:${KEYCLOAK_PORT:-8180}"
+      - "${KEYCLOAK_HOST_PORT:-8182}:${KEYCLOAK_PORT:-8180}"
 
   # ==================================================
   # AUTH-OP - Custom OIDC Provider with realm discovery

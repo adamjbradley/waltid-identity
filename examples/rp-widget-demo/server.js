@@ -1215,14 +1215,15 @@ function createApp() {
 
       req.session.oidc = { name, code_verifier, state, nonce };
 
-      // Scope selection. `auth-op` honours a scope catalog (KYC + age
-      // attestations — see docs/plans/2026-04-20-rp-scope-hints-design.md);
-      // other providers like Keycloak just get the OIDC standard scopes.
-      // AUTH_SCOPES env lets an operator override the authop request scope
-      // without a rebuild (e.g. to test a KYC-only flow).
+      // Scope selection. Both providers now expose a KYC + age-gate
+      // contract: auth-op via its scope catalog (see
+      // docs/plans/2026-04-20-rp-scope-hints-design.md), Keycloak via
+      // optional client scopes that map user-attribute booleans to
+      // id_token claims. AUTH_SCOPES / KEYCLOAK_SCOPES env vars let an
+      // operator narrow the request without a rebuild.
       const scope = (name === 'authop')
         ? (process.env.AUTH_SCOPES || 'openid kyc age_over_18 age_over_21')
-        : 'openid profile email';
+        : (process.env.KEYCLOAK_SCOPES || 'openid profile email kyc age_over_18 age_over_21');
       const url = client.authorizationUrl({
         scope,
         code_challenge,
@@ -1272,14 +1273,18 @@ function createApp() {
       // workflow — stays for the hover panel to render.
       const { iss, aud, iat, exp, nbf, nonce, auth_time, at_hash, jti, azp, ...displayClaims } = claims;
 
-      // User profile shape. The auth-op scope catalog guarantees the
-      // id_token only ever carries {sub, kyc_verified, age_over_18,
-      // age_over_21, preferences?} for the authop provider — PII transits
-      // auth-op for consent display but never lands in our id_token.
-      // Keycloak has no such contract; we persist its standard
-      // profile/email claims so the widget still renders a name. The
-      // userStore layer also enforces the boolean-only allowlist for
-      // authop records (defence in depth).
+      // User profile shape. Both providers now expose the same
+      // KYC + age-gate contract:
+      //   - auth-op: its scope catalog minted the booleans in the
+      //     id_token (post-consent n8n workflow produces them).
+      //   - keycloak: optional client scopes kyc / age_over_18 /
+      //     age_over_21 map pre-computed user-attribute booleans into
+      //     the id_token at token-issue time (see
+      //     docker-compose/keycloak/realm-export.json).
+      //
+      // Keycloak additionally carries OIDC standard profile fields
+      // (email + name variants) that auth-op omits, so the keycloak
+      // branch keeps them on the profile object.
       //
       // Both branches carry `claims: displayClaims` so the profile
       // popover can render the complete set the OP projected, regardless
@@ -1298,6 +1303,9 @@ function createApp() {
             name: claims.name || claims.preferred_username,
             given_name: claims.given_name,
             family_name: claims.family_name,
+            kyc_verified: Boolean(claims.kyc_verified),
+            age_over_18: Boolean(claims.age_over_18),
+            age_over_21: Boolean(claims.age_over_21),
             claims: displayClaims,
           };
       req.session.user = userProfile;
