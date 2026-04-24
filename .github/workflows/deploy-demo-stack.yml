@@ -1,0 +1,190 @@
+# Deploy demo stack — auto on merge-to-main, manual via workflow_dispatch.
+#
+# Runs on the self-hosted Windows runner installed on the box that hosts
+# the live *.theaustraliahack.com docker-compose stack. The runner has
+# native access to the repo's Windows clone and the local docker daemon,
+# which is why this workflow can just shell out to scripts/deploy.sh
+# without SSH gymnastics.
+#
+# Adding a new service? Two edits required:
+#   1. Add a row to _SERVICE_REGISTRY in scripts/deploy-lib.sh
+#   2. Add the service name to the workflow_dispatch `service` choice list
+#      (GHA doesn't let you populate a choice input dynamically, so these
+#      are hand-maintained and must stay in sync).
+#
+# All untrusted interpolations go through `env:` not `${{ }}` inline, per
+# https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/
+name: Deploy demo stack
+
+on:
+  push:
+    branches: [main]
+    # Limit to paths that can actually change a deployable artefact. This
+    # avoids firing on docs-only changes. Finer-grained mapping (which
+    # file → which service) happens in the `detect` job below.
+    paths:
+      - 'examples/**'
+      - 'waltid-services/**'
+      - 'waltid-applications/**'
+      - 'waltid-libraries/**'
+      - 'docker-compose/**'
+      - 'scripts/deploy*.sh'
+      - '.github/workflows/deploy-demo-stack.yml'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - auth-op
+          - issuer-api
+          - verifier-api
+          - verifier-api2
+          - wallet-api
+          - verify-api
+          - web-portal
+          - waltid-demo-wallet
+          - waltid-dev-wallet
+          - vc-repo
+          - rp-widget-demo
+          - mock-psp
+          - rp-nextjs-demo
+          - verify-portal
+
+concurrency:
+  # Never let two deploys run simultaneously — docker compose + jib would race.
+  # Queue them so a merge + a manual dispatch both land in order.
+  group: deploy-demo-stack
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------
+  # detect: turn either a commit range (push) or an input (dispatch) into
+  # a JSON matrix of service names for the deploy job below.
+  # ---------------------------------------------------------------------
+  detect:
+    runs-on: [self-hosted, windows, waltid-demo]
+    outputs:
+      services: ${{ steps.compute.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need HEAD~1 for `git diff` on push events.
+          fetch-depth: 2
+
+      - id: compute
+        shell: bash
+        # `EVENT_NAME`, `DISPATCH_SERVICE`, `BEFORE_SHA` are the three
+        # untrusted-shaped inputs. `DISPATCH_SERVICE` is constrained to the
+        # `choice` enum (so injection-safe by contract); the others are
+        # GHA-generated (commit SHA + event name). Still routed via env
+        # rather than inline `${{ }}` to keep the pattern consistent.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SERVICE: ${{ inputs.service }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          source scripts/deploy-lib.sh
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            svc="$DISPATCH_SERVICE"
+            # Validate even though the choice enum restricts input — belt and braces.
+            if [ "$svc" != "all" ] && ! svc_exists "$svc"; then
+              echo "ERROR: dispatch input '$svc' is not a known service" >&2
+              svc_list >&2
+              exit 1
+            fi
+            if [ "$svc" = "all" ]; then
+              echo 'services=["all"]' >> "$GITHUB_OUTPUT"
+            else
+              echo "services=[\"$svc\"]" >> "$GITHUB_OUTPUT"
+            fi
+            echo "dispatch → $svc"
+            exit 0
+          fi
+
+          # Push event. Compute affected services from the commit range.
+          # github.event.before is the zero-SHA on the first push to a
+          # fresh branch — fall back to HEAD~1 in that case.
+          base="$BEFORE_SHA"
+          if [ "$base" = "0000000000000000000000000000000000000000" ] || [ -z "$base" ]; then
+            base='HEAD~1'
+          fi
+          echo "diff range: $base..HEAD"
+          changed=$(git diff --name-only "$base" HEAD)
+          echo "--- changed files ---"
+          echo "$changed"
+          echo "---------------------"
+
+          services=$(echo "$changed" | affected_services_from_paths | sort -u)
+          echo "--- affected services ---"
+          echo "$services"
+          echo "-------------------------"
+
+          if [ -z "$services" ]; then
+            echo 'services=[]' >> "$GITHUB_OUTPUT"
+          elif echo "$services" | grep -qx '\*'; then
+            echo 'services=["all"]' >> "$GITHUB_OUTPUT"
+          else
+            json=$(echo "$services" | awk 'BEGIN{printf "["} NR>1{printf ","} {printf "\"%s\"", $0} END{printf "]"}')
+            echo "services=$json" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------
+  # deploy: fan out over the detected services.
+  #   fail-fast=false so one bad service doesn't abort the others.
+  #   max-parallel=1 so Gradle/docker don't thrash the runner.
+  # ---------------------------------------------------------------------
+  deploy:
+    needs: detect
+    if: ${{ needs.detect.outputs.services != '[]' }}
+    runs-on: [self-hosted, windows, waltid-demo]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        service: ${{ fromJSON(needs.detect.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy ${{ matrix.service }}
+        shell: bash
+        env:
+          # Matrix value goes through env for consistency with the injection
+          # guidance, even though matrix values are already safe-by-construction.
+          DEPLOY_SERVICE: ${{ matrix.service }}
+          # Runner should have Java 21 installed and JAVA_HOME set. If the
+          # runner inherits it from system env, keep whatever the host set.
+          # Otherwise fall back to the conventional Windows path.
+          JAVA_HOME: ${{ env.JAVA_HOME || 'C:\\Program Files\\Java\\jdk-21' }}
+          WAIT_TIMEOUT: '120'
+        run: |
+          set -euo pipefail
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          docker version --format '{{.Server.Version}}'
+          ./scripts/deploy.sh "$DEPLOY_SERVICE"
+
+      - name: Post-deploy summary
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_SERVICE: ${{ matrix.service }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set +e
+          {
+            echo "## Deploy summary — $DEPLOY_SERVICE"
+            echo ""
+            echo "- Git SHA: \`$(git rev-parse --short HEAD)\`"
+            echo "- Result: \`$JOB_STATUS\`"
+            echo ""
+            echo "### Running containers"
+            echo '```'
+            docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
