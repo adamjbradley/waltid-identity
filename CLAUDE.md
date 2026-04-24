@@ -59,37 +59,70 @@ cd docker-compose && docker compose --profile identity up -d --force-recreate <s
 
 ## Deployment (live demo stack on the Windows host)
 
-The `*.theaustraliahack.com` demo stack runs on a Windows Docker host. Deploys go through a GitHub Actions self-hosted runner living on that host — no SSH, no manual build-and-recreate dance.
+The `*.theaustraliahack.com` demo stack runs on a remote Windows Docker host. Deploys are **driven from the Mac**: gradle + compose build into Mac's local docker daemon; images ship over `docker save | docker load`; `docker compose up --force-recreate` runs on the Windows daemon via a sidecar container that uses path-alignment so bind mounts resolve correctly.
 
-**Auto-deploy on merge to main.** Any PR that touches a deployable path (`examples/**`, `waltid-services/**`, `waltid-applications/**`, `waltid-libraries/**`, `docker-compose/**`) triggers `.github/workflows/deploy-demo-stack.yml`. The workflow's `detect` job diffs the commit range, maps changed paths to services via `scripts/deploy-lib.sh`, and fans out to a matrix. Docs-only PRs never fire.
+**Nothing is installed on the Windows host beyond Docker Desktop itself** — no Java, no Gradle, no Node, no GHA runner. The Mac is the build machine; the Windows host is the docker runtime.
 
-**Manual deploy (during Claude sessions, before a PR merges):**
+### Deploy one service
 
 ```bash
-# Deploy one service:
-gh workflow run deploy-demo-stack.yml -f service=rp-widget-demo
+# Dry-run first to see the plan:
+./scripts/deploy.sh --dry-run rp-widget-demo
 
-# Deploy everything:
-gh workflow run deploy-demo-stack.yml -f service=all
-
-# Tail the run:
-gh run watch
+# Do it:
+./scripts/deploy.sh rp-widget-demo
 ```
 
-`gh workflow run` accepts the input enum defined in the workflow file — keep it in sync with `_SERVICE_REGISTRY` in `scripts/deploy-lib.sh`. The `deploy-lib.sh` self-test verifies core services exist in the registry; run it locally with:
+### Deploy everything
+
+```bash
+./scripts/deploy.sh all
+```
+
+### List what can be deployed
+
+```bash
+./scripts/deploy.sh --list
+```
+
+### Deploy to a different target (e.g. all-local dev)
+
+```bash
+# Build AND recreate on Mac's local daemon — no remote transfer:
+DOCKER_REMOTE_CONTEXT=desktop-linux ./scripts/deploy.sh rp-widget-demo
+```
+
+### How it works under the hood
+
+For each service the script:
+
+1. **Builds locally.** JVM services use `./gradlew :<path>:jibDockerBuild` → Mac's docker daemon. Compose services use `docker compose build <svc>` against the Mac daemon. The local image is tagged `:stable` to match the compose file's `VERSION_TAG` default.
+2. **Transfers the image** via `docker save | docker load` across the two contexts. Skipped when `DOCKER_LOCAL_CONTEXT == DOCKER_REMOTE_CONTEXT` (all-local dev mode).
+3. **Recreates the container** on the remote. Because compose resolves bind-mount paths on the *client*, we can't just run `docker --context windows-docker-dev compose up` (Mac paths won't exist on Windows). Instead we run a transient `docker:cli` sidecar on the Windows daemon, bind-mounting the Windows repo at `/run/desktop/mnt/host/c/Users/sshuser/Projects/waltid-identity` — which is both the sidecar's working dir AND the path the Windows daemon sees. Compose inside the sidecar resolves everything to that path, and the daemon mounts real Windows files.
+4. **Waits for container health** via `docker --context windows-docker-dev inspect` polling.
+5. **Reports the image digest** on the remote so you can confirm which bits landed.
+
+### Registry + path-filter helpers
+
+`scripts/deploy-lib.sh` holds the service registry (service name → build kind, gradle path, image tag, container name) and the path-filter → service mapping used for "affected services" detection. Run its self-test any time you edit it:
 
 ```bash
 bash -c 'source scripts/deploy-lib.sh && deploy_lib_self_test'
 ```
 
-**When a deploy fails**, the GHA run log shows the failing step (preflight / gradle / compose / health-wait). The previous container keeps running until the `docker compose up -d --force-recreate` succeeds, so a failed build doesn't take down the demo. To roll back: find the last-good workflow run in the GHA UI and "Re-run all jobs" — it redeploys that run's commit SHA.
+### Adding a new service
 
-**Runner install** is a one-time Phase 1 step on the Windows host (see `docs/plans/` or the runner registration page under the repo's GitHub Settings → Actions → Runners). Runner labels: `[self-hosted, windows, waltid-demo]`. Requires Java 21 on `JAVA_HOME` and Docker Desktop running.
+1. Add a row to `_SERVICE_REGISTRY` in `scripts/deploy-lib.sh` (tab-separated: name, kind, gradle-path, image, container, healthpath).
+2. Add a path-filter entry to `_PATH_FILTERS` if files-to-service isn't already covered.
+3. Run the self-test; re-run `./scripts/deploy.sh --list` to confirm it's visible.
 
-**What's NOT managed by the runner** (still manual, still uses the `windows-docker-dev` SSH context):
+### Still-manual operations (intentionally out of scope)
+
+The `windows-docker-dev` SSH context stays for these:
 - Caddy CA rotation + trust-store refresh in verifier-api2
 - Adding a new Cloudflare tunnel hostname
-- Direct container introspection / logs (`docker logs`, `docker exec`) during incident response
+- `docker logs` / `docker exec` during incident response
+- Editing Windows-side `.env` secrets
 
 ### Internal HTTPS (Caddy)
 
