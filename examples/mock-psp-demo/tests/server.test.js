@@ -256,9 +256,12 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
     expect(res.body.panLastFour).toMatch(/^[0-9a-f]{4}$/);
     // payeeName was dropped — RFC007 says PSP identity comes from `iss` + issuer metadata.
 
-    // Verify the credential payload sent to issuer-api follows RFC007 §8:
-    // card metadata nested under fundingSource with required `type` field, plus
-    // top-level `sub` (PSU-ID analogue) and `jti`. Identity fields (given_name,
+    // Verify the credential payload sent to issuer-api. Payment metadata is
+    // emitted flat at the top level rather than nested under `fundingSource`
+    // per RFC007 §8: the EUDI iOS wallet's sdjwt-swift recreator doesn't
+    // traverse nested `_sd` inside cleartext parents, so DCQL paths like
+    // ["fundingSource","panLastFour"] never match. Re-nest when wallets
+    // update their SD-JWT recreator. Identity fields (given_name,
     // family_name) and PSP display name (payeeName) are NOT in the PWA.
     const issueCall = global.fetch.mock.calls.find(([u]) => String(u).includes('/openid4vc/sdjwt/issue'));
     expect(issueCall).toBeTruthy();
@@ -267,14 +270,12 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
       sub: expect.stringMatching(/^psu_[0-9a-f]{24}$/),
       jti: expect.stringMatching(/^urn:uuid:/),
       exp: expect.any(Number),
-      fundingSource: expect.objectContaining({
-        type: 'card',
-        panLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
-        parLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
-        iin: '453201',
-        scheme: 'Visa',
-        currency: 'AUD',
-      }),
+      type: 'card',
+      panLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
+      parLastFour: expect.stringMatching(/^[0-9a-f]{4}$/),
+      iin: '453201',
+      scheme: 'Visa',
+      currency: 'AUD',
     }));
     // exp ~5y out (RFC007 recommendation to align with card expiry)
     const nowSec = Math.floor(Date.now() / 1000);
@@ -282,7 +283,9 @@ describe('POST /api/psp/start + /api/psp/webhook/:token + /api/psp/status + /api
     expect(sentBody.credentialData.given_name).toBeUndefined();
     expect(sentBody.credentialData.family_name).toBeUndefined();
     expect(sentBody.credentialData.payeeName).toBeUndefined();
-    expect(sentBody.credentialData.panLastFour).toBeUndefined();
+    // fundingSource was retired in favour of the flat shape above; assert the
+    // nested wrapper isn't lingering from a previous build.
+    expect(sentBody.credentialData.fundingSource).toBeUndefined();
   });
 
   it('/api/psp/issue 403s when PID not yet verified', async () => {
